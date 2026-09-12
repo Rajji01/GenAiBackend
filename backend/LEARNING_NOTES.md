@@ -230,14 +230,86 @@ know which is which:
 
 ---
 
-## Where this leaves us
+# Round 2 — Concurrent Betting (optimistic locking on a real domain entity)
 
-All 15 original "Point #1" items (from `curent step.txt`) are now addressed.
-The next roadmap step (per the original architecture assessment) is the
-**concurrent betting scenario** — multiple users placing/updating bets on the
-same fight at the same time — which is where optimistic locking (already
-explored in the `Product` sandbox) gets applied to a *real* domain entity
-(`Bet`) for the first time.
+All 15 original "Point #1" items were done in Round 1. This round takes the
+optimistic-locking mechanics already explored in the `Product` sandbox and
+applies them to the real UFC domain for the first time: `Bet`.
 
-Try the self-check questions above first. Come back with your answers or
-where you got stuck, and we'll go from there.
+**Files:** `entities/Bet.java`, `src/main/resources/db/migration/V2__add_bet_version.sql`,
+`repository/{User,Fighter,Event,Fight,Bet}Repository.java`, `seed/ReferenceDataSeeder.java`,
+`dto/{BetRequest,BetAmountUpdateRequest,BetResponse}.java`, `service/BetService.java`,
+`controller/BetController.java`, `exception/InvalidRequestException.java`,
+`src/test/java/.../BetServiceTest.java`, `BetControllerTest.java`, `BetConcurrencyTest.java`
+
+## The scenario
+
+Two users load the same bet (same `@Version` value), both edit the amount,
+both hit save. Without a version check, the second save silently overwrites
+the first — a **lost update**. `Bet` now has a `@Version` column (added via
+`V2__add_bet_version.sql`, since it didn't exist before), so the second save
+fails instead of silently winning.
+
+## What's new besides Bet itself
+
+- `Fighter`, `Event`, `Fight`, `User` had entities but **zero** repositories —
+  added the plain `JpaRepository` interfaces for all four, since placing a
+  bet needs to look them up.
+- `ReferenceDataSeeder` — seeds one event/fight/two fighters/two users, but
+  **only if the fight table is empty** (`fightRepository.count() > 0` guard).
+  Contrast this with `ProductSeedConfig`, which has no such guard and creates
+  a new row on *every* startup — that inconsistency is intentional to notice.
+- `InvalidRequestException` (→ `400`) — a genuine domain rule: the fighter
+  you're betting on has to actually be one of the two fighters in that fight.
+  Not every bad input is a 404 or a 409.
+- `BetRequest` has no `odds` field at all — the server assigns a fixed
+  placeholder (`1.91`). Letting the client set its own odds would let it
+  guarantee its own payout.
+
+## Two different ways we proved the lock actually works
+
+1. **`BetConcurrencyTest.sequentialStaleReads_...`** — fetches the same bet
+   twice (two separate reads, so two separate copies both holding the same
+   version), saves the first copy (succeeds), then tries to save the second
+   (fails with `ObjectOptimisticLockingFailureException`). No real threads
+   needed — this is deterministic every single run.
+2. **`BetConcurrencyTest.trueConcurrentUpdates_...`** — two real threads
+   (`ExecutorService`) both call `betService.updateBetAmount` on the same bet
+   at once. Exactly one must succeed; the other must hit the same exception
+   type. This one is closer to what actually happens under real traffic, but
+   is less deterministic to reason about than test #1.
+3. We also did it once live over real HTTP — two backgrounded `curl` PATCH
+   requests at the same `/bets/{id}/amount` — got one `200` and one `409`
+   ("This resource was modified by another request. Please retry.").
+
+**Self-check:**
+- Why does test #1 (sequential reads, no threads at all) prove the *exact
+  same thing* as test #2 (real thread-level race)? What does optimistic
+  locking actually check at commit time — does it care *how* your copy
+  became stale?
+- `BetController` has no `GET /bets/{id}` endpoint. I only proved the 409 by
+  reading the PATCH response bodies directly. If you needed to verify the
+  final state independently, what would you add, and where?
+- Right now, `updateBetAmount` doesn't retry on conflict — it just surfaces
+  the `409` to the client. Is "let the client retry" always the right answer
+  here, or can you think of a case where the *server* should retry
+  automatically instead?
+- We used **optimistic** locking, not pessimistic (`SELECT ... FOR UPDATE`).
+  Betting has way more reads than write-conflicts (most bets are never
+  touched again after being placed). Given that, why is optimistic locking
+  the right default here — and what kind of workload would flip that answer?
+
+## What's still open (not done this round, on purpose)
+
+- No `GET /bets` or `GET /bets/{id}` — only place + update-amount exist.
+- No check that a fight is still open for betting (e.g. `Event`/`Fight`
+  status) — right now you could bet on a fight that's already `COMPLETED`.
+- No retry-with-backoff on the `409` path anywhere (client or server).
+- `BetService` doesn't yet touch `Bet.status` (WON/LOST) — that's tied to
+  fight results, which don't have an API yet either.
+
+---
+
+Try the self-check questions above first (both the Round 1 list and this
+one). Come back with your answers or where you got stuck, and we'll go from
+there.

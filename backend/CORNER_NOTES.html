@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corner Notes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#EEF0F4;
+    --surface:#FBFBFC;
+    --surface-alt:#E3E6EC;
+    --ink:#1B1E24;
+    --ink-soft:#4E535E;
+    --border:#D4D8DF;
+    --accent:#9C6D0E;
+    --accent-soft:#F1E3C4;
+    --danger:#A83A26;
+    --danger-soft:#F4DDD6;
+    --success:#2C7A4B;
+    --success-soft:#DCEFE2;
+    --mono-bg:#E7E9EE;
+    --shadow: 0 1px 2px rgba(20,20,30,.06), 0 6px 20px -8px rgba(20,20,30,.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#15171C;
+      --surface:#1B1E25;
+      --surface-alt:#22252D;
+      --ink:#E7E9ED;
+      --ink-soft:#A6ABB6;
+      --border:#2E323C;
+      --accent:#DAB65B;
+      --accent-soft:#3A311C;
+      --danger:#E3735C;
+      --danger-soft:#3A2320;
+      --success:#5FBE86;
+      --success-soft:#1D3226;
+      --mono-bg:#20232B;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -10px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#15171C;
+    --surface:#1B1E25;
+    --surface-alt:#22252D;
+    --ink:#E7E9ED;
+    --ink-soft:#A6ABB6;
+    --border:#2E323C;
+    --accent:#DAB65B;
+    --accent-soft:#3A311C;
+    --danger:#E3735C;
+    --danger-soft:#3A2320;
+    --success:#5FBE86;
+    --success-soft:#1D3226;
+    --mono-bg:#20232B;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -10px rgba(0,0,0,.5);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size:16px;
+    line-height:1.6;
+  }
+  h1,h2,h3,.eyebrow,.nav-link,.stat-label,.tape-side-label,.tag{
+    font-family:"Oswald", "Arial Narrow", sans-serif;
+  }
+  h1,h2,h3{ text-wrap:balance; margin:0; letter-spacing:.01em; }
+  code, .mono, .pill-mono{ font-family:"JetBrains Mono", ui-monospace, monospace; }
+
+  a{ color:var(--accent); }
+
+  .layout{
+    display:grid;
+    grid-template-columns: 250px minmax(0,1fr);
+    gap:0;
+    max-width:1180px;
+    margin:0 auto;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    position:sticky;
+    top:0;
+    align-self:start;
+    height:100vh;
+    overflow-y:auto;
+    padding:28px 18px 28px 24px;
+    border-right:1px solid var(--border);
+  }
+  .brand{
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:2px;
+  }
+  .brand strong{
+    display:block;
+    font-size:22px;
+    color:var(--ink);
+    letter-spacing:.01em;
+    text-transform:none;
+    margin-top:2px;
+  }
+  .nav-group{ margin-top:26px; }
+  .nav-group-title{
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:0 0 8px 2px;
+  }
+  .nav-link{
+    display:flex;
+    gap:8px;
+    align-items:baseline;
+    padding:6px 8px;
+    border-radius:6px;
+    font-size:14.5px;
+    color:var(--ink-soft);
+    text-decoration:none;
+    letter-spacing:.01em;
+  }
+  .nav-link:hover{ background:var(--surface-alt); color:var(--ink); }
+  .nav-num{
+    font-size:11px;
+    color:var(--accent);
+    min-width:16px;
+  }
+
+  /* ---------- Main ---------- */
+  main{ padding:44px 48px 100px; min-width:0; }
+  section{ margin-bottom:64px; }
+  .section-head{ margin-bottom:22px; }
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 6px;
+  }
+  h2{ font-size:30px; font-weight:600; }
+  h2 .num{ color:var(--accent); font-weight:500; margin-right:10px; }
+  p{ max-width:66ch; color:var(--ink); }
+  .lede{ font-size:18px; color:var(--ink-soft); max-width:62ch; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+  }
+
+  /* ---------- Hero / overview ---------- */
+  .hero{ padding-bottom:8px; }
+  .hero-grid{ display:flex; gap:36px; flex-wrap:wrap; align-items:flex-end; margin-top:22px; }
+  .record{
+    display:flex; gap:22px; flex-wrap:wrap;
+  }
+  .record-tile{
+    padding:14px 18px;
+    min-width:118px;
+  }
+  .record-num{ font-size:30px; font-weight:700; font-family:"Oswald",sans-serif; line-height:1; }
+  .record-label{ font-size:12px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; margin-top:6px; }
+
+  /* ---------- Diagrams ---------- */
+  figure{ margin:22px 0 0; }
+  .diagram-wrap{
+    overflow-x:auto;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px 10px;
+  }
+  figure svg{ display:block; margin:0 auto; max-width:100%; height:auto; }
+  figcaption{
+    margin-top:10px;
+    font-size:13.5px;
+    color:var(--ink-soft);
+    max-width:70ch;
+  }
+  .svg-accent{ fill:var(--accent); stroke:var(--accent); }
+  .svg-danger{ fill:var(--danger); stroke:var(--danger); }
+  .svg-success{ fill:var(--success); stroke:var(--success); }
+  .svg-muted{ opacity:.55; }
+
+  /* ---------- Stack chips ---------- */
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .chip{
+    font-family:"JetBrains Mono", monospace;
+    font-size:12.5px;
+    padding:5px 10px;
+    border-radius:999px;
+    background:var(--surface-alt);
+    border:1px solid var(--border);
+    color:var(--ink-soft);
+  }
+
+  /* ---------- Progress / fight card list ---------- */
+  .round-card{ padding:22px 24px; margin-top:16px; }
+  .round-head{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .round-tag{
+    font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--accent); font-weight:600;
+  }
+  .round-title{ font-size:19px; font-weight:600; }
+  .round-status{
+    margin-left:auto;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--success);
+    background:var(--success-soft);
+    padding:4px 10px;
+    border-radius:999px;
+  }
+  ul.check-list{ list-style:none; margin:14px 0 0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:6px 20px; }
+  ul.check-list li{ font-size:14.5px; color:var(--ink-soft); padding-left:20px; position:relative; }
+  ul.check-list li::before{
+    content:"✓"; position:absolute; left:0; color:var(--success); font-weight:700;
+  }
+
+  /* ---------- Topic (interview) cards ---------- */
+  .topic{
+    padding:28px 30px 22px;
+    margin-top:22px;
+  }
+  .topic-head{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:4px; }
+  .topic-num{
+    font-family:"Oswald",sans-serif;
+    font-size:13px; font-weight:600;
+    color:var(--accent);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:3px 11px;
+  }
+  .topic-title{ font-size:22px; font-weight:600; }
+  .topic-file{ font-size:12.5px; color:var(--ink-soft); }
+
+  .field{ margin-top:18px; }
+  .field-label{
+    font-size:11.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:6px;
+  }
+  .field p{ margin:0; max-width:72ch; }
+
+  /* tale of the tape */
+  .tape{
+    margin-top:10px;
+    display:grid;
+    grid-template-columns: 1fr auto 1fr;
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .tape-side{ padding:14px 18px; font-size:14px; }
+  .tape-side.before{ background:var(--danger-soft); }
+  .tape-side.after{ background:var(--success-soft); }
+  .tape-mid{
+    display:flex; align-items:center; justify-content:center;
+    padding:0 10px; font-family:"Oswald",sans-serif; font-size:11px;
+    letter-spacing:.1em; color:var(--ink-soft); background:var(--surface-alt);
+  }
+  .tape-side-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:.1em;
+    margin-bottom:6px; font-weight:600;
+  }
+  .tape-side.before .tape-side-label{ color:var(--danger); }
+  .tape-side.after .tape-side-label{ color:var(--success); }
+  .tape-side code{ font-size:12.5px; }
+
+  pre{
+    background:var(--mono-bg);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    overflow-x:auto;
+    margin:0;
+    font-size:13px;
+    line-height:1.5;
+  }
+  code{ font-size:.92em; }
+  :not(pre) > code{
+    background:var(--mono-bg);
+    padding:1px 5px;
+    border-radius:4px;
+  }
+
+  details{
+    margin-top:16px;
+    border-top:1px dashed var(--border);
+    padding-top:14px;
+  }
+  summary{
+    cursor:pointer;
+    font-family:"Oswald",sans-serif;
+    font-size:13px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--accent);
+    list-style:none;
+  }
+  summary::-webkit-details-marker{ display:none; }
+  summary::before{ content:"▸ "; }
+  details[open] summary::before{ content:"▾ "; }
+  .qa{ margin-top:12px; display:flex; flex-direction:column; gap:14px; }
+  .qa-q{ font-weight:600; font-size:14.5px; }
+  .qa-a{ font-size:14.5px; color:var(--ink-soft); margin-top:4px; }
+
+  .status-pill{
+    font-family:"JetBrains Mono",monospace;
+    font-size:12px;
+    padding:2px 8px;
+    border-radius:5px;
+    font-weight:600;
+  }
+  .p-201{ background:var(--success-soft); color:var(--success); }
+  .p-400{ background:var(--accent-soft); color:var(--accent); }
+  .p-404{ background:var(--surface-alt); color:var(--ink-soft); }
+  .p-409{ background:var(--danger-soft); color:var(--danger); }
+
+  footer{
+    max-width:1180px; margin:0 auto; padding:20px 48px 70px 298px;
+    color:var(--ink-soft); font-size:13px;
+  }
+
+  @media (max-width:860px){
+    .layout{ grid-template-columns:1fr; }
+    .sidebar{ position:static; height:auto; border-right:none; border-bottom:1px solid var(--border); }
+    main{ padding:32px 20px 80px; }
+    ul.check-list{ grid-template-columns:1fr; }
+    .tape{ grid-template-columns:1fr; }
+    .tape-mid{ padding:6px 0; }
+    footer{ padding-left:20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand">Backend Engineering<strong>Corner Notes</strong></div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Overview</div>
+      <a class="nav-link" href="#overview"><span class="nav-num">·</span>Where things stand</a>
+      <a class="nav-link" href="#architecture"><span class="nav-num">·</span>Architecture</a>
+      <a class="nav-link" href="#progress"><span class="nav-num">·</span>The card so far</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Interview Notes</div>
+      <a class="nav-link" href="#t1"><span class="nav-num">01</span>Layered architecture</a>
+      <a class="nav-link" href="#t2"><span class="nav-num">02</span>Schema &amp; Flyway</a>
+      <a class="nav-link" href="#t3"><span class="nav-num">03</span>DTOs vs entities</a>
+      <a class="nav-link" href="#t4"><span class="nav-num">04</span>Bean Validation</a>
+      <a class="nav-link" href="#t5"><span class="nav-num">05</span>Exception handling</a>
+      <a class="nav-link" href="#t6"><span class="nav-num">06</span>Logging</a>
+      <a class="nav-link" href="#t7"><span class="nav-num">07</span>Config &amp; secrets</a>
+      <a class="nav-link" href="#t8"><span class="nav-num">08</span>Constructor DI</a>
+      <a class="nav-link" href="#t9"><span class="nav-num">09</span>API docs</a>
+      <a class="nav-link" href="#t10"><span class="nav-num">10</span>Testing pyramid</a>
+      <a class="nav-link" href="#t11"><span class="nav-num">11</span>Optimistic locking</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <section id="overview" class="hero">
+      <div class="section-head">
+        <p class="eyebrow">UFC Backend · Spring Boot 3 · MySQL</p>
+        <h2 style="font-size:38px;">A Java/Spring project taken apart round by round</h2>
+      </div>
+      <p class="lede">This is the working reference for the UFC backend we've been building — what each round of changes actually fixed, why it was a real problem and not a style preference, and how to talk about it in an interview. Read a topic, then close the tab and try explaining it out loud.</p>
+
+      <div class="hero-grid">
+        <div class="record">
+          <div class="card record-tile">
+            <div class="record-num">2</div>
+            <div class="record-label">Rounds shipped</div>
+          </div>
+          <div class="card record-tile">
+            <div class="record-num">18</div>
+            <div class="record-label">Tests passing</div>
+          </div>
+          <div class="card record-tile">
+            <div class="record-num">11</div>
+            <div class="record-label">Topics below</div>
+          </div>
+          <div class="card record-tile">
+            <div class="record-num">3</div>
+            <div class="record-label">Real bugs caught mid-build</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="section-head">
+        <p class="eyebrow">Section 01</p>
+        <h2><span class="num">—</span>Architecture</h2>
+      </div>
+      <p>Plain layered architecture: one direction of dependency, one cross-cutting concern for errors, one boundary where the API contract stops being the database's problem.</p>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 820 300" role="img" aria-label="A request enters through the Controller, passes a validated DTO to the Service which opens a transaction, the Service calls the Repository which runs SQL against MySQL whose schema is owned by Flyway migrations; GlobalExceptionHandler sits beside the Controller and Service and intercepts any exception, returning a ProblemDetail instead of letting it reach the client raw.">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <!-- lane boxes -->
+            <g font-family="Oswald, sans-serif" font-size="13">
+              <rect x="10" y="120" width="90" height="56" rx="8" fill="none" stroke="currentColor"/>
+              <text x="55" y="153" text-anchor="middle">Client</text>
+
+              <rect x="160" y="120" width="130" height="56" rx="8" fill="none" stroke="currentColor"/>
+              <text x="225" y="147" text-anchor="middle">Controller</text>
+              <text x="225" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" opacity=".65">@Valid DTO in/out</text>
+
+              <rect x="350" y="120" width="130" height="56" rx="8" fill="none" stroke="currentColor"/>
+              <text x="415" y="147" text-anchor="middle">Service</text>
+              <text x="415" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" opacity=".65">@Transactional</text>
+
+              <rect x="540" y="120" width="130" height="56" rx="8" fill="none" stroke="currentColor"/>
+              <text x="605" y="147" text-anchor="middle">Repository</text>
+              <text x="605" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" opacity=".65">Spring Data JPA</text>
+
+              <rect x="730" y="120" width="80" height="56" rx="8" class="svg-accent" fill-opacity=".12" stroke="currentColor"/>
+              <text x="770" y="147" text-anchor="middle">MySQL</text>
+              <text x="770" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" opacity=".65">Flyway-owned</text>
+
+              <!-- cross cutting -->
+              <rect x="160" y="20" width="510" height="46" rx="8" stroke-dasharray="4 3" fill="none" stroke="currentColor" opacity=".75"/>
+              <text x="415" y="48" text-anchor="middle" opacity=".85">GlobalExceptionHandler — @RestControllerAdvice</text>
+            </g>
+
+            <!-- main flow arrows -->
+            <g stroke="currentColor" stroke-width="1.4" fill="none">
+              <line x1="100" y1="148" x2="158" y2="148" marker-end="url(#arrow)"/>
+              <line x1="290" y1="148" x2="348" y2="148" marker-end="url(#arrow)"/>
+              <line x1="480" y1="148" x2="538" y2="148" marker-end="url(#arrow)"/>
+              <line x1="670" y1="148" x2="728" y2="148" marker-end="url(#arrow)"/>
+            </g>
+            <g font-family="JetBrains Mono, monospace" font-size="10" fill="currentColor">
+              <text x="129" y="140" text-anchor="middle">JSON</text>
+              <text x="319" y="140" text-anchor="middle">DTO</text>
+              <text x="509" y="140" text-anchor="middle">entity</text>
+              <text x="699" y="140" text-anchor="middle">SQL</text>
+            </g>
+
+            <!-- exception intercept -->
+            <g stroke="currentColor" stroke-width="1.2" fill="none" stroke-dasharray="3 3" opacity=".8" class="svg-danger">
+              <path d="M225,120 L225,66" marker-end="url(#arrow)"/>
+              <path d="M415,120 L415,66" marker-end="url(#arrow)"/>
+            </g>
+            <g font-family="JetBrains Mono, monospace" font-size="9" class="svg-danger">
+              <text x="235" y="95">throws</text>
+              <text x="425" y="95">throws</text>
+            </g>
+            <path d="M160,43 C 120,43 100,90 96,118" stroke="currentColor" class="svg-danger" stroke-width="1.2" fill="none" marker-end="url(#arrow)"/>
+            <text x="60" y="90" font-family="JetBrains Mono, monospace" font-size="9" class="svg-danger">ProblemDetail (4xx/5xx)</text>
+
+            <!-- flyway note -->
+            <g font-family="JetBrains Mono, monospace" font-size="9" opacity=".65">
+              <text x="770" y="200" text-anchor="middle">ddl-auto=validate</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>A request's real path: DTO in, entity inside the service/repository boundary, SQL against a schema Flyway (not Hibernate) owns. Any exception from Controller or Service is intercepted by one handler and turned into a <code>ProblemDetail</code> before the client ever sees it.</figcaption>
+      </figure>
+
+      <div class="chip-row">
+        <span class="chip">Java 17</span>
+        <span class="chip">Spring Boot 3.4.3</span>
+        <span class="chip">Spring Data JPA / Hibernate 6.6</span>
+        <span class="chip">MySQL 8</span>
+        <span class="chip">Flyway 10</span>
+        <span class="chip">Bean Validation</span>
+        <span class="chip">springdoc-openapi 2.8</span>
+        <span class="chip">JUnit 5 + Mockito</span>
+        <span class="chip">Lombok</span>
+      </div>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 900 430" role="img" aria-label="Entity relationship diagram: WeightClass has many Fighters; Fighter connects to Fight via fighter1, fighter2 and winner; Event has many Fights; Fight, Fighter and User each connect to Bet; Comment, Contract and FightStats exist in the schema but have no repository or API yet, shown dashed.">
+            <defs>
+              <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="Oswald, sans-serif" font-size="13">
+              <!-- core boxes -->
+              <rect x="20" y="20" width="140" height="50" rx="8" fill="none" stroke="currentColor"/>
+              <text x="90" y="50" text-anchor="middle">WeightClass</text>
+
+              <rect x="20" y="160" width="140" height="50" rx="8" fill="none" stroke="currentColor"/>
+              <text x="90" y="190" text-anchor="middle">Fighter</text>
+
+              <rect x="20" y="300" width="140" height="50" rx="8" fill="none" stroke="currentColor"/>
+              <text x="90" y="330" text-anchor="middle">User</text>
+
+              <rect x="330" y="20" width="140" height="50" rx="8" fill="none" stroke="currentColor"/>
+              <text x="400" y="50" text-anchor="middle">Event</text>
+
+              <rect x="330" y="160" width="140" height="50" rx="8" fill="none" stroke="currentColor"/>
+              <text x="400" y="190" text-anchor="middle">Fight</text>
+
+              <rect x="330" y="300" width="140" height="50" class="svg-accent" fill-opacity=".12" rx="8" stroke="currentColor"/>
+              <text x="400" y="330" text-anchor="middle">Bet</text>
+              <text x="400" y="344" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" opacity=".7">@Version</text>
+
+              <!-- schema-only cluster -->
+              <g class="svg-muted">
+                <rect x="640" y="20" width="150" height="50" rx="8" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+                <text x="715" y="50" text-anchor="middle">FightStats</text>
+
+                <rect x="640" y="160" width="150" height="50" rx="8" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+                <text x="715" y="190" text-anchor="middle">Contract</text>
+
+                <rect x="640" y="300" width="150" height="50" rx="8" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+                <text x="715" y="330" text-anchor="middle">Comment</text>
+              </g>
+              <text x="715" y="390" text-anchor="middle" class="svg-muted" font-size="11">entity + table only — no repository/service/API</text>
+            </g>
+
+            <!-- relationships -->
+            <g stroke="currentColor" stroke-width="1.3" fill="none">
+              <line x1="90" y1="70" x2="90" y2="158" marker-end="url(#arrow2)"/>
+              <line x1="400" y1="70" x2="400" y2="158" marker-end="url(#arrow2)"/>
+              <line x1="160" y1="185" x2="328" y2="185" marker-end="url(#arrow2)"/>
+              <line x1="130" y1="210" x2="360" y2="298" marker-end="url(#arrow2)"/>
+              <path d="M90,300 C 90,255 260,255 328,318" marker-end="url(#arrow2)"/>
+              <line x1="400" y1="210" x2="400" y2="298" marker-end="url(#arrow2)"/>
+            </g>
+            <g font-family="JetBrains Mono, monospace" font-size="9.5" fill="currentColor">
+              <text x="96" y="115">1—*</text>
+              <text x="406" y="115">1—*</text>
+              <text x="244" y="178">fighter1 / fighter2 / winner</text>
+              <text x="250" y="248">fighter</text>
+              <text x="150" y="270">user</text>
+              <text x="406" y="260">fight</text>
+            </g>
+
+            <!-- dashed links to schema-only cluster -->
+            <g stroke="currentColor" stroke-width="1" fill="none" stroke-dasharray="3 3" class="svg-muted">
+              <path d="M160,190 C 400,120 550,45 638,45" marker-end="url(#arrow2)"/>
+              <path d="M160,180 C 350,180 500,180 638,185" marker-end="url(#arrow2)"/>
+              <path d="M470,190 C 550,240 580,300 638,320" marker-end="url(#arrow2)"/>
+            </g>
+          </svg>
+        </div>
+        <figcaption>The full domain model versus what's actually wired up. <code>Bet</code> is the only entity carrying a <code>@Version</code> column — it's the one place concurrent writes are a real, handled scenario. <code>FightStats</code>, <code>Contract</code> and <code>Comment</code> exist in <code>V1__baseline_schema.sql</code> and as JPA entities, but have no repository, service or endpoint yet.</figcaption>
+      </figure>
+    </section>
+
+    <section id="progress">
+      <div class="section-head">
+        <p class="eyebrow">Section 02</p>
+        <h2><span class="num">—</span>The card so far</h2>
+      </div>
+      <p>Two rounds completed. Everything below is real, running code with tests behind it — not a plan.</p>
+
+      <div class="card round-card">
+        <div class="round-head">
+          <span class="round-tag">Round 1</span>
+          <span class="round-title">Minimum production foundation</span>
+          <span class="round-status">Complete</span>
+        </div>
+        <p style="margin-top:8px; color:var(--ink-soft); font-size:14.5px;">Took a working-but-fragile Spring Boot app and closed every foundational gap between "runs on my machine" and "safe to hand to another engineer."</p>
+        <ul class="check-list">
+          <li>Flyway migrations replace undefined ddl-auto</li>
+          <li>Request/response DTOs, entities never exposed raw</li>
+          <li>Bean Validation on every write endpoint</li>
+          <li>One global exception handler, RFC 7807 errors</li>
+          <li>SLF4J logging, no System.out in request paths</li>
+          <li>DB credentials via env vars, no hardcoded prod secret</li>
+          <li>Constructor injection standardized everywhere</li>
+          <li>OpenAPI/Swagger UI generated from real code</li>
+          <li>Unit + web-slice tests, not just contextLoads()</li>
+        </ul>
+      </div>
+
+      <div class="card round-card">
+        <div class="round-head">
+          <span class="round-tag">Round 2</span>
+          <span class="round-title">Concurrent betting</span>
+          <span class="round-status">Complete</span>
+        </div>
+        <p style="margin-top:8px; color:var(--ink-soft); font-size:14.5px;">Moved optimistic locking out of the <code>Product</code> sandbox and onto a real domain entity, with a domain rule and a genuine multi-threaded proof.</p>
+        <ul class="check-list">
+          <li><code>Bet.version</code> column via a real migration</li>
+          <li>Place-bet + amend-bet endpoints, backed by DTOs</li>
+          <li>Domain rule: fighter must belong to the fight (400)</li>
+          <li>Fixed server-side odds — client can't set its own</li>
+          <li>Deterministic stale-read test proves the lock</li>
+          <li>Real two-thread test: exactly one writer wins</li>
+          <li>Live HTTP race reproduced: one 200, one 409</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <p class="eyebrow">Section 03 · Interview Notes</p>
+        <h2><span class="num">—</span>Topic by topic</h2>
+      </div>
+      <p>For each topic: the concept, why it's a real problem (not a style nitpick), how it's actually implemented here, what changed, and questions worth rehearsing out loud.</p>
+
+      <!-- TOPIC 1 -->
+      <article class="card topic" id="t1">
+        <div class="topic-head">
+          <span class="topic-num">01</span>
+          <span class="topic-title">Layered architecture &amp; separation of responsibilities</span>
+        </div>
+        <span class="topic-file mono">BackendApplication.java · ProductSeedConfig.java</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>Controller handles HTTP concerns only, Service owns business logic and transaction boundaries, Repository owns persistence. Nothing above the Service layer should know SQL exists; nothing below it should know HTTP exists.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>Mixing concerns doesn't just look messy — it breaks tooling. A stray <code>@Bean</code> seeding demo data lived directly on the <code>@SpringBootApplication</code> class; it needed a JPA repository that a web-layer slice test deliberately excludes, so the whole test context failed to load. The bug wasn't the seed data — it was where it lived.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Moved the seeding logic into its own <code>@Configuration</code> class (<code>ProductSeedConfig</code>, later <code>ReferenceDataSeeder</code>) next to the feature it belongs to. <code>BackendApplication</code> now does exactly one thing: <code>SpringApplication.run(...)</code>.</p>
+        </div>
+
+        <div class="tape">
+          <div class="tape-side before">
+            <div class="tape-side-label">Before</div>
+            <code>@SpringBootApplication<br>class BackendApplication {<br>&nbsp;&nbsp;@Bean CommandLineRunner init(ProductRepository r)<br>}</code>
+          </div>
+          <div class="tape-mid">VS</div>
+          <div class="tape-side after">
+            <div class="tape-side-label">After</div>
+            <code>@Configuration<br>class ProductSeedConfig {<br>&nbsp;&nbsp;@Bean CommandLineRunner seedProduct(...)<br>}</code>
+          </div>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Why did a @WebMvcTest fail because of a completely unrelated bean?</div>
+              <div class="qa-a">A: @WebMvcTest slices the context to web-layer beans (controllers, @ControllerAdvice, converters, filters) — but it does not filter out plain @Bean methods declared directly on the @SpringBootApplication class, because that class is used as the test's configuration source regardless. Any dependency that bean needs must also be satisfiable in the slice, or the whole context fails to start.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: How do you decide what belongs in the "service" layer versus the "controller"?</div>
+              <div class="qa-a">A: If it would still make sense with no HTTP involved at all (a batch job calling the same method, say), it's a service concern. Status codes, @Valid, @PathVariable — those only make sense next to HTTP, so they stay in the controller.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 2 -->
+      <article class="card topic" id="t2">
+        <div class="topic-head">
+          <span class="topic-num">02</span>
+          <span class="topic-title">Database schema consistency — Flyway over ddl-auto</span>
+        </div>
+        <span class="topic-file mono">V1__baseline_schema.sql · application.properties</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>Someone — a person or Hibernate — has to own "what does the schema look like right now, and how did it get that way." Flyway makes that owner an ordered, checked-in list of SQL files instead of whatever <code>ddl-auto</code> happened to do at some point in the past.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>The project's <code>ddl-auto</code> was commented out, but the tables already existed — created by Hibernate at some earlier point, then never touched again. A brand-new environment (a teammate's laptop, CI, prod) pointed at an empty database would have nothing. It "worked" purely because one machine had leftover state.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p><code>V1__baseline_schema.sql</code> mirrors the real, already-running schema exactly (verified with <code>SHOW CREATE TABLE</code>). Existing databases are <em>baselined</em> at V1 (<code>spring.flyway.baseline-on-migrate=true</code>) so Flyway treats V1 as already applied there; a brand-new empty database runs V1 for real. Hibernate is set to <code>ddl-auto=validate</code> — it now only checks the mapping matches the schema, it never changes anything.</p>
+        </div>
+
+        <div class="tape">
+          <div class="tape-side before">
+            <div class="tape-side-label">Before</div>
+            <code># spring.jpa.hibernate.ddl-auto=update</code><br><span style="opacity:.7">(commented out — undefined behavior)</span>
+          </div>
+          <div class="tape-mid">VS</div>
+          <div class="tape-side after">
+            <div class="tape-side-label">After</div>
+            <code>spring.jpa.hibernate.ddl-auto=validate<br>spring.flyway.baseline-on-migrate=true</code>
+          </div>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Why not just set ddl-auto=update and move on?</div>
+              <div class="qa-a">A: update works for a solo sandbox but has no history, no review step, and no way to know what changed between two deployments. Flyway migrations are ordered, versioned files — you can read a diff of exactly what changed, and the same file runs identically everywhere.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: What does "baseline" actually do?</div>
+              <div class="qa-a">A: It tells Flyway "assume schema version N is already applied here, don't try to run it" — for a database that already has the tables from before migrations existed. It's how you adopt Flyway into a project without touching data.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: How did you prove it actually worked, not just "looked right"?</div>
+              <div class="qa-a">A: Ran the test suite twice — once against the existing ufcmain (baseline path) and once against a brand-new empty database created just for the test (real-migration path). Both booted clean and passed Hibernate's validate check.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 3 -->
+      <article class="card topic" id="t3">
+        <div class="topic-head">
+          <span class="topic-num">03</span>
+          <span class="topic-title">DTOs instead of exposing JPA entities</span>
+        </div>
+        <span class="topic-file mono">dto/WeightClassRequest.java · dto/WeightClassResponse.java</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>The entity is the database's shape. The DTO is the API's shape. They look similar today and will not stay that way — the moment they diverge, only one of them is allowed to break client contracts, and it isn't the API.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>Two concrete failures, not hypothetical ones: (1) the write endpoint accepted a raw entity, so a client could set <code>weightClassId</code> itself — over-posting; (2) the read endpoint returned entities with a lazy <code>@OneToMany fighters</code> relation. The moment that list actually had rows and Jackson tried to serialize it outside the transaction, that's a live <code>LazyInitializationException</code>, not a style complaint.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Java records for both directions — <code>WeightClassRequest</code> only exposes fields a client should set, <code>WeightClassResponse</code> only exposes fields a client should see. The service maps explicitly in both directions; nothing is ever handed through unmodified.</p>
+        </div>
+
+        <div class="tape">
+          <div class="tape-side before">
+            <div class="tape-side-label">Before</div>
+            <code>@PostMapping<br>ResponseEntity&lt;WeightClass&gt; add(<br>&nbsp;&nbsp;@RequestBody WeightClass wc)</code>
+          </div>
+          <div class="tape-mid">VS</div>
+          <div class="tape-side after">
+            <div class="tape-side-label">After</div>
+            <code>@PostMapping<br>ResponseEntity&lt;WeightClassResponse&gt; add(<br>&nbsp;&nbsp;@Valid @RequestBody WeightClassRequest r)</code>
+          </div>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: What's "over-posting" and how did you prove it was fixed?</div>
+              <div class="qa-a">A: Sending fields the client shouldn't control — I POSTed a body with an explicit weightClassId: 999. Since the request record doesn't declare that field at all, Jackson silently drops it; the server generates its own id regardless of what arrives.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: Records or plain classes for DTOs — why?</div>
+              <div class="qa-a">A: Records are immutable, give you equals/hashCode/toString for free, and the constructor is the validation surface Bean Validation annotates directly. A DTO has no business being mutable — it's a one-shot data carrier.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 4 -->
+      <article class="card topic" id="t4">
+        <div class="topic-head">
+          <span class="topic-num">04</span>
+          <span class="topic-title">Bean Validation, including cross-field rules</span>
+        </div>
+        <span class="topic-file mono">dto/WeightClassRequest.java · dto/BetRequest.java</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>Declarative constraints (<code>@NotBlank</code>, <code>@Positive</code>...) run before a single line of your business logic executes, and fail with a consistent shape every controller shares for free.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>Without it, invalid input — blank names, negative weights, a max-weight lower than the min-weight — goes straight to the database, or crashes somewhere unpredictable downstream instead of failing loudly and immediately at the boundary.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Field-level annotations for the simple cases. For the one rule that spans two fields (<code>maxWeight &gt; minWeight</code>), a plain method annotated <code>@AssertTrue</code> — no custom annotation class needed, Bean Validation treats any <code>isXxx()</code>-shaped method as a constraint.</p>
+        </div>
+
+        <pre><code>@AssertTrue(message = "maxWeight must be greater than minWeight")
+public boolean isWeightRangeValid() {
+    if (minWeight == null || maxWeight == null) return true; // let @NotNull report it
+    return maxWeight > minWeight;
+}</code></pre>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Why guard the @AssertTrue method against nulls instead of just comparing the two fields?</div>
+              <div class="qa-a">A: If minWeight is null, a direct comparison either NPEs or reports a confusing second error on top of the @NotNull failure that's already the real story. Returning true lets @NotNull own that message instead of stepping on it.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: Where do you draw the line between Bean Validation and a service-layer check?</div>
+              <div class="qa-a">A: Bean Validation is for shape — is this field present, in range, well-formed. The moment a rule needs a database lookup — "does this fighter actually belong to this fight" — that's a service-layer concern with its own exception type, not a validator.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 5 -->
+      <article class="card topic" id="t5">
+        <div class="topic-head">
+          <span class="topic-num">05</span>
+          <span class="topic-title">Global exception handling &amp; a consistent error contract</span>
+        </div>
+        <span class="topic-file mono">exception/GlobalExceptionHandler.java</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>One <code>@RestControllerAdvice</code> maps exception <em>type</em> to HTTP status, once, for the whole app. Every error response is the same shape (RFC 7807 <code>ProblemDetail</code>): <code>type</code>, <code>title</code>, <code>status</code>, <code>detail</code>, <code>instance</code>.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p><code>ProductController</code> used to try/catch two exception types per endpoint, with a catch-all that leaked <code>ex.getMessage()</code> straight to the client. That pattern doesn't scale past one endpoint, and a raw internal message reaching a client is an information leak, not just untidy code.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Custom, unambiguous exceptions (<code>ResourceNotFoundException</code> → 404, <code>ConflictException</code> → 409, <code>InvalidRequestException</code> → 400) instead of reusing <code>IllegalArgumentException</code>/<code>IllegalStateException</code> for everything. A generic <code>Exception.class</code> handler logs the full stack trace server-side but returns only "An unexpected error occurred" to the client.</p>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+          <span class="status-pill p-400">400 → InvalidRequestException / validation</span>
+          <span class="status-pill p-404">404 → ResourceNotFoundException</span>
+          <span class="status-pill p-409">409 → ConflictException / OptimisticLockingFailureException</span>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Why write ResourceNotFoundException instead of reusing IllegalArgumentException?</div>
+              <div class="qa-a">A: Type-based dispatch only works if the type means one thing. IllegalArgumentException gets thrown all over the JDK and third-party code for reasons that have nothing to do with "404" — reusing it for that meaning means some unrelated bug could accidentally return a 404 that makes no sense.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: Why hide the real message on a 500 but not on a 404 or 409?</div>
+              <div class="qa-a">A: A 404/409's message is something the caller caused and needs to see to fix their request. A 500 means something we didn't anticipate — the message might contain a table name, a stack frame, a query — none of which is the client's business, but all of which is exactly what you want in the server log.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 6 -->
+      <article class="card topic" id="t6">
+        <div class="topic-head">
+          <span class="topic-num">06</span>
+          <span class="topic-title">Logging over System.out</span>
+        </div>
+        <span class="topic-file mono">BackendApplication.java · GlobalExceptionHandler.java</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>SLF4J gives you levels, structured placeholders, and a single switch to redirect or silence output per environment. <code>System.out.println</code> gives you none of that.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>A print statement can't be filtered by severity, can't be shipped to a log aggregator distinctly from stdout noise, and can't be turned off in production without a code change and redeploy.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Every <code>System.out.println</code> in request/startup paths replaced with an SLF4J <code>Logger</code>. The level is chosen deliberately: expected client errors (404/409) log at <code>warn</code>, truly unexpected exceptions log at <code>error</code> with the full stack trace.</p>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Why warn for a 404/409 but error for a 500?</div>
+              <div class="qa-a">A: warn means "a client did something we already expect and handle" — noisy but not actionable at 3am. error means "something happened we didn't design for" — exactly what should page someone or show up first in a log search during an incident.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 7 -->
+      <article class="card topic" id="t7">
+        <div class="topic-head">
+          <span class="topic-num">07</span>
+          <span class="topic-title">Externalized configuration &amp; secrets</span>
+        </div>
+        <span class="topic-file mono">application.properties</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>Config that differs by environment — and anything sensitive — lives outside the source file, read at startup from the environment.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>The DB password was committed in plaintext. It happened to be harmless here (no real secret, no shared repo at the time), but the pattern is the actual bug: whatever value sits there ships to everyone who can read the file, forever, in every clone.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p><code>${DB_USERNAME:root}</code> / <code>${DB_PASSWORD:rajat}</code> — Spring property placeholders that read from the environment first, falling back to a value that only exists so this one dev machine keeps working without extra setup.</p>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: If there's still a fallback value, did you actually fix anything?</div>
+              <div class="qa-a">A: The mechanism is fixed — set the env var anywhere else (CI, staging, prod) and the fallback is never consulted. The fallback is a deliberate, documented dev-only convenience, not a hidden default a real deployment would silently inherit.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: Is the JDBC URL a secret the same way the password is?</div>
+              <div class="qa-a">A: No — a hostname/port/db-name is topology, not a credential; the actual risk (account takeover) sits entirely with the password. It's still worth externalizing for portability across environments, but for a different reason than the password.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 8 -->
+      <article class="card topic" id="t8">
+        <div class="topic-head">
+          <span class="topic-num">08</span>
+          <span class="topic-title">Constructor injection, consistently</span>
+        </div>
+        <span class="topic-file mono">WeightClassController.java · ProductService.java</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>Dependencies come in through the constructor, not <code>@Autowired</code> field injection. With exactly one constructor, Spring wires it automatically — <code>@Autowired</code> on it is dead weight.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>Field injection can't be unit-tested without a Spring context or reflection tricks — there's no constructor to hand a mock to. It also hides an "unconstructable" class: if a class needs ten dependencies, a constructor with ten parameters is an ugly, honest warning sign; field injection quietly hides that cost.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Lombok's <code>@RequiredArgsConstructor</code> on every controller/service, generating a constructor over the class's <code>final</code> fields. Dead, commented-out constructors and stray <code>@Autowired</code>s removed wherever they'd been left behind.</p>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: What does constructor injection buy you at test time, concretely?</div>
+              <div class="qa-a">A: `new WeightClassService(mockRepository)` — a unit test builds the object directly, no Spring context, no reflection, no @InjectMocks magic. Field injection can't be constructed that way at all from outside the container.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 9 -->
+      <article class="card topic" id="t9">
+        <div class="topic-head">
+          <span class="topic-num">09</span>
+          <span class="topic-title">API documentation — and a real dependency-version bug</span>
+        </div>
+        <span class="topic-file mono">pom.xml</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p><code>springdoc-openapi</code> generates an OpenAPI spec and Swagger UI directly from the controllers and DTOs already written — no separate spec to keep in sync by hand.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>Undocumented APIs force every consumer to read controller source to know what's callable. But adding the dependency surfaced a sharper lesson: version <code>2.6.0</code> compiled fine and then threw <code>NoSuchMethodError</code> on <code>ControllerAdviceBean.&lt;init&gt;</code> at runtime — it was built against an older Spring Framework than the one Spring Boot 3.4.3 actually ships (6.2.3).</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Bumped to <code>2.8.3</code>, confirmed <code>/v3/api-docs</code> and <code>/swagger-ui/index.html</code> both serve correctly against the real running app — not just "it compiled."</p>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Why didn't the compiler catch a mismatched method signature between two libraries?</div>
+              <div class="qa-a">A: Both libraries compiled fine independently — the method existed when springdoc 2.6.0 was built. The mismatch only exists at the exact combination used at runtime: a newer Spring Framework removed/changed a constructor springdoc's compiled bytecode still calls. javac never sees both jars' assumptions collide; the JVM does, at the first call site that hits it.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: What's the general lesson for picking a third-party dependency version?</div>
+              <div class="qa-a">A: Check the library's stated compatibility with your actual Spring Boot version, and verify with a real run, not just a compile — a version mismatch across transitive framework dependencies is a runtime-only failure.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 10 -->
+      <article class="card topic" id="t10">
+        <div class="topic-head">
+          <span class="topic-num">10</span>
+          <span class="topic-title">The testing pyramid, and the slice-test bug it caught</span>
+        </div>
+        <span class="topic-file mono">WeightClassServiceTest · WeightClassControllerTest · BackendApplicationTests</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>Three different sizes of test, each loading a different amount of the app: a plain unit test (no Spring at all), a web-layer slice (<code>@WebMvcTest</code> — controllers + advice + Jackson, service mocked, no DB), and a full integration test (<code>@SpringBootTest</code> — everything, real DB).</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>Each size catches a different class of bug. A unit test can't catch a wiring problem because it never wires Spring. Sure enough: the very first <code>@WebMvcTest</code> we wrote failed to load its context at all — a slice-only bug a unit test structurally cannot see, and only a slightly different full-context test would even reveal.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p><code>WeightClassServiceTest</code> — Mockito, no Spring, tests only the DTO↔entity mapping. <code>WeightClassControllerTest</code> — <code>@WebMvcTest</code>, proves the actual HTTP contract (status codes, field-level validation errors) with the service mocked out. <code>BackendApplicationTests</code> — full boot against real MySQL, the only one that would have caught the Flyway/Hibernate wiring being wrong.</p>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Given the three sizes, which one would catch a bad SQL migration? Which would catch a wrong HTTP status code? Which would catch a typo in a service method?</div>
+              <div class="qa-a">A: Migration — only the full @SpringBootTest (it's the only one touching the real DB). Status code — the @WebMvcTest slice (fast, no DB needed to prove the contract). Service typo — the plain unit test, fastest of all three and the one you'd want running on every keystroke.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: We didn't add @DataJpaTest or Testcontainers this round — was that the right call?</div>
+              <div class="qa-a">A: Given what actually changed (mapping and status codes, no new custom @Query), yes — the existing full-context test already exercises the real schema. Testcontainers would earn its cost once we're writing repository-specific queries worth testing in isolation from the rest of the app.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+      <!-- TOPIC 11 -->
+      <article class="card topic" id="t11">
+        <div class="topic-head">
+          <span class="topic-num">11</span>
+          <span class="topic-title">Optimistic locking &amp; the lost-update problem</span>
+        </div>
+        <span class="topic-file mono">entities/Bet.java · BetService.java · BetConcurrencyTest.java</span>
+
+        <div class="field">
+          <div class="field-label">Concept</div>
+          <p>A <code>@Version</code> column lets Hibernate add <code>AND version = ?</code> to every <code>UPDATE</code>. If the row's version moved since you read it, zero rows match, and Hibernate raises <code>ObjectOptimisticLockingFailureException</code> instead of silently overwriting someone else's write.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">Why it's a real problem</div>
+          <p>Two users load the same bet, both change the amount, both save. Without a version check, whichever <code>UPDATE</code> runs second simply wins — the first user's change vanishes with no error, no log, no trace. That's a <strong>lost update</strong>, and it's silent, which is what makes it dangerous.</p>
+        </div>
+        <div class="field">
+          <div class="field-label">How we implemented it</div>
+          <p>Added <code>@Version private Long version;</code> to <code>Bet</code> via a real migration (<code>V2__add_bet_version.sql</code>, since the column didn't exist before). <code>updateBetAmount</code> reads, mutates, saves — no manual locking code; Hibernate does the version check for free on every save. <code>GlobalExceptionHandler</code> already maps the resulting exception to <code>409 Conflict</code>.</p>
+        </div>
+
+        <figure>
+          <div class="diagram-wrap">
+            <svg viewBox="0 0 760 300" role="img" aria-label="Sequence: User A and User B both read the bet at version 0. User A updates the amount and saves, succeeding because the WHERE version=0 clause still matches, bumping the row to version 1. User B, still holding version 0, then tries to save; the WHERE version=0 clause now matches zero rows, so Hibernate raises ObjectOptimisticLockingFailureException instead of overwriting User A's change.">
+              <defs>
+                <marker id="arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+                </marker>
+              </defs>
+              <g font-family="Oswald, sans-serif" font-size="13">
+                <text x="90" y="26" text-anchor="middle">User A</text>
+                <text x="380" y="26" text-anchor="middle">bet row</text>
+                <text x="670" y="26" text-anchor="middle">User B</text>
+              </g>
+              <line x1="90" y1="38" x2="90" y2="280" stroke="currentColor" opacity=".35"/>
+              <line x1="380" y1="38" x2="380" y2="280" stroke="currentColor" opacity=".35"/>
+              <line x1="670" y1="38" x2="670" y2="280" stroke="currentColor" opacity=".35"/>
+
+              <!-- reads -->
+              <line x1="380" y1="66" x2="98" y2="66" stroke="currentColor" marker-end="url(#arrow3)"/>
+              <text x="230" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5">SELECT → version=0</text>
+
+              <line x1="380" y1="96" x2="662" y2="96" stroke="currentColor" marker-end="url(#arrow3)"/>
+              <text x="525" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5">SELECT → version=0</text>
+
+              <!-- A writes, succeeds -->
+              <line x1="90" y1="150" x2="372" y2="150" class="svg-success" stroke-width="1.6" marker-end="url(#arrow3)"/>
+              <text x="230" y="135" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" class="svg-success">UPDATE amount=100 WHERE version=0</text>
+              <text x="230" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" class="svg-success">1 row matched → OK, version→1</text>
+
+              <!-- B writes, fails -->
+              <line x1="670" y1="220" x2="388" y2="220" class="svg-danger" stroke-width="1.6" marker-end="url(#arrow3)"/>
+              <text x="525" y="205" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" class="svg-danger">UPDATE amount=200 WHERE version=0</text>
+              <text x="525" y="237" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" class="svg-danger">0 rows matched → exception</text>
+
+              <rect x="470" y="252" width="240" height="34" rx="6" class="svg-danger" fill-opacity=".12" stroke="currentColor"/>
+              <text x="590" y="273" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" class="svg-danger">ObjectOptimisticLockingFailureException → 409</text>
+            </g>
+          </svg>
+          </div>
+          <figcaption>Both users read version 0. User A's write matches and bumps the row to version 1. User B's write still targets version 0 — zero rows match, so Hibernate raises an exception instead of quietly overwriting User A's 100 with 200.</figcaption>
+        </figure>
+
+        <div class="chip-row" style="margin-top:18px;">
+          <span class="chip">sequentialStaleReads → deterministic, no threads</span>
+          <span class="chip">trueConcurrentUpdates → real ExecutorService race</span>
+          <span class="chip">live curl race → one 200, one 409</span>
+        </div>
+
+        <details>
+          <summary>Rehearse this</summary>
+          <div class="qa">
+            <div>
+              <div class="qa-q">Q: Why does a test with no threads at all prove the same thing as a real two-thread race?</div>
+              <div class="qa-a">A: Optimistic locking checks one fact at commit time — does the version I'm writing against still match the row's current version. It has no idea whether the staleness came from true parallel threads or from two sequential reads in a single-threaded test; the check is identical either way. That's what makes it a correctness property, not a timing-dependent behavior.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: Optimistic vs pessimistic locking — why optimistic here?</div>
+              <div class="qa-a">A: Betting reads a bet far more often than it's concurrently edited — most bets are placed once and never touched again. Pessimistic locking (SELECT ... FOR UPDATE) pays a lock-hold cost on every read whether or not a conflict was ever going to happen. Optimistic locking pays nothing until a real conflict occurs, which is rare here. It flips the other way for something like a single shared inventory counter under constant contention — many writers, few readers — where pessimistic locking (or an atomic decrement) avoids paying for repeated failed retries.</div>
+            </div>
+            <div>
+              <div class="qa-q">Q: The API returns 409 and stops — should it retry automatically instead?</div>
+              <div class="qa-a">A: Depends on who has enough context to resolve the conflict. Here, the amount itself is what conflicted — the server doesn't know whether to keep User A's 100 or User B's 200, so surfacing it to the client to re-fetch and decide is correct. A server-side retry only makes sense when the retried operation is safely re-derivable from fresh state without a human choosing between two values — e.g. re-applying "decrement stock by 1" against whatever the current stock now is.</div>
+            </div>
+          </div>
+        </details>
+      </article>
+
+    </section>
+
+  </main>
+</div>
+
+<footer>Backend Corner Notes — a working reference for the UFC backend, updated round by round.</footer>
+
+</body>
+</html>

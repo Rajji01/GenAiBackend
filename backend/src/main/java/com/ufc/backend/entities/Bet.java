@@ -35,6 +35,9 @@ public class Bet {
     @Enumerated(EnumType.STRING)
     private BetStatus status;
 
+    @Version
+    private Long version;
+
     public enum BetStatus {
         PENDING, WON, LOST
     }
