@@ -1,0 +1,29 @@
+[project]
+name = "narration-enrichment"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Rajat Agrawal", email = "rajatagrawal2702@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.141.1",
+    "google-genai>=2.23.0",
+    "instructor[google-genai]>=1.17.0",
+    "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.3",
+    "uvicorn[standard]>=0.52.4",
+]
+
+[project.scripts]
+narration-enrichment = "narration_enrichment:main"
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
