@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Narration Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#EDF1F2;
+    --surface:#FAFCFC;
+    --surface-alt:#E1E8E9;
+    --ink:#0F1A1D;
+    --ink-soft:#4B5D61;
+    --border:#CBD8DA;
+    --accent:#0E8B8D;
+    --accent-soft:#D3ECEC;
+    --danger:#C1442E;
+    --danger-soft:#F5DCD5;
+    --success:#1E8A5C;
+    --success-soft:#DAEEE3;
+    --mono-bg:#E2E9EA;
+    --term-bg:#101A1C;
+    --term-ink:#D8EDEA;
+    --shadow: 0 1px 2px rgba(10,20,22,.06), 0 6px 20px -8px rgba(10,20,22,.14);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0C1315;
+      --surface:#121B1E;
+      --surface-alt:#1A262A;
+      --ink:#E4EDEE;
+      --ink-soft:#93A9AD;
+      --border:#263539;
+      --accent:#4FD4D6;
+      --accent-soft:#153436;
+      --danger:#E17A61;
+      --danger-soft:#3A2620;
+      --success:#55C08A;
+      --success-soft:#173428;
+      --mono-bg:#182226;
+      --term-bg:#080F10;
+      --term-ink:#BFEAE4;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 30px -10px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0C1315;
+    --surface:#121B1E;
+    --surface-alt:#1A262A;
+    --ink:#E4EDEE;
+    --ink-soft:#93A9AD;
+    --border:#263539;
+    --accent:#4FD4D6;
+    --accent-soft:#153436;
+    --danger:#E17A61;
+    --danger-soft:#3A2620;
+    --success:#55C08A;
+    --success-soft:#173428;
+    --mono-bg:#182226;
+    --term-bg:#080F10;
+    --term-ink:#BFEAE4;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 30px -10px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+    font-size:16px;
+    line-height:1.62;
+  }
+  h1,h2,h3{ font-family:"IBM Plex Sans", sans-serif; font-weight:600; text-wrap:balance; margin:0; }
+  code, .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; }
+  a{ color:var(--accent); }
+
+  .layout{
+    display:grid;
+    grid-template-columns: 244px minmax(0,1fr);
+    max-width:1180px;
+    margin:0 auto;
+  }
+
+  .sidebar{
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    padding:26px 16px 26px 22px;
+    border-right:1px solid var(--border);
+  }
+  .brand-eyebrow{ font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); }
+  .brand-name{ font-size:21px; font-weight:700; margin-top:3px; }
+  .nav-group{ margin-top:24px; }
+  .nav-group-title{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 8px 2px; }
+  .nav-link{ display:flex; gap:9px; align-items:baseline; padding:6px 8px; border-radius:6px; font-size:14px; color:var(--ink-soft); text-decoration:none; }
+  .nav-link:hover{ background:var(--surface-alt); color:var(--ink); }
+  .nav-tag{ font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--accent); min-width:30px; }
+
+  main{ padding:44px 46px 100px; min-width:0; }
+  section{ margin-bottom:58px; }
+  p{ max-width:68ch; }
+  .eyebrow{ font-size:12px; letter-spacing:.15em; text-transform:uppercase; color:var(--accent); margin:0 0 6px; }
+  h2{ font-size:29px; }
+  .lede{ font-size:17.5px; color:var(--ink-soft); max-width:64ch; }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); }
+
+  .stat-row{ display:flex; gap:20px; flex-wrap:wrap; margin-top:22px; }
+  .stat-tile{ padding:14px 20px; min-width:120px; }
+  .stat-num{ font-family:"IBM Plex Mono",monospace; font-size:27px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .stat-label{ font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.07em; margin-top:5px; }
+
+  figure{ margin:20px 0 0; }
+  .diagram-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 8px; }
+  figure svg{ display:block; margin:0 auto; max-width:100%; height:auto; }
+  figcaption{ margin-top:9px; font-size:13.5px; color:var(--ink-soft); max-width:70ch; }
+  .svg-accent{ fill:var(--accent); stroke:var(--accent); }
+  .svg-danger{ fill:var(--danger); stroke:var(--danger); }
+  .svg-success{ fill:var(--success); stroke:var(--success); }
+
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .chip{ font-family:"IBM Plex Mono",monospace; font-size:12px; padding:5px 10px; border-radius:999px; background:var(--surface-alt); border:1px solid var(--border); color:var(--ink-soft); }
+
+  /* day entries */
+  .day{ padding:26px 28px 24px; margin-top:20px; }
+  .day-head{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .day-stamp{
+    font-family:"IBM Plex Mono",monospace; font-size:12.5px; font-weight:600;
+    color:var(--accent); border:1px solid var(--accent); border-radius:5px; padding:3px 9px;
+    letter-spacing:.04em;
+  }
+  .day-title{ font-size:21px; font-weight:600; }
+  .day-files{ font-size:12.5px; color:var(--ink-soft); font-family:"IBM Plex Mono",monospace; }
+
+  .field{ margin-top:17px; }
+  .field-label{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px; }
+  .field p{ margin:0; max-width:72ch; }
+
+  pre{
+    background:var(--mono-bg); border:1px solid var(--border); border-radius:8px;
+    padding:12px 14px; overflow-x:auto; margin:0; font-size:12.8px; line-height:1.55;
+  }
+  code{ font-size:.92em; }
+  :not(pre) > code{ background:var(--mono-bg); padding:1px 5px; border-radius:4px; }
+
+  .terminal{
+    background:var(--term-bg); color:var(--term-ink); border-radius:8px;
+    padding:13px 16px; font-family:"IBM Plex Mono",monospace; font-size:12.5px; line-height:1.6;
+    overflow-x:auto; white-space:pre;
+  }
+  .terminal .ok{ color:#7FE0AE; }
+  .terminal .bad{ color:#F0917C; }
+  .terminal .dim{ opacity:.6; }
+
+  .bug-box{
+    margin-top:16px; border:1px solid var(--danger); border-radius:8px;
+    background:var(--danger-soft); padding:13px 16px;
+  }
+  .bug-label{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--danger); font-weight:700; margin-bottom:6px; }
+  .bug-box p{ margin:0; font-size:14.5px; }
+
+  table{ border-collapse:collapse; width:100%; margin-top:12px; font-size:14px; }
+  th,td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); font-weight:600; }
+  .table-wrap{ overflow-x:auto; }
+
+  details{ margin-top:16px; border-top:1px dashed var(--border); padding-top:13px; }
+  summary{ cursor:pointer; font-family:"IBM Plex Mono",monospace; font-size:12.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--accent); list-style:none; }
+  summary::-webkit-details-marker{ display:none; }
+  summary::before{ content:"▸ "; }
+  details[open] summary::before{ content:"▾ "; }
+  .deep{ margin-top:12px; font-size:14.5px; }
+  .deep p{ margin:0 0 10px; }
+
+  .status-pill{ font-family:"IBM Plex Mono",monospace; font-size:11.5px; padding:2px 8px; border-radius:5px; font-weight:600; }
+  .p-ok{ background:var(--success-soft); color:var(--success); }
+  .p-err{ background:var(--danger-soft); color:var(--danger); }
+  .p-neu{ background:var(--surface-alt); color:var(--ink-soft); }
+
+  footer{ max-width:1180px; margin:0 auto; padding:18px 46px 70px 288px; color:var(--ink-soft); font-size:13px; }
+
+  @media (max-width:860px){
+    .layout{ grid-template-columns:1fr; }
+    .sidebar{ position:static; height:auto; border-right:none; border-bottom:1px solid var(--border); }
+    main{ padding:30px 18px 80px; }
+    footer{ padding-left:18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand-eyebrow">Week 1 Build Log</div>
+    <div class="brand-name">Narration Lab</div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Overview</div>
+      <a class="nav-link" href="#overview"><span class="nav-tag">·</span>The problem</a>
+      <a class="nav-link" href="#flow"><span class="nav-tag">·</span>Request flow</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Log entries</div>
+      <a class="nav-link" href="#day1"><span class="nav-tag">D1</span>Raw call</a>
+      <a class="nav-link" href="#day2"><span class="nav-tag">D2</span>Break it</a>
+      <a class="nav-link" href="#day3"><span class="nav-tag">D3</span>The fix</a>
+      <a class="nav-link" href="#day4"><span class="nav-tag">D4</span>The service</a>
+      <a class="nav-link" href="#day5"><span class="nav-tag">D5</span>Tests</a>
+      <a class="nav-link" href="#weekend"><span class="nav-tag">D6</span>Docker</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <section id="overview">
+      <p class="eyebrow">Python · FastAPI · Gemini · Instructor · Pydantic</p>
+      <h2 style="font-size:37px;">Turning bank-statement noise into typed data</h2>
+      <p class="lede" style="margin-top:12px;">A six-entry build log: what was fed to the model, what shape we needed back, where that broke, and exactly why the fix works — with the real terminal output at every step, not a tidied-up retelling.</p>
+
+      <div class="stat-row">
+        <div class="card stat-tile"><div class="stat-num">6</div><div class="stat-label">Log entries</div></div>
+        <div class="card stat-tile"><div class="stat-num">3</div><div class="stat-label">Real bugs hit</div></div>
+        <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Tests, 0 live calls</div></div>
+        <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Max attempts / call</div></div>
+      </div>
+
+      <div class="card" style="padding:18px 22px; margin-top:24px;">
+        <div class="field-label" style="margin-bottom:10px;">The one input/output pair every day below refers back to</div>
+        <div class="table-wrap">
+        <table>
+          <tr><th>In</th><td class="mono">"UPI/P2M/509912345678/PAYTM/SWIGGY BANGALORE/Payment"</td></tr>
+          <tr><th>Out</th><td class="mono">{"merchant":"Swiggy","category":"food_delivery","transaction_type":"UPI","confidence":0.95}</td></tr>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <p class="eyebrow">Architecture</p>
+      <h2>One call site, four possible outcomes</h2>
+      <p>Everything below eventually funnels through a single line — <code>_client.create(...)</code> in <code>service.py</code>. This is the shape of a request once Day 4's FastAPI layer exists around it.</p>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 860 320" role="img" aria-label="A POST to /enrich is validated by FastAPI's EnrichRequest model, then passed to enrich_narration, which calls the Instructor-wrapped Gemini client. Four outcomes are possible: a validated TransactionEnrichment returns 200; FastAPI's own validation failure returns 422 without ever reaching the LLM; InstructorRetryException after exhausted retries returns 422; httpx.TimeoutException returns 504; and any other exception returns a generic 500.">
+            <defs>
+              <marker id="lab-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono, monospace" font-size="12.5">
+              <rect x="10" y="130" width="96" height="54" rx="7" fill="none" stroke="currentColor"/>
+              <text x="58" y="162" text-anchor="middle">Client</text>
+
+              <rect x="160" y="130" width="150" height="54" rx="7" fill="none" stroke="currentColor"/>
+              <text x="235" y="153" text-anchor="middle">EnrichRequest</text>
+              <text x="235" y="169" text-anchor="middle" font-size="10" opacity=".65">min_length=3</text>
+
+              <rect x="365" y="130" width="150" height="54" rx="7" fill="none" stroke="currentColor"/>
+              <text x="440" y="153" text-anchor="middle">enrich_narration</text>
+              <text x="440" y="169" text-anchor="middle" font-size="10" opacity=".65">service.py</text>
+
+              <rect x="570" y="130" width="150" height="54" rx="7" class="svg-accent" fill-opacity=".1" stroke="currentColor"/>
+              <text x="645" y="153" text-anchor="middle">_client.create()</text>
+              <text x="645" y="169" text-anchor="middle" font-size="10" opacity=".65">Instructor + Gemini</text>
+            </g>
+
+            <g stroke="currentColor" stroke-width="1.3" fill="none">
+              <line x1="106" y1="157" x2="158" y2="157" marker-end="url(#lab-arrow)"/>
+              <line x1="310" y1="157" x2="363" y2="157" marker-end="url(#lab-arrow)"/>
+              <line x1="515" y1="157" x2="568" y2="157" marker-end="url(#lab-arrow)"/>
+            </g>
+
+            <!-- outcomes -->
+            <g font-family="IBM Plex Mono, monospace" font-size="11.5">
+              <path d="M645,184 L645,230 L790,230" stroke="currentColor" fill="none" marker-end="url(#lab-arrow)"/>
+              <rect x="792" y="212" width="58" height="30" rx="5" class="svg-success" fill-opacity=".12" stroke="currentColor"/>
+              <text x="821" y="231" text-anchor="middle" class="svg-success">200</text>
+
+              <path d="M235,184 L235,270 L790,270" stroke="currentColor" fill="none" marker-end="url(#lab-arrow)" class="svg-danger" opacity=".85"/>
+              <text x="420" y="264" class="svg-danger" opacity=".9">FastAPI validation fails — LLM never called</text>
+              <rect x="792" y="255" width="58" height="30" rx="5" class="svg-danger" fill-opacity=".12" stroke="currentColor"/>
+              <text x="821" y="274" text-anchor="middle" class="svg-danger">422</text>
+
+              <path d="M440,184 L440,90 L790,90" stroke="currentColor" fill="none" marker-end="url(#lab-arrow)" opacity=".8"/>
+              <text x="470" y="84" opacity=".85">InstructorRetryException (shape never validated)</text>
+              <rect x="792" y="75" width="58" height="30" rx="5" fill="none" stroke="currentColor"/>
+              <text x="821" y="94" text-anchor="middle">422</text>
+
+              <path d="M645,130 L645,45 L790,45" stroke="currentColor" fill="none" marker-end="url(#lab-arrow)" opacity=".8"/>
+              <text x="530" y="39" opacity=".85">httpx.TimeoutException (provider too slow)</text>
+              <rect x="792" y="30" width="58" height="30" rx="5" fill="none" stroke="currentColor"/>
+              <text x="821" y="49" text-anchor="middle">504</text>
+
+              <path d="M440,130 L440,295 L790,295" stroke="currentColor" fill="none" marker-end="url(#lab-arrow)" opacity=".8"/>
+              <text x="500" y="309" opacity=".85">anything else — logged in full, never shown to caller</text>
+              <rect x="792" y="280" width="58" height="30" rx="5" fill="none" stroke="currentColor"/>
+              <text x="821" y="299" text-anchor="middle">500</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>Only one path reaches the LLM at all — a too-short narration is rejected by <code>EnrichRequest</code> before <code>enrich_narration</code> is ever called. Every other outcome is a specific exception type mapped to a specific status, plus one catch-all that never echoes its real message.</figcaption>
+      </figure>
+    </section>
+
+    <!-- DAY 1 -->
+    <article class="card day" id="day1">
+      <div class="day-head">
+        <span class="day-stamp">DAY 1</span>
+        <span class="day-title">What actually crosses the wire</span>
+      </div>
+      <span class="day-files">day1_raw_call.py</span>
+
+      <div class="field">
+        <div class="field-label">Goal</div>
+        <p>No framework, no schema — wire the raw <code>google-genai</code> SDK, send one narration, and look at exactly what gets sent and what comes back.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Code</div>
+        <pre><code>request_payload = {
+    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+    "generationConfig": {"maxOutputTokens": 300},
+}
+response = client.models.generate_content(model=MODEL, contents=prompt, config={"max_output_tokens": 300})</code></pre>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Real output — first run</div>
+        <div class="terminal">Response text:
+In plain English, this is a <span class="bad">**payment made to Swiggy...</span>
+<span class="dim">(cuts off mid-sentence)</span>
+
+input_tokens:  50
+output_tokens: 12
+total_tokens:  346
+finish_reason: <span class="bad">MAX_TOKENS</span></div>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">Bug found</div>
+        <p><code>total_tokens (346)</code> didn't equal <code>input (50) + output (12) = 62</code>. The missing 284 tokens were spent on invisible "thinking" — <code>gemini-3.6-flash</code> reasons before answering, and that reasoning shares the <em>same</em> <code>max_output_tokens</code> budget as the visible reply. A 300-token budget left almost nothing for the actual answer.</p>
+      </div>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 640 170" role="img" aria-label="With a 300 token budget, 287 tokens go to invisible thinking and only 13 remain for the visible answer, which gets cut off. With a 1024 token budget, 489 tokens go to thinking, 132 to a complete visible answer, and 403 tokens are unused headroom.">
+            <g font-family="IBM Plex Mono, monospace" font-size="11.5">
+              <text x="0" y="20">budget = 300</text>
+              <rect x="0" y="30" width="287" height="26" class="svg-danger" fill-opacity=".35" stroke="currentColor"/>
+              <rect x="287" y="30" width="13" height="26" class="svg-danger" stroke="currentColor"/>
+              <text x="150" y="47" text-anchor="middle" font-size="10">thinking (287)</text>
+              <text x="300" y="72" font-size="10" class="svg-danger">answer cut off (13 tok left) →</text>
+
+              <text x="0" y="110">budget = 1024</text>
+              <rect x="0" y="120" width="489" height="26" fill="none" stroke="currentColor" opacity=".55"/>
+              <rect x="489" y="120" width="132" height="26" class="svg-success" fill-opacity=".3" stroke="currentColor"/>
+              <rect x="621" y="120" width="19" height="26" fill="none" stroke="currentColor" stroke-dasharray="2 2" opacity=".4"/>
+              <text x="244" y="137" text-anchor="middle" font-size="10" opacity=".8">thinking (489)</text>
+              <text x="555" y="137" text-anchor="middle" font-size="10" class="svg-success">answer (132)</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>Same narration, same prompt — only the token budget changed. Thinking tokens aren't optional overhead you can ignore; they compete with the visible answer for the same ceiling.</figcaption>
+      </figure>
+
+      <div class="field">
+        <div class="field-label">Fixed</div>
+        <div class="terminal">finish_reason:   <span class="ok">STOP</span>
+thinking_tokens: 489
+output_tokens:   132  <span class="dim">← the visible answer above</span></div>
+      </div>
+    </article>
+
+    <!-- DAY 2 -->
+    <article class="card day" id="day2">
+      <div class="day-head">
+        <span class="day-stamp">DAY 2</span>
+        <span class="day-title">Breaking the naive approach on purpose</span>
+      </div>
+      <span class="day-files">day2_naive_json.py</span>
+
+      <div class="field">
+        <div class="field-label">Goal</div>
+        <p>Ask for JSON with a deliberately casual prompt — no "ONLY JSON", no field types spelled out — and parse the raw text with plain <code>json.loads()</code>. No safety net.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Prompt used (word for word)</div>
+        <pre><code>Look at this bank transaction narration and tell me the
+merchant, the category, the transaction type, and how confident you are.
+
+Narration: {narration}
+
+Give me this as JSON.</code></pre>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Real output — three narrations, three different failures</div>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Narration</th><th>What came back</th><th>Failure</th></tr>
+          <tr><td class="mono">...SWIGGY...</td><td class="mono">```json&#10;{...}&#10;```</td><td><span class="status-pill p-err">fence</span></td></tr>
+          <tr><td class="mono">...SALARY...</td><td class="mono">"confidence": "High"</td><td><span class="status-pill p-err">wrong type</span></td></tr>
+          <tr><td class="mono">...AMAZON...</td><td class="mono">"confidence": {"score":.98,"level":"Very High"}</td><td><span class="status-pill p-err">wrong shape</span></td></tr>
+        </table>
+        </div>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">What actually crashed</div>
+        <p><code>json.loads()</code> failed on <strong>all three</strong> — every response was wrapped in a markdown fence, so parsing died on the backtick before it ever reached the "High" string or the nested object. Data that was arguably still usable never even got read.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The twist</div>
+        <p>A more careful prompt (Day 1's — "Return ONLY a JSON object with exactly these fields...") had produced clean output on these same narrations. Better wording helped — but it's not a guarantee, and this project needed one.</p>
+      </div>
+    </article>
+
+    <!-- DAY 3 -->
+    <article class="card day" id="day3">
+      <div class="day-head">
+        <span class="day-stamp">DAY 3</span>
+        <span class="day-title">Forcing the shape instead of hoping for it</span>
+      </div>
+      <span class="day-files">models.py · day3_structured_output.py</span>
+
+      <div class="field">
+        <div class="field-label">The schema (models.py)</div>
+        <pre><code>class TransactionEnrichment(BaseModel):
+    merchant: str
+    category: Literal["food_delivery","shopping","salary","transfer","other"]
+    transaction_type: str
+    confidence: float = Field(..., ge=0.0, le=1.0)</code></pre>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Same prompt, same narrations as Day 2 — new call site</div>
+        <pre><code>client = instructor.from_genai(raw_client, model=MODEL)
+result = client.create(
+    response_model=TransactionEnrichment,
+    messages=[{"role": "user", "content": prompt}],
+    max_retries=3,
+)</code></pre>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Real output — all three, this time</div>
+        <div class="terminal">type:             <span class="ok">TransactionEnrichment</span>  ← a real object, not a dict
+confidence:       0.95  (float)</div>
+      </div>
+
+      <p>Not luck, and not a smarter prompt — Gemini's <strong>native function-calling</strong> (Instructor's default <code>Mode.TOOLS</code>) makes the model call a function shaped exactly like the schema. A string can't land in a float-typed argument slot; the fence and the nested object aren't things a function call can even produce.</p>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 820 300" role="img" aria-label="Instructor asks Gemini to call a TransactionEnrichment function. Gemini's first attempt calls it with confidence 1.5, which fails Pydantic validation. Instructor appends the failed function call plus a function-response part containing the validation error back into the conversation, and asks Gemini to call the function again. Gemini's second attempt calls it with confidence 0.95, which validates, and the result is returned.">
+            <defs>
+              <marker id="lab-arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono, monospace" font-size="12">
+              <text x="90" y="20" text-anchor="middle">Instructor</text>
+              <text x="410" y="20" text-anchor="middle">Gemini</text>
+              <text x="730" y="20" text-anchor="middle">Pydantic</text>
+            </g>
+            <line x1="90" y1="30" x2="90" y2="280" stroke="currentColor" opacity=".3"/>
+            <line x1="410" y1="30" x2="410" y2="280" stroke="currentColor" opacity=".3"/>
+            <line x1="730" y1="30" x2="730" y2="280" stroke="currentColor" opacity=".3"/>
+
+            <g font-family="IBM Plex Mono, monospace" font-size="10.5">
+              <line x1="90" y1="55" x2="402" y2="55" stroke="currentColor" marker-end="url(#lab-arrow2)"/>
+              <text x="246" y="49" text-anchor="middle">call TransactionEnrichment(...)</text>
+
+              <line x1="410" y1="85" x2="98" y2="85" stroke="currentColor" marker-end="url(#lab-arrow2)"/>
+              <text x="246" y="79" text-anchor="middle">function_call(confidence=1.5)</text>
+
+              <line x1="90" y1="115" x2="722" y2="115" stroke="currentColor" marker-end="url(#lab-arrow2)"/>
+              <text x="570" y="109" text-anchor="middle">validate</text>
+
+              <line x1="730" y1="145" x2="98" y2="145" stroke="currentColor" class="svg-danger" marker-end="url(#lab-arrow2)"/>
+              <text x="570" y="139" text-anchor="middle" class="svg-danger">ValidationError: confidence must be ≤1.0</text>
+
+              <line x1="90" y1="180" x2="402" y2="180" stroke="currentColor" class="svg-danger" marker-end="url(#lab-arrow2)"/>
+              <text x="246" y="174" text-anchor="middle" class="svg-danger">reask: function_response(error=...)</text>
+
+              <line x1="410" y1="210" x2="98" y2="210" stroke="currentColor" class="svg-success" marker-end="url(#lab-arrow2)"/>
+              <text x="246" y="204" text-anchor="middle" class="svg-success">function_call(confidence=0.95)</text>
+
+              <line x1="90" y1="240" x2="722" y2="240" stroke="currentColor" marker-end="url(#lab-arrow2)"/>
+              <text x="570" y="234" text-anchor="middle">validate</text>
+
+              <rect x="330" y="255" width="160" height="30" rx="6" class="svg-success" fill-opacity=".12" stroke="currentColor"/>
+              <text x="410" y="274" text-anchor="middle" class="svg-success">TransactionEnrichment ✓</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>Attempt 1 fails validation. Instructor doesn't just retry blind — it feeds the exact Pydantic error back to Gemini as a function-response, the same protocol a real tool failure would use, and Gemini corrects on attempt 2.</figcaption>
+      </figure>
+
+      <details>
+        <summary>Go deeper — the reask mechanism, from Instructor's own source</summary>
+        <div class="deep">
+          <p>Verified in <code>instructor/v2/providers/genai/handlers.py</code>. On a validation failure, <code>reask_genai_tools()</code> builds the next attempt's conversation:</p>
+          <pre><code>error_msg = f"Validation Error found:\n{exception}\nRecall the function correctly, fix the errors"
+function_response_part = types.Part.from_function_response(
+    name=function_call.name,
+    response={"error": error_msg},
+)</code></pre>
+          <p><code>from_function_response(...)</code> is normally how a real tool's real result gets reported back to Gemini after it calls one. Instructor reuses that exact channel to report a <em>validation failure instead</em> — Gemini has seen this shape of turn thousands of times in training as "a tool call didn't work, try again," and reacts to it far more reliably than a bolted-on text message would get.</p>
+          <p>In <code>retry.py</code>, only four exception types are treated as retryable at all: <code>ValidationError</code>, <code>json.JSONDecodeError</code>, <code>AsyncValidationError</code>, <code>ResponseParsingError</code>. Anything else — a network timeout, an auth failure — is <em>not</em> retried; it propagates immediately. That's a deliberate split: a shape problem is worth asking the model to fix, an infrastructure problem is not something asking the model again will ever solve.</p>
+          <p><code>max_retries=3</code> becomes <code>stop_after_attempt(4)</code> — one original attempt plus three reasks, maximum. Every attempt is a full, billed API call.</p>
+        </div>
+      </details>
+    </article>
+
+    <!-- DAY 4 -->
+    <article class="card day" id="day4">
+      <div class="day-head">
+        <span class="day-stamp">DAY 4</span>
+        <span class="day-title">Wrapping it in a service that fails cleanly</span>
+      </div>
+      <span class="day-files">config.py · service.py · main.py</span>
+
+      <div class="field">
+        <div class="field-label">config.py — one owner for every environment-dependent value</div>
+        <pre><code>class Settings(BaseSettings):
+    gemini_api_key: str            # no default — refuses to boot without it
+    model_name: str = "gemini-3.6-flash"
+    request_timeout_seconds: float = 10.0
+    max_retries: int = 3</code></pre>
+      </div>
+
+      <div class="field">
+        <div class="field-label">service.py — the timeout is real, and verified, not assumed</div>
+        <pre><code>_raw_client = genai.Client(
+    api_key=settings.gemini_api_key,
+    http_options=types.HttpOptions(timeout=int(settings.request_timeout_seconds * 1000)),
+)</code></pre>
+        <p style="margin-top:8px;">Forced a 1ms timeout deliberately to see what actually gets raised, instead of guessing:</p>
+        <div class="terminal">EXCEPTION TYPE: <span class="bad">httpx.ConnectTimeout</span>
+MRO: ['ConnectTimeout', 'TimeoutException', 'TransportError', ...]</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Logging discipline — proved, not asserted</div>
+        <pre><code>logger.debug("enrich_narration_raw narration=%r", narration)   # DEBUG only
+logger.info("enrich_started narration_length=%d", len(narration))</code></pre>
+        <div class="terminal">2026-09-13 16:31:26 INFO enrich_started <span class="ok">narration_length=51</span>
+2026-09-13 16:31:30 INFO enrich_completed category=food_delivery confidence=0.98
+<span class="dim">— the narration text itself never appears at this log level</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">main.py — exception type decides the status, nothing leaks</div>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Raised</th><th>Status</th><th>Why this one</th></tr>
+          <tr><td class="mono">InstructorRetryException</td><td><span class="status-pill p-neu">422</span></td><td>Shape never validated, even after retries — caller's input problem</td></tr>
+          <tr><td class="mono">httpx.TimeoutException</td><td><span class="status-pill p-neu">504</span></td><td>Provider took too long — not the caller's fault</td></tr>
+          <tr><td class="mono">anything else</td><td><span class="status-pill p-err">500</span></td><td>Logged in full server-side; caller sees only "An unexpected error occurred"</td></tr>
+        </table>
+        </div>
+      </div>
+    </article>
+
+    <!-- DAY 5 -->
+    <article class="card day" id="day5">
+      <div class="day-head">
+        <span class="day-stamp">DAY 5</span>
+        <span class="day-title">11 tests, 0 network calls</span>
+      </div>
+      <span class="day-files">tests/test_models.py · tests/test_api.py</span>
+
+      <div class="field">
+        <div class="field-label">Unit — the schema, alone</div>
+        <pre><code>def test_confidence_as_a_word_is_rejected():
+    with pytest.raises(ValidationError):
+        TransactionEnrichment(..., confidence="High")  # Day 2's exact bug, now permanent</code></pre>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Integration — the real HTTP layer, the LLM mocked</div>
+        <pre><code>with patch("narration_enrichment.main.enrich_narration") as mock_enrich:
+    response = client.post("/enrich", json={"narration": "ab"})
+assert response.status_code == 422
+mock_enrich.assert_not_called()   # proof the LLM was never reached</code></pre>
+      </div>
+
+      <div class="terminal">tests/test_api.py::test_health_check <span class="ok">PASSED</span>
+tests/test_api.py::test_enrich_returns_504_on_provider_timeout <span class="ok">PASSED</span>
+tests/test_models.py::test_confidence_as_a_word_is_rejected <span class="ok">PASSED</span>
+<span class="dim">... 11 passed in 18.24s</span></div>
+
+      <details>
+        <summary>Go deeper — why patch("...main.enrich_narration"), not "...service.enrich_narration"</summary>
+        <div class="deep">
+          <p><code>main.py</code> runs <code>from narration_enrichment.service import enrich_narration</code>. That import binds a second name to the same function object — inside <code>main</code>'s own namespace. When the route handler runs, it looks up <code>enrich_narration</code> in <em>its own module's</em> namespace, not back in <code>service</code>.</p>
+          <p>Patch <code>service.enrich_narration</code> and <code>main</code>'s copy of the name is untouched — the real function still runs. The patch has to target the name where it's <em>looked up at call time</em>, which is wherever it was imported to, not wherever it was originally defined.</p>
+        </div>
+      </details>
+    </article>
+
+    <!-- WEEKEND -->
+    <article class="card day" id="weekend">
+      <div class="day-head">
+        <span class="day-stamp">WEEKEND</span>
+        <span class="day-title">Same image, any machine</span>
+      </div>
+      <span class="day-files">Dockerfile · docker-compose.yml</span>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 190" role="img" aria-label="A single COPY-then-sync Dockerfile invalidates the entire dependency install every time any source file changes. Splitting into COPY pyproject and uv.lock plus sync, then COPY src plus sync, means an application code change only invalidates the second, fast layer — the slow dependency layer stays cached.">
+            <g font-family="IBM Plex Mono, monospace" font-size="11.5">
+              <text x="0" y="18">One COPY, one sync</text>
+              <rect x="0" y="28" width="230" height="30" rx="5" fill="none" stroke="currentColor"/>
+              <text x="115" y="47" text-anchor="middle">COPY . .  →  uv sync</text>
+              <text x="245" y="47" class="svg-danger">← any code edit reinstalls everything</text>
+
+              <text x="0" y="105">Split (this project)</text>
+              <rect x="0" y="115" width="230" height="30" rx="5" fill="none" stroke="currentColor" opacity=".5"/>
+              <text x="115" y="134" text-anchor="middle" opacity=".7">COPY pyproject+lock → sync</text>
+              <text x="245" y="134" opacity=".7">cached — deps unchanged</text>
+
+              <rect x="0" y="152" width="230" height="30" rx="5" class="svg-success" fill-opacity=".12" stroke="currentColor"/>
+              <text x="115" y="171" text-anchor="middle" class="svg-success">COPY src → sync</text>
+              <text x="245" y="171" class="svg-success">only this layer rebuilds</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>The dependency layer (slow — resolves and downloads every package) is copied and installed separately from the application code (fast — just files). Docker caches unchanged layers, so an ordinary code edit skips the slow step entirely.</figcaption>
+      </figure>
+
+      <div class="field">
+        <div class="field-label">Flags, decoded</div>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Flag</th><th>Means</th></tr>
+          <tr><td class="mono">--frozen</td><td>Use <code>uv.lock</code> exactly as-is — no re-resolving, no surprise versions</td></tr>
+          <tr><td class="mono">--no-install-project</td><td>Install dependencies only; the app's own code isn't copied in yet</td></tr>
+          <tr><td class="mono">--no-dev</td><td>Skip pytest and friends — this is the runtime image, not the test environment</td></tr>
+        </table>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Verified against the real container, not just <code>uvicorn --reload</code></div>
+        <div class="terminal">$ docker compose up --build -d
+$ curl http://localhost:8000/health
+<span class="ok">{"status":"ok"}</span>
+$ curl -X POST .../enrich -d '{"narration":"UPI/P2M/.../SWIGGY.../Payment"}'
+<span class="ok">{"merchant":"Swiggy","category":"food_delivery",...}</span>
+$ docker compose ps
+STATUS   running <span class="ok">(healthy)</span></div>
+      </div>
+
+      <p>The API key was never baked into the image — <code>docker-compose.yml</code> injects it at <em>runtime</em> via <code>env_file: .env</code>, so the same image works across dev, staging, and prod by swapping only the env file, never rebuilding.</p>
+    </article>
+
+  </main>
+</div>
+
+<footer>Narration Lab — a build log for the narration-enrichment service, one day at a time.</footer>
+
+</body>
+</html>
