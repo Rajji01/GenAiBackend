@@ -132,6 +132,25 @@
   .day-title{ font-size:21px; font-weight:600; }
   .day-files{ font-size:12.5px; color:var(--ink-soft); font-family:"IBM Plex Mono",monospace; }
 
+  /* flow cards (file-by-file revision section) */
+  .flow-card{ padding:22px 26px; margin-top:16px; }
+  .flow-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .flow-num{
+    font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:700;
+    color:var(--surface); background:var(--accent); border-radius:999px;
+    width:24px; height:24px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .flow-title{ font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:600; }
+  .flow-role{ font-size:12px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; }
+  .flow-one-liner{ font-size:15px; margin:10px 0 0; max-width:70ch; }
+  .flow-points{ margin:10px 0 0; padding-left:18px; font-size:14px; }
+  .flow-points li{ margin-bottom:4px; }
+  .flow-next{
+    margin-top:14px; padding-top:12px; border-top:1px dashed var(--border);
+    font-size:13.5px; color:var(--ink-soft);
+  }
+  .flow-next strong{ color:var(--ink); }
+
   .field{ margin-top:17px; }
   .field-label{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px; }
   .field p{ margin:0; max-width:72ch; }
@@ -208,6 +227,16 @@
       <a class="nav-link" href="#day4"><span class="nav-tag">D4</span>The service</a>
       <a class="nav-link" href="#day5"><span class="nav-tag">D5</span>Tests</a>
       <a class="nav-link" href="#weekend"><span class="nav-tag">D6</span>Docker</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Quick revision</div>
+      <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
+      <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
+      <a class="nav-link" href="#flow-config"><span class="nav-tag">3</span>config.py</a>
+      <a class="nav-link" href="#flow-models"><span class="nav-tag">4</span>models.py</a>
+      <a class="nav-link" href="#flow-dockerfile"><span class="nav-tag">5</span>Dockerfile</a>
+      <a class="nav-link" href="#flow-compose"><span class="nav-tag">6</span>compose.yml</a>
     </div>
   </nav>
 
@@ -660,6 +689,204 @@ STATUS   running <span class="ok">(healthy)</span></div>
 
       <p>The API key was never baked into the image — <code>docker-compose.yml</code> injects it at <em>runtime</em> via <code>env_file: .env</code>, so the same image works across dev, staging, and prod by swapping only the env file, never rebuilding.</p>
     </article>
+
+    <section id="quickrevision" style="margin-top:64px;">
+      <p class="eyebrow">Quick Revision</p>
+      <h2>The full flow, file by file</h2>
+      <p>No story this time — just six files, one line each on what they do, and where they hand off next. Read this top to bottom the night before an interview.</p>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 620 300" role="img" aria-label="main.py receives the request and calls service.py. service.py reads its settings from config.py and gets the required output shape from models.py, then calls the real Gemini API.">
+            <defs>
+              <marker id="lab-arrow3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono, monospace" font-size="12.5">
+              <rect x="20" y="15" width="150" height="46" rx="7" fill="none" stroke="currentColor"/>
+              <text x="95" y="43" text-anchor="middle">main.py</text>
+
+              <rect x="20" y="115" width="150" height="46" rx="7" class="svg-accent" fill-opacity=".1" stroke="currentColor"/>
+              <text x="95" y="143" text-anchor="middle">service.py</text>
+
+              <rect x="20" y="215" width="140" height="42" rx="7" fill="none" stroke="currentColor" opacity=".7"/>
+              <text x="90" y="241" text-anchor="middle" font-size="11.5">config.py</text>
+
+              <rect x="200" y="215" width="140" height="42" rx="7" fill="none" stroke="currentColor" opacity=".7"/>
+              <text x="270" y="241" text-anchor="middle" font-size="11.5">models.py</text>
+
+              <rect x="410" y="115" width="170" height="46" rx="7" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+              <text x="495" y="138" text-anchor="middle">Gemini</text>
+              <text x="495" y="153" text-anchor="middle" font-size="10" opacity=".65">external, real API</text>
+            </g>
+            <g stroke="currentColor" fill="none" stroke-width="1.3">
+              <line x1="95" y1="61" x2="95" y2="113" marker-end="url(#lab-arrow3)"/>
+              <line x1="170" y1="140" x2="408" y2="140" marker-end="url(#lab-arrow3)"/>
+              <line x1="90" y1="215" x2="90" y2="163" marker-end="url(#lab-arrow3)"/>
+              <line x1="270" y1="215" x2="150" y2="163" marker-end="url(#lab-arrow3)"/>
+            </g>
+            <g font-family="IBM Plex Mono, monospace" font-size="10">
+              <text x="103" y="90">narration string</text>
+              <text x="60" y="203">settings</text>
+              <text x="240" y="203">response_model</text>
+              <text x="230" y="130">_client.create()</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>service.py is the hub — it needs config.py's settings to build the client, and models.py's schema to know what shape to demand from Gemini.</figcaption>
+      </figure>
+
+      <!-- FILE 1 -->
+      <div class="card flow-card" id="flow-main">
+        <div class="flow-head">
+          <span class="flow-num">1</span>
+          <span class="flow-title">main.py</span>
+          <span class="flow-role">HTTP layer — the front door</span>
+        </div>
+        <p class="flow-one-liner">Every request enters here first. This file has never seen Gemini directly.</p>
+        <ul class="flow-points">
+          <li><code>EnrichRequest</code> — checks the input shape (min 3 chars) before anything else runs.</li>
+          <li><code>POST /enrich</code> — calls <code>enrich_narration()</code>, catches whatever it throws, turns each exception type into the right status code.</li>
+          <li><code>GET /health</code> — a standalone check, never touches the LLM.</li>
+        </ul>
+        <div class="flow-next">↓ hands the narration string to <strong>enrich_narration()</strong> in service.py</div>
+      </div>
+
+      <!-- FILE 2 -->
+      <div class="card flow-card" id="flow-service">
+        <div class="flow-head">
+          <span class="flow-num">2</span>
+          <span class="flow-title">service.py</span>
+          <span class="flow-role">Where the LLM actually gets called</span>
+        </div>
+        <p class="flow-one-liner">The only file in this project that talks to Gemini. Everything else is scaffolding around this one.</p>
+        <ul class="flow-points">
+          <li>Builds the Gemini client + Instructor wrapper <strong>once</strong>, at import time — not per request.</li>
+          <li><code>enrich_narration(narration)</code> — logs the length only (never the text), then calls <code>_client.create(...)</code>.</li>
+          <li>Returns an already-validated <code>TransactionEnrichment</code> — or lets Instructor's/httpx's exception propagate up to main.py.</li>
+        </ul>
+        <div class="flow-next">↑ reads settings from <strong>config.py</strong> · uses the shape defined in <strong>models.py</strong></div>
+      </div>
+
+      <!-- FILE 3 -->
+      <div class="card flow-card" id="flow-config">
+        <div class="flow-head">
+          <span class="flow-num">3</span>
+          <span class="flow-title">config.py</span>
+          <span class="flow-role">Every environment-dependent knob, in one place</span>
+        </div>
+        <p class="flow-one-liner">If a value changes between your laptop and a server, it lives here — nowhere else in the codebase reads an env var directly.</p>
+        <ul class="flow-points">
+          <li><code>gemini_api_key: str</code> — no default. The app refuses to boot without it.</li>
+          <li><code>request_timeout_seconds</code>, <code>max_retries</code> — both real production knobs, not decoration.</li>
+          <li><code>@lru_cache</code> on <code>get_settings()</code> — the <code>.env</code> file is read once per process, not once per request.</li>
+        </ul>
+        <div class="flow-next">read once, at startup, by <strong>service.py</strong></div>
+      </div>
+
+      <!-- FILE 4 -->
+      <div class="card flow-card" id="flow-models">
+        <div class="flow-head">
+          <span class="flow-num">4</span>
+          <span class="flow-title">models.py</span>
+          <span class="flow-role">The validation contract</span>
+        </div>
+        <p class="flow-one-liner">This is the exact shape every LLM answer must match — or it's rejected before anyone downstream ever sees it.</p>
+        <ul class="flow-points">
+          <li><code>TransactionEnrichment</code> — 4 fields, each with an exact type, none of them a free-form string.</li>
+          <li><code>Literal[...]</code> on <code>category</code> — only 5 exact values are legal; the model can't invent a 6th.</li>
+          <li><code>Field(ge=0.0, le=1.0)</code> on <code>confidence</code> — must be a real number, in range, or Pydantic rejects it.</li>
+        </ul>
+        <div class="flow-next">handed to Instructor as <code>response_model</code> by <strong>service.py</strong> · also used by <strong>main.py</strong> to describe the API's response shape in <code>/docs</code></div>
+      </div>
+
+      <p style="margin-top:34px; font-size:15px; color:var(--ink-soft);">That's the whole request path. Below: the two files that get this code running in a container on any machine, not just this one.</p>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 800 130" role="img" aria-label="Dockerfile is built into an image. docker-compose up starts a container from that image, injecting the API key from the .env file at runtime. The running container exposes port 8000 to the client.">
+            <defs>
+              <marker id="lab-arrow4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono, monospace" font-size="12">
+              <rect x="10" y="40" width="140" height="46" rx="7" fill="none" stroke="currentColor"/>
+              <text x="80" y="68" text-anchor="middle">Dockerfile</text>
+
+              <rect x="250" y="40" width="120" height="46" rx="7" fill="none" stroke="currentColor" opacity=".8"/>
+              <text x="310" y="68" text-anchor="middle" font-size="11.5">image</text>
+
+              <rect x="470" y="40" width="150" height="46" rx="7" class="svg-success" fill-opacity=".12" stroke="currentColor"/>
+              <text x="545" y="63" text-anchor="middle" font-size="11.5">running container</text>
+              <text x="545" y="78" text-anchor="middle" font-size="9.5" opacity=".7">main.py + service.py inside</text>
+
+              <rect x="720" y="40" width="70" height="46" rx="7" fill="none" stroke="currentColor"/>
+              <text x="755" y="68" text-anchor="middle">Client</text>
+            </g>
+            <g stroke="currentColor" fill="none" stroke-width="1.3">
+              <line x1="150" y1="63" x2="248" y2="63" marker-end="url(#lab-arrow4)"/>
+              <line x1="370" y1="63" x2="468" y2="63" marker-end="url(#lab-arrow4)"/>
+              <line x1="620" y1="63" x2="718" y2="63" marker-end="url(#lab-arrow4)"/>
+            </g>
+            <g font-family="IBM Plex Mono, monospace" font-size="10">
+              <text x="163" y="55">docker build</text>
+              <text x="378" y="55">compose up</text>
+              <text x="378" y="98" opacity=".7">+ .env → GEMINI_API_KEY</text>
+              <text x="635" y="55">:8000</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>The image never contains the API key — compose injects it at the last step, from your local <code>.env</code>, so the same image is safe to share or push anywhere.</figcaption>
+      </figure>
+
+      <!-- FILE 5 -->
+      <div class="card flow-card" id="flow-dockerfile">
+        <div class="flow-head">
+          <span class="flow-num">5</span>
+          <span class="flow-title">Dockerfile</span>
+          <span class="flow-role">Recipe for building the image</span>
+        </div>
+        <p class="flow-one-liner">Read top to bottom — each line either sets up the environment or copies something in. Order matters here more than in normal code.</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">FROM ghcr.io/astral-sh/uv:...</td><td>Start from an image that already has Python 3.11 <em>and</em> <code>uv</code> pre-installed — no separate install step needed.</td></tr>
+          <tr><td class="mono">WORKDIR /app</td><td>Every following instruction runs inside <code>/app</code> from here on.</td></tr>
+          <tr><td class="mono">COPY pyproject.toml uv.lock ./</td><td>Copy <em>only</em> the dependency manifest first — not the code yet.</td></tr>
+          <tr><td class="mono">RUN uv sync --frozen --no-install-project --no-dev</td><td>Install exactly the locked dependency versions. <code>--no-dev</code> skips pytest — this is a runtime image. <code>--no-install-project</code> skips our own code — it isn't copied in yet.</td></tr>
+          <tr><td class="mono">COPY src ./src</td><td>Now bring in the actual application code.</td></tr>
+          <tr><td class="mono">RUN uv sync --frozen --no-dev</td><td>Run again — this time it also installs our own package, now that the code exists.</td></tr>
+          <tr><td class="mono">EXPOSE 8000</td><td>Documentation only — says "this container listens on 8000." The real port mapping happens in compose.</td></tr>
+          <tr><td class="mono">CMD ["uv","run","uvicorn",...,"--host","0.0.0.0",...]</td><td>What runs when the container starts. <code>0.0.0.0</code>, not <code>127.0.0.1</code> — otherwise nothing outside the container could reach it.</td></tr>
+        </table>
+        </div>
+        <p style="margin-top:12px; font-size:13.5px; color:var(--ink-soft);"><strong>Why two <code>COPY</code>+<code>RUN</code> pairs instead of one:</strong> Docker caches each step. Dependencies rarely change; code changes constantly. Splitting them means an ordinary code edit skips the slow dependency-install step entirely — Docker reuses the cached layer from before.</p>
+        <div class="flow-next">produces an <strong>image</strong>, which docker-compose.yml turns into a running container</div>
+      </div>
+
+      <!-- FILE 6 -->
+      <div class="card flow-card" id="flow-compose">
+        <div class="flow-head">
+          <span class="flow-num">6</span>
+          <span class="flow-title">docker-compose.yml</span>
+          <span class="flow-role">Recipe for running the image</span>
+        </div>
+        <p class="flow-one-liner">The Dockerfile answers "how is it built." This file answers "how does it actually get started, on port what, with which secrets."</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">build: .</td><td>Build the image from the Dockerfile sitting in this same folder.</td></tr>
+          <tr><td class="mono">ports: "8000:8000"</td><td>Left number = your machine's port, right number = the container's port. Traffic to your <code>localhost:8000</code> reaches the container.</td></tr>
+          <tr><td class="mono">env_file: .env</td><td>Reads <code>GEMINI_API_KEY</code> (and anything else in <code>.env</code>) into the container <em>at startup</em> — never baked into the image itself.</td></tr>
+          <tr><td class="mono">healthcheck: ... /health ...</td><td>Every 10s, checks <code>/health</code>. 3 failures in a row → Docker marks the container <code>unhealthy</code>, which orchestration tools use to stop sending it traffic.</td></tr>
+        </table>
+        </div>
+        <p style="margin-top:12px; font-size:13.5px; color:var(--ink-soft);"><strong>Why the healthcheck hits <code>/health</code>, not <code>/enrich</code>:</strong> a healthcheck runs constantly and needs to be instant and free. <code>/enrich</code> costs money and time on every single call — the wrong thing to poll every 10 seconds.</p>
+        <div class="flow-next">this is the command that actually starts everything: <code>docker compose up --build</code></div>
+      </div>
+    </section>
 
   </main>
 </div>
