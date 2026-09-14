@@ -745,11 +745,20 @@ STATUS   running <span class="ok">(healthy)</span></div>
           <span class="flow-role">HTTP layer — the front door</span>
         </div>
         <p class="flow-one-liner">Every request enters here first. This file has never seen Gemini directly.</p>
-        <ul class="flow-points">
-          <li><code>EnrichRequest</code> — checks the input shape (min 3 chars) before anything else runs.</li>
-          <li><code>POST /enrich</code> — calls <code>enrich_narration()</code>, catches whatever it throws, turns each exception type into the right status code.</li>
-          <li><code>GET /health</code> — a standalone check, never touches the LLM.</li>
-        </ul>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">logging.basicConfig(level=logging.INFO, ...)</td><td>Sets the app-wide log level. Any <code>logger.debug(...)</code> anywhere in the project (like the raw narration in service.py) is silently dropped unless this changes.</td></tr>
+          <tr><td class="mono">app = FastAPI(title=..., version=...)</td><td>The actual web application object — every route below attaches to this one instance.</td></tr>
+          <tr><td class="mono">class EnrichRequest(BaseModel):<br>&nbsp;&nbsp;narration: str = Field(..., min_length=3, max_length=500)</td><td>The input contract. FastAPI validates every request body against this <em>before</em> your route function runs at all.</td></tr>
+          <tr><td class="mono">@app.post("/enrich", response_model=TransactionEnrichment)</td><td>Registers the route <em>and</em> declares the response shape — that declaration is what builds the <code>/docs</code> page for free.</td></tr>
+          <tr><td class="mono">def enrich(request: EnrichRequest):</td><td>By the time this line runs, <code>request.narration</code> is already guaranteed to be a valid 3-500 char string.</td></tr>
+          <tr><td class="mono">except InstructorRetryException: → 422</td><td>The LLM never produced a valid shape, even after retries. That's the caller's input problem, not a server bug.</td></tr>
+          <tr><td class="mono">except httpx.TimeoutException: → 504</td><td>The provider was too slow. Not the caller's fault, and not really our bug either.</td></tr>
+          <tr><td class="mono">except Exception: logger.error(..., exc_info=exc) → 500</td><td>Catches anything unexpected. Logs the <em>real</em> error server-side in full, but the caller only ever sees "An unexpected error occurred."</td></tr>
+          <tr><td class="mono">@app.get("/health")</td><td>A second, completely independent route — no LLM, no dependencies. Just proves the process is alive.</td></tr>
+        </table>
+        </div>
         <div class="flow-next">↓ hands the narration string to <strong>enrich_narration()</strong> in service.py</div>
       </div>
 
@@ -761,11 +770,20 @@ STATUS   running <span class="ok">(healthy)</span></div>
           <span class="flow-role">Where the LLM actually gets called</span>
         </div>
         <p class="flow-one-liner">The only file in this project that talks to Gemini. Everything else is scaffolding around this one.</p>
-        <ul class="flow-points">
-          <li>Builds the Gemini client + Instructor wrapper <strong>once</strong>, at import time — not per request.</li>
-          <li><code>enrich_narration(narration)</code> — logs the length only (never the text), then calls <code>_client.create(...)</code>.</li>
-          <li>Returns an already-validated <code>TransactionEnrichment</code> — or lets Instructor's/httpx's exception propagate up to main.py.</li>
-        </ul>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">_settings = get_settings()</td><td>Runs once, at import time — pulls everything from config.py before a single request has arrived.</td></tr>
+          <tr><td class="mono">_raw_client = genai.Client(api_key=..., http_options=HttpOptions(timeout=...))</td><td>The actual connection to Gemini. <code>request_timeout_seconds</code> (a float) is converted to milliseconds here — that's the real network timeout, not a decoration.</td></tr>
+          <tr><td class="mono">_client = instructor.from_genai(_raw_client, model=...)</td><td>Wraps the raw client so <code>.create()</code> can accept <code>response_model=</code> and auto-retry on bad shape.</td></tr>
+          <tr><td class="mono">PROMPT_TEMPLATE = """..."""</td><td>One template, module-level — reused by every request, never rebuilt or copy-pasted per call.</td></tr>
+          <tr><td class="mono">logger.debug("...narration=%r", narration)</td><td>Logs the raw text — but only at DEBUG, which is off by default (see main.py's <code>basicConfig</code>).</td></tr>
+          <tr><td class="mono">logger.info("...narration_length=%d", len(narration))</td><td>Logs a safe fact about the request — just its length — at the level that's actually recorded.</td></tr>
+          <tr><td class="mono">result = _client.create(response_model=..., messages=[...], max_retries=...)</td><td>The one line in the whole project that actually talks to Gemini. Returns a validated object, or raises.</td></tr>
+          <tr><td class="mono">logger.info("enrich_completed category=%s ...")</td><td>Confirms what happened — the extracted fields, never the raw narration text.</td></tr>
+          <tr><td class="mono">return result</td><td>Handed straight back to main.py's route handler, already validated.</td></tr>
+        </table>
+        </div>
         <div class="flow-next">↑ reads settings from <strong>config.py</strong> · uses the shape defined in <strong>models.py</strong></div>
       </div>
 
@@ -777,11 +795,18 @@ STATUS   running <span class="ok">(healthy)</span></div>
           <span class="flow-role">Every environment-dependent knob, in one place</span>
         </div>
         <p class="flow-one-liner">If a value changes between your laptop and a server, it lives here — nowhere else in the codebase reads an env var directly.</p>
-        <ul class="flow-points">
-          <li><code>gemini_api_key: str</code> — no default. The app refuses to boot without it.</li>
-          <li><code>request_timeout_seconds</code>, <code>max_retries</code> — both real production knobs, not decoration.</li>
-          <li><code>@lru_cache</code> on <code>get_settings()</code> — the <code>.env</code> file is read once per process, not once per request.</li>
-        </ul>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">class Settings(BaseSettings):</td><td>A Pydantic model that reads its values from environment variables / <code>.env</code>, instead of from a request body like a normal model.</td></tr>
+          <tr><td class="mono">model_config = SettingsConfigDict(env_file=".env", ...)</td><td>Tells it exactly which file to read, and with what text encoding.</td></tr>
+          <tr><td class="mono">gemini_api_key: str</td><td>No default value. If <code>GEMINI_API_KEY</code> isn't set anywhere, the app crashes on startup — loudly, immediately — instead of failing mysteriously on the first real request.</td></tr>
+          <tr><td class="mono">model_name: str = "gemini-3.6-flash"</td><td>Has a default, so most environments don't need to set it — but it can still be overridden (e.g. testing a newer model) without touching code.</td></tr>
+          <tr><td class="mono">request_timeout_seconds: float = 10.0</td><td>The knob service.py converts into the real HTTP timeout on the Gemini client.</td></tr>
+          <tr><td class="mono">max_retries: int = 3</td><td>The knob passed straight into Instructor's retry loop.</td></tr>
+          <tr><td class="mono">@lru_cache<br>def get_settings(): return Settings()</td><td>Wraps construction so the <code>.env</code> file is actually read exactly once per process — not once per incoming request.</td></tr>
+        </table>
+        </div>
         <div class="flow-next">read once, at startup, by <strong>service.py</strong></div>
       </div>
 
@@ -793,11 +818,16 @@ STATUS   running <span class="ok">(healthy)</span></div>
           <span class="flow-role">The validation contract</span>
         </div>
         <p class="flow-one-liner">This is the exact shape every LLM answer must match — or it's rejected before anyone downstream ever sees it.</p>
-        <ul class="flow-points">
-          <li><code>TransactionEnrichment</code> — 4 fields, each with an exact type, none of them a free-form string.</li>
-          <li><code>Literal[...]</code> on <code>category</code> — only 5 exact values are legal; the model can't invent a 6th.</li>
-          <li><code>Field(ge=0.0, le=1.0)</code> on <code>confidence</code> — must be a real number, in range, or Pydantic rejects it.</li>
-        </ul>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">class TransactionEnrichment(BaseModel):</td><td>Defines the exact shape every LLM answer must match. Nothing outside this file ever sees an unvalidated version.</td></tr>
+          <tr><td class="mono">merchant: str = Field(..., description=...)</td><td>Required, must be a string. The <code>description</code> text does double duty — it shows up in <code>/docs</code>, and is also shown to Gemini as part of the tool schema it must call.</td></tr>
+          <tr><td class="mono">category: Literal["food_delivery", ..., "other"]</td><td>Only these 5 exact values are legal. In <code>Mode.TOOLS</code>, Gemini's function-call literally cannot produce a 6th — it's not a suggestion, it's enforced.</td></tr>
+          <tr><td class="mono">transaction_type: str = Field(..., description=...)</td><td>Required string, e.g. "UPI", "NEFT", "POS" — left open-ended (not a <code>Literal</code>) since real payment rails vary more than 5 categories.</td></tr>
+          <tr><td class="mono">confidence: float = Field(..., ge=0.0, le=1.0, ...)</td><td>Must be a real number between 0 and 1. This is the exact field that came back as <code>"High"</code> and as a nested object in Day 2 — this one line is what makes both impossible now.</td></tr>
+        </table>
+        </div>
         <div class="flow-next">handed to Instructor as <code>response_model</code> by <strong>service.py</strong> · also used by <strong>main.py</strong> to describe the API's response shape in <code>/docs</code></div>
       </div>
 
