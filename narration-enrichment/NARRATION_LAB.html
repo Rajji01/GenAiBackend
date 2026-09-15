@@ -230,6 +230,13 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">Week 2</div>
+      <a class="nav-link" href="#week2-p1"><span class="nav-tag">P1</span>Evaluation</a>
+      <a class="nav-link" href="#week2-p2"><span class="nav-tag">P2</span>Batch + DB</a>
+      <a class="nav-link" href="#week2-p3"><span class="nav-tag">P3</span>Reliability</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -248,10 +255,10 @@
       <p class="lede" style="margin-top:12px;">A six-entry build log: what was fed to the model, what shape we needed back, where that broke, and exactly why the fix works — with the real terminal output at every step, not a tidied-up retelling.</p>
 
       <div class="stat-row">
-        <div class="card stat-tile"><div class="stat-num">6</div><div class="stat-label">Log entries</div></div>
-        <div class="card stat-tile"><div class="stat-num">3</div><div class="stat-label">Real bugs hit</div></div>
-        <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Tests, 0 live calls</div></div>
-        <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Max attempts / call</div></div>
+        <div class="card stat-tile"><div class="stat-num">9</div><div class="stat-label">Log entries</div></div>
+        <div class="card stat-tile"><div class="stat-num">8</div><div class="stat-label">Real bugs hit</div></div>
+        <div class="card stat-tile"><div class="stat-num">28</div><div class="stat-label">Tests, 0 live calls</div></div>
+        <div class="card stat-tile"><div class="stat-num">20/day</div><div class="stat-label">Free-tier quota cap</div></div>
       </div>
 
       <div class="card" style="padding:18px 22px; margin-top:24px;">
@@ -688,6 +695,145 @@ STATUS   running <span class="ok">(healthy)</span></div>
       </div>
 
       <p>The API key was never baked into the image — <code>docker-compose.yml</code> injects it at <em>runtime</em> via <code>env_file: .env</code>, so the same image works across dev, staging, and prod by swapping only the env file, never rebuilding.</p>
+    </article>
+
+    <section id="week2-intro" style="margin-top:64px;">
+      <p class="eyebrow">Week 2</p>
+      <h2>Measure it, scale it, survive its own outages</h2>
+      <p>Week 1 proved the pipeline could produce correct, typed output once. Week 2 asks three harder questions: how do you know it's <em>still</em> correct after you change something, what happens when there are 50 narrations instead of 1, and what happens when the provider itself has a bad minute.</p>
+    </section>
+
+    <!-- WEEK 2 / PHASE 1 -->
+    <article class="card day" id="week2-p1">
+      <div class="day-head">
+        <span class="day-stamp">PHASE 1</span>
+        <span class="day-title">Evaluation &amp; golden dataset</span>
+      </div>
+      <span class="day-files">eval/golden_dataset.json · eval/run_eval.py</span>
+
+      <div class="field">
+        <div class="field-label">Goal</div>
+        <p>Day 5's tests prove the pipeline doesn't crash. They say nothing about whether "Swiggy" is actually the right merchant. This is the second question: is the output <em>correct</em>, measured against 12 hand-labeled real examples.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Code</div>
+        <pre><code>result = enrich_narration(case["narration"])  # the REAL function /enrich uses
+merchant_ok = case["expected_merchant_contains"].lower() in result.merchant.lower()
+category_ok = result.category == case["expected_category"]
+type_ok = result.transaction_type.upper() == case["expected_transaction_type"].upper()</code></pre>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">Bug found — free tier is much more limited than it looks</div>
+        <p>Running all 12 narrations back-to-back hit a real <strong>429</strong> almost immediately:</p>
+      </div>
+      <div class="terminal">429 RESOURCE_EXHAUSTED
+<span class="dim">Quota exceeded for metric: generate_content_free_tier_requests</span>
+<span class="bad">quotaId: GenerateRequestsPerMinutePerProjectPerModel-FreeTier, quotaValue: '5'</span></div>
+      <p style="margin-top:10px; font-size:14.5px;">Paced calls 13s apart to stay under 5/minute — then hit a <em>second</em>, unrelated cap on the very next run:</p>
+      <div class="terminal"><span class="bad">quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier, quotaValue: '20'</span>
+<span class="dim">No amount of pacing fixes this one — it resets once a day, period.</span></div>
+
+      <div class="bug-box">
+        <div class="bug-label">Bug found — the 10s timeout was too tight</div>
+        <p>Of 12 calls that got past the rate limit, 4 (33%) failed with <code>504 DEADLINE_EXCEEDED</code> at the original 10s timeout. Raised to 20s in <code>config.py</code> based on this measurement — not a guess.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Summary output (the honest version — completion rate separate from accuracy)</div>
+        <div class="terminal">calls completed              8/12
+call failure rate            33%  (reliability, not correctness — timeouts/quota/outages)
+accuracy: merchant           100%  (of calls that completed)
+accuracy: category           100%  (of calls that completed)
+accuracy: all fields         100%  (of calls that completed)</div>
+      </div>
+      <p style="margin-top:10px;">The naive read of "67% correct" would have been wrong to act on — the model was <strong>100% correct whenever it actually got to respond</strong>. The real problem this eval run surfaced was reliability, not prompt quality.</p>
+    </article>
+
+    <!-- WEEK 2 / PHASE 2 -->
+    <article class="card day" id="week2-p2">
+      <div class="day-head">
+        <span class="day-stamp">PHASE 2</span>
+        <span class="day-title">Batch processing &amp; persistence</span>
+      </div>
+      <span class="day-files">db.py · schemas.py · main.py</span>
+
+      <div class="field">
+        <div class="field-label">Goal</div>
+        <p>A real bank statement has dozens of lines, not one — and Week 1's pipeline forgot every result the moment it answered. Added <code>POST /enrich/batch</code> (up to 50 at once, each isolated) and a SQLite-backed <code>EnrichmentRecord</code> table so results outlive the request.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Per-item isolation (the actual batch-processing lesson)</div>
+        <pre><code>for index, narration in enumerate(request.narrations):
+    try:
+        result = _enrich_and_persist(narration, db)
+        results.append(BatchItemResult(index=index, success=True, ...))
+    except Exception as exc:
+        results.append(BatchItemResult(index=index, success=False, error=type(exc).__name__))</code></pre>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">Bug found — SQLite ":memory:" + connection pooling</div>
+        <p>First test run against an in-memory test database failed immediately:</p>
+      </div>
+      <div class="terminal">sqlite3.OperationalError: <span class="bad">no such table: enrichment_records</span></div>
+      <p style="margin-top:10px; font-size:14.5px;">SQLite's <code>:memory:</code> database lives inside a single <em>connection</em> — SQLAlchemy's default pool handed <code>create_all()</code> one connection and the test's query a different one, which had never seen the table. Fixed with <code>poolclass=StaticPool</code>, forcing every checkout through the same connection.</p>
+
+      <div class="bug-box">
+        <div class="bug-label">Bug found — the volume mount was missing</div>
+        <p>The original <code>docker-compose.yml</code> had no volume. The SQLite file would have lived inside the container's writable layer and vanished on every <code>docker compose down</code> — a real, easy-to-miss data-loss bug for anyone's first Docker+DB setup.</p>
+      </div>
+      <div class="terminal">$ docker compose exec narration-enrichment uv run python -c "...save_enrichment(...)..."
+saved id 1
+$ docker compose down &amp;&amp; docker compose up -d
+$ curl http://localhost:8000/enrichments
+<span class="ok">[{"id":1,"merchant":"Docker Volume Test",...}]</span>  <span class="dim">← survived the restart</span></div>
+    </article>
+
+    <!-- WEEK 2 / PHASE 3 -->
+    <article class="card day" id="week2-p3">
+      <div class="day-head">
+        <span class="day-stamp">PHASE 3</span>
+        <span class="day-title">Production reliability — retry-with-backoff</span>
+      </div>
+      <span class="day-files">service.py · tests/test_service_retry.py</span>
+
+      <div class="field">
+        <div class="field-label">Goal</div>
+        <p>Phase 1 hit real 429/503/504 errors live. Instructor's own retry (Day 3) only retries a bad <em>shape</em> — a failed <em>call</em> propagates immediately. This phase adds a second, separate retry layer for exactly that.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Code</div>
+        <pre><code>_TRANSIENT_CODES = {429, 503, 504}  # found live in Phase 1 — not a guess
+
+def _is_transient_provider_error(exc):
+    return isinstance(exc, APIError) and exc.code in _TRANSIENT_CODES
+
+@retry(retry=retry_if_exception(_is_transient_provider_error),
+       stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10),
+       reraise=True)
+def _call_llm(narration): ...</code></pre>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Two retry layers, two different jobs</div>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Layer</th><th>Retries what</th><th>Because</th></tr>
+          <tr><td class="mono">Instructor's max_retries (Day 3)</td><td>bad shape (ValidationError)</td><td>the model can fix its own mistake if shown the error</td></tr>
+          <tr><td class="mono">tenacity's @retry (Phase 3, new)</td><td>failed call (429/503/504)</td><td>the provider was briefly unavailable — the SAME request tried again may just work</td></tr>
+        </table>
+        </div>
+      </div>
+
+      <p>A 400 or 404 is deliberately <strong>not</strong> in <code>_TRANSIENT_CODES</code> — those fail identically every time, so retrying just makes the caller wait 3x longer for the same answer. <code>main.py</code> got a fourth <code>except APIError</code> block too, mapped to <code>503</code> (not a generic 500) — meaning even the exhausted-retry case tells the caller "try again," not "something's broken."</p>
+
+      <div class="terminal">tests/test_service_retry.py::test_recovers_after_transient_errors_within_the_retry_budget <span class="ok">PASSED</span>
+tests/test_service_retry.py::test_non_transient_error_is_not_retried_at_all <span class="ok">PASSED</span>
+<span class="dim">9 passed — real tenacity backoff logic, real APIError objects, zero network calls</span></div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

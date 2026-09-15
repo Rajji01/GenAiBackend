@@ -76,8 +76,36 @@ Then either:
 uv run pytest -v
 ```
 
-11 tests, no network calls, no API key required — the LLM is mocked out
-for every test that goes through the HTTP layer.
+28 tests, no network calls, no API key required — the LLM is mocked out
+for every test that goes through the HTTP layer, and the database is
+swapped for an in-memory SQLite instance.
+
+## Evaluate (costs real API quota — run manually, not in CI)
+
+```bash
+uv run python eval/run_eval.py
+```
+
+Runs the real pipeline (real Gemini calls) against `eval/golden_dataset.json`
+— 12 hand-labeled bank narrations — and reports per-field accuracy,
+separately from the call-failure rate (timeouts/quota are a *reliability*
+finding, not a *correctness* one). A dated JSON report is saved under
+`eval/results/`. Run this whenever the prompt, schema, or model changes.
+
+## Batch + persistence
+
+```bash
+curl -X POST http://localhost:8000/enrich/batch \
+  -H "Content-Type: application/json" \
+  -d '{"narrations": ["UPI/P2M/.../SWIGGY/Payment", "POS .../AMAZON.IN/..."]}'
+
+curl http://localhost:8000/enrichments
+```
+
+`/enrich` and `/enrich/batch` both persist every successful result to
+SQLite (`db.py`); `/enrichments` lists what's stored. A bad item inside a
+batch is isolated — it's recorded as a failure in that item's slot, the
+rest of the batch still completes.
 
 ## Run in Docker
 
@@ -157,3 +185,27 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   `/health` and `/enrich` against the actual container (not just the
   local `uvicorn --reload` process), confirmed `docker compose ps` shows
   `healthy`.
+
+## Week 2
+
+- **Phase 1 — Evaluation** — a 12-example golden dataset and `eval/run_eval.py`.
+  Running it uncovered two real reliability limits on the free tier: a
+  5 requests/minute cap, and a **20 requests/day** cap — both discovered by
+  running the eval unpaced and reading the actual `429`/quota error, not
+  from documentation. Also found the default 10s timeout was too tight for
+  a reasoning model under real network conditions (33% timeout rate) and
+  raised it to 20s based on that measurement.
+- **Phase 2 — Batch + persistence** — `POST /enrich/batch` (up to 50
+  narrations, each isolated so one failure doesn't sink the batch),
+  `GET /enrichments`, and a SQLite-backed repository layer (`db.py`).
+  Hit a classic SQLite-in-memory testing gotcha (tables created on one
+  pooled connection, invisible to the next) — fixed with SQLAlchemy's
+  `StaticPool`. Added a Docker volume mount after realizing the original
+  compose file would have silently wiped the database on every
+  `docker compose down` — verified live: a row saved before `down` was
+  still there after `up`.
+- **Phase 3 — Production reliability** — retry-with-backoff (`tenacity`),
+  but *only* for the exact transient codes hit live in Phase 1 (429, 503,
+  504) — deliberately separate from Instructor's own retry, which handles
+  bad *shape*, not a failed *call*. A non-transient error (400, 404) is
+  never retried, since it would just fail identically three times.

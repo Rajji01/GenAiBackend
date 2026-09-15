@@ -169,7 +169,7 @@ local `uv run uvicorn` process), and confirmed `docker compose ps` showed
 
 ---
 
-## Where this leaves us
+## Where this leaves us (end of Week 1)
 
 Every item in the brief's Definition of Done is met: uv-managed project,
 `POST /enrich` returning a validated Pydantic object, malformed-output
@@ -179,3 +179,104 @@ this README, and it's pushed to GitHub.
 
 Try the self-check questions above first — pick a few you're least sure
 about, write down your actual answer, then we'll go through them together.
+
+---
+
+# Week 2 — Evaluation, Batch + Persistence, Production Reliability
+
+Same format. Each phase: what changed, why, self-check questions.
+
+## Phase 1 — Evaluation & Golden Dataset
+
+**Files:** `eval/golden_dataset.json`, `eval/run_eval.py`, `tests/test_eval_logic.py`
+
+**What we did:** 12 hand-labeled narrations with expected merchant/category/
+transaction_type. `run_eval.py` calls the *real* `enrich_narration()` (the
+same function `/enrich` uses) against every one, compares the result, and
+reports per-field accuracy — separately from the call-failure rate.
+
+**What we found, live:** running all 12 back-to-back hit a **5
+requests/minute** free-tier cap immediately. After pacing calls 13s apart,
+a second run then hit a **20 requests/day** cap partway through — a
+completely different, harder limit that no amount of pacing fixes. Also:
+at the original 10s timeout, roughly a third of completed-but-slow calls
+timed out (`504 DEADLINE_EXCEEDED`) — raised to 20s afterward, based on
+that measurement.
+
+**Self-check:**
+- The eval script separates "call failed" from "call succeeded but was
+  wrong." Why does collapsing those into one "accuracy" number hide the
+  more useful story? Which one is actually a *prompt/schema* problem, and
+  which is an *infrastructure* problem?
+- `compare_result()` is tested with `tests/test_eval_logic.py` and costs
+  nothing to run; `run_eval.py` itself is never run in CI. What's the
+  actual dividing line between "goes in the normal test suite" and
+  "manual-only script" here?
+- The golden dataset's `expected_category` for "UBER TRIP PAYMENT" and
+  "NETFLIX SUBSCRIPTION" is `"other"` — neither fits food_delivery,
+  shopping, salary, or transfer well. What does a high `other`-rate in a
+  real eval run actually tell you about the *schema*, not the model?
+
+## Phase 2 — Batch Processing + Persistence
+
+**Files:** `db.py`, `schemas.py`, `main.py` (`/enrich/batch`, `/enrichments`)
+
+**What we did:** a SQLite-backed `EnrichmentRecord` table, a `save_enrichment`
+/ `list_enrichments` repository pair, and `POST /enrich/batch` (up to 50
+narrations per call) where each item is tried independently — one failure
+doesn't take down the other 49.
+
+**Bugs found, live:**
+1. First test run against an in-memory test database failed with
+   `sqlite3.OperationalError: no such table: enrichment_records` — SQLite's
+   `:memory:` database lives inside a single *connection*, and SQLAlchemy's
+   default connection pool hands out a different connection per checkout.
+   Fixed with `poolclass=StaticPool`, forcing one shared connection.
+2. The original `docker-compose.yml` had no volume — the SQLite file would
+   have lived inside the container's writable layer and vanished on every
+   `docker compose down`. Added a bind mount (`./data:/app/data`) and
+   verified live: saved a row, ran `docker compose down && up`, the row
+   was still there.
+
+**Self-check:**
+- Why does the *test* database need `StaticPool` but the *real* SQLite
+  file (`db.py`'s `engine`) doesn't hit the same problem?
+- `/enrich/batch` catches exceptions per-item instead of letting one
+  failure raise an `HTTPException` for the whole request. What HTTP status
+  code does a batch request return when 40 of 50 items succeed and 10
+  fail? Is that the right status code, and why?
+- The batch item's `error` field stores `type(exc).__name__` (e.g.
+  `"RuntimeError"`), never `str(exc)`. What's the same principle from
+  Week 1 being applied here again?
+
+## Phase 3 — Production Reliability (retry-with-backoff)
+
+**Files:** `service.py` (`_is_transient_provider_error`, `_call_llm`), `tests/test_service_retry.py`
+
+**What we did:** wrapped the Instructor call in a `tenacity` retry that
+fires *only* for HTTP 429/503/504 (the exact codes hit live in Phase 1),
+with exponential backoff, max 3 attempts. A 400 or 404 is never retried.
+
+**Self-check:**
+- This is now a *second* retry mechanism sitting right next to Instructor's
+  own `max_retries` (Day 3). What exactly does each one retry, and why
+  would merging them into a single retry loop be a mistake?
+- Why retry 429 (quota exceeded) at all — doesn't retrying immediately
+  guarantee the same quota error again? What does `wait_exponential` add
+  that makes retrying 429 sometimes actually work?
+- `main.py` now has a fourth `except` block, for `APIError`, mapped to
+  `503`. Given that `service.py` *already* retried transient errors 3
+  times before this exception could even reach `main.py`, what does
+  reaching this specific except block actually tell you happened?
+
+---
+
+## Where this leaves us (end of Week 2)
+
+The pipeline is now measured (eval), scales past one-at-a-time (batch),
+remembers what it did (persistence), and survives the exact transient
+failures observed live on the free tier (retry-with-backoff) — without
+reaching for a second LLM provider or a heavier database than the
+project's actual scale justifies.
+
+Try the self-check questions above first, same as always.

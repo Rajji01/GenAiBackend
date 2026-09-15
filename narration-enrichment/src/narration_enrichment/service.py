@@ -4,10 +4,13 @@ The enrichment pipeline itself. The client is built once at import time
 """
 
 import logging
+import time
 
 import instructor
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from narration_enrichment.config import get_settings
 from narration_enrichment.models import TransactionEnrichment
@@ -32,6 +35,38 @@ merchant, the category, the transaction type, and how confident you are.
 Narration: {narration}
 """
 
+# Found live, Week 2: the free tier throws 429 (quota), 503 (overloaded)
+# and 504 (deadline) — none of which Instructor retries itself (it only
+# retries ValidationError/JSONDecodeError, see Day 3 notes). Those three
+# are the ONLY codes retried here — a real 400 (bad request) or 404 (bad
+# model name) retrying would just waste three attempts failing the same
+# way three times.
+_TRANSIENT_CODES = {429, 503, 504}
+
+
+def _is_transient_provider_error(exc: BaseException) -> bool:
+    return isinstance(exc, APIError) and exc.code in _TRANSIENT_CODES
+
+
+@retry(
+    retry=retry_if_exception(_is_transient_provider_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    reraise=True,
+)
+def _call_llm(narration: str) -> TransactionEnrichment:
+    # This is a SEPARATE retry layer from Instructor's own max_retries
+    # below — that one retries a bad SHAPE by re-asking the model; this
+    # one retries a failed CALL because the provider itself was briefly
+    # unavailable. Conflating the two into one retry loop would mean a
+    # shape problem and a quota problem both looked the same from the
+    # outside, which they aren't and shouldn't be handled the same way.
+    return _client.create(
+        response_model=TransactionEnrichment,
+        messages=[{"role": "user", "content": PROMPT_TEMPLATE.format(narration=narration)}],
+        max_retries=_settings.max_retries,
+    )
+
 
 def enrich_narration(narration: str) -> TransactionEnrichment:
     # DEBUG only: the narration can contain PII (masked card numbers,
@@ -40,16 +75,15 @@ def enrich_narration(narration: str) -> TransactionEnrichment:
     logger.debug("enrich_narration_raw narration=%r", narration)
     logger.info("enrich_started narration_length=%d", len(narration))
 
-    result = _client.create(
-        response_model=TransactionEnrichment,
-        messages=[{"role": "user", "content": PROMPT_TEMPLATE.format(narration=narration)}],
-        max_retries=_settings.max_retries,
-    )
+    started_at = time.monotonic()
+    result = _call_llm(narration)
+    latency_ms = (time.monotonic() - started_at) * 1000
 
     logger.info(
-        "enrich_completed category=%s transaction_type=%s confidence=%.2f",
+        "enrich_completed category=%s transaction_type=%s confidence=%.2f latency_ms=%.0f",
         result.category,
         result.transaction_type,
         result.confidence,
+        latency_ms,
     )
     return result

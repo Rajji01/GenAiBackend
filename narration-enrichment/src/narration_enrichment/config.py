@@ -21,8 +21,18 @@ class Settings(BaseSettings):
     # provider must not be allowed to hang a request forever, and a
     # malformed/unparseable output must fail after a bounded number of
     # attempts rather than retrying forever.
-    request_timeout_seconds: float = 10.0
+    #
+    # 10.0 was the original guess and was too tight: a Week 2 eval run
+    # against gemini-3.6-flash (a reasoning model, see Day 1's thinking-
+    # token finding) measured a 33% timeout rate at 10s under real network
+    # conditions. Raised to 20.0 based on that measurement, not a guess.
+    request_timeout_seconds: float = 20.0
     max_retries: int = 3
+
+    # SQLite by default — one file, zero setup, plenty for this project's
+    # scale. A real multi-writer production deployment would reach for
+    # Postgres here, but the repository pattern below doesn't change.
+    database_url: str = "sqlite:///./narration_enrichment.db"
 
 
 @lru_cache

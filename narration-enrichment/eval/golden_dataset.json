@@ -1,0 +1,86 @@
+[
+  {
+    "id": "swiggy_upi",
+    "narration": "UPI/P2M/509912345678/PAYTM/SWIGGY BANGALORE/Payment",
+    "expected_merchant_contains": "swiggy",
+    "expected_category": "food_delivery",
+    "expected_transaction_type": "UPI"
+  },
+  {
+    "id": "acme_salary",
+    "narration": "NEFT-N123456789-ACME CORP SALARY-MAR2026",
+    "expected_merchant_contains": "acme",
+    "expected_category": "salary",
+    "expected_transaction_type": "NEFT"
+  },
+  {
+    "id": "amazon_pos",
+    "narration": "POS 4109XXXXXXXX1234 AMAZON.IN BANGALORE IND",
+    "expected_merchant_contains": "amazon",
+    "expected_category": "shopping",
+    "expected_transaction_type": "POS"
+  },
+  {
+    "id": "p2p_transfer",
+    "narration": "UPI/P2P/778812345/RAHUL SHARMA/Fund Transfer",
+    "expected_merchant_contains": "rahul",
+    "expected_category": "transfer",
+    "expected_transaction_type": "UPI"
+  },
+  {
+    "id": "imps_transfer",
+    "narration": "IMPS/812345678901/JOHN DOE/To Friend",
+    "expected_merchant_contains": "john",
+    "expected_category": "transfer",
+    "expected_transaction_type": "IMPS"
+  },
+  {
+    "id": "atm_withdrawal",
+    "narration": "ATM WDL 400123456789 SBI ATM MUMBAI",
+    "expected_merchant_contains": "sbi",
+    "expected_category": "other",
+    "expected_transaction_type": "ATM"
+  },
+  {
+    "id": "zomato_upi",
+    "narration": "UPI/P2M/998877665/ZOMATO ONLINE ORDERING/Payment",
+    "expected_merchant_contains": "zomato",
+    "expected_category": "food_delivery",
+    "expected_transaction_type": "UPI"
+  },
+  {
+    "id": "bigbasket_pos",
+    "narration": "POS 5321XXXXXXXX9988 BIGBASKET BANGALORE IND",
+    "expected_merchant_contains": "bigbasket",
+    "expected_category": "shopping",
+    "expected_transaction_type": "POS"
+  },
+  {
+    "id": "infosys_salary",
+    "narration": "NEFT-N998877-INFOSYS LTD SALARY-FEB2026",
+    "expected_merchant_contains": "infosys",
+    "expected_category": "salary",
+    "expected_transaction_type": "NEFT"
+  },
+  {
+    "id": "netflix_subscription",
+    "narration": "UPI/P2M/112233445/NETFLIX SUBSCRIPTION/Payment",
+    "expected_merchant_contains": "netflix",
+    "expected_category": "other",
+    "expected_transaction_type": "UPI"
+  },
+  {
+    "id": "uber_ride",
+    "narration": "UPI/P2M/667788990/UBER TRIP PAYMENT/Payment",
+    "expected_merchant_contains": "uber",
+    "expected_category": "other",
+    "expected_transaction_type": "UPI"
+  },
+  {
+    "id": "reliance_fresh_pos",
+    "narration": "POS 1122XXXXXXXX3344 RELIANCE FRESH BANGALORE IND",
+    "expected_merchant_contains": "reliance",
+    "expected_category": "shopping",
+    "expected_transaction_type": "POS"
+  }
+]

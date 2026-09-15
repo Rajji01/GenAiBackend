@@ -5,6 +5,14 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    volumes:
+      # Without this, the SQLite file lives inside the container's
+      # writable layer — every `docker compose down` / rebuild would
+      # silently wipe every persisted enrichment. This bind-mounts it to
+      # the host so the data outlives the container.
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/narration_enrichment.db
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
