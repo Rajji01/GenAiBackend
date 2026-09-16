@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seat Lock</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F2EFE6;
+    --surface:#FFFFFF;
+    --surface-alt:#EAE3D2;
+    --ink:#1B1F2A;
+    --ink-soft:#565D6D;
+    --border:#D9D0BA;
+    --accent:#A9761F;
+    --accent-soft:#EFE0BC;
+    --danger:#A34430;
+    --danger-soft:#F2DCD3;
+    --success:#2E7D5B;
+    --success-soft:#DBEBE1;
+    --code-bg:#1B1F2A;
+    --code-ink:#E9E4D6;
+    --shadow: 0 1px 2px rgba(27,31,42,.06), 0 8px 24px rgba(27,31,42,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161C;
+      --surface:#1C1F28;
+      --surface-alt:#242833;
+      --ink:#EDE9DC;
+      --ink-soft:#A9AFC0;
+      --border:#343947;
+      --accent:#D9A54B;
+      --accent-soft:#3A311D;
+      --danger:#E08370;
+      --danger-soft:#3C2420;
+      --success:#7BC7A3;
+      --success-soft:#1E332A;
+      --code-bg:#0F1116;
+      --code-ink:#E9E4D6;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161C;
+    --surface:#1C1F28;
+    --surface-alt:#242833;
+    --ink:#EDE9DC;
+    --ink-soft:#A9AFC0;
+    --border:#343947;
+    --accent:#D9A54B;
+    --accent-soft:#3A311D;
+    --danger:#E08370;
+    --danger-soft:#3C2420;
+    --success:#7BC7A3;
+    --success-soft:#1E332A;
+    --code-bg:#0F1116;
+    --code-ink:#E9E4D6;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Public Sans", -apple-system, sans-serif;
+    line-height:1.55;
+  }
+  h1,h2,h3{ font-family:"Fraunces", Georgia, serif; text-wrap:balance; color:var(--ink); margin:0 0 .4em; }
+  h2{ font-size:30px; font-weight:600; }
+  h3{ font-size:20px; font-weight:600; }
+  p{ margin:0 0 1em; color:var(--ink); }
+  code, .mono{ font-family:"IBM Plex Mono", monospace; font-size:.92em; }
+  code{ background:var(--surface-alt); padding:1px 6px; border-radius:4px; }
+  a{ color:var(--accent); }
+
+  .eyebrow{
+    text-transform:uppercase; letter-spacing:.12em; font-size:11.5px;
+    color:var(--accent); font-weight:600; margin:0 0 8px;
+  }
+  .lede{ font-size:17px; color:var(--ink-soft); max-width:70ch; }
+
+  .layout{ display:flex; min-height:100%; }
+  .sidebar{
+    width:250px; flex:none; padding:26px 18px 40px;
+    border-right:1px solid var(--border);
+    position:sticky; top:0; align-self:flex-start; height:100vh; overflow-y:auto;
+  }
+  .brand-eyebrow{ text-transform:uppercase; letter-spacing:.14em; font-size:10.5px; color:var(--accent); font-weight:700; }
+  .brand-name{ font-family:"Fraunces",serif; font-size:24px; font-weight:700; margin:2px 0 22px; }
+  .nav-group{ margin-bottom:20px; }
+  .nav-group-title{ font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); font-weight:600; margin:0 0 6px 8px; }
+  .nav-link{
+    display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px;
+    color:var(--ink); text-decoration:none; font-size:13.5px;
+  }
+  .nav-link:hover{ background:var(--surface-alt); }
+  .nav-tag{
+    font-family:"IBM Plex Mono",monospace; font-size:9.5px; font-weight:600;
+    color:var(--accent); background:var(--accent-soft); border-radius:4px;
+    padding:1px 5px; min-width:20px; text-align:center;
+  }
+
+  main{ flex:1; min-width:0; padding:40px 44px 100px; max-width:920px; }
+
+  .stat-row{ display:flex; flex-wrap:wrap; gap:12px; margin-top:22px; }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); }
+  .stat-tile{ padding:14px 20px; min-width:118px; }
+  .stat-num{ font-family:"Fraunces",serif; font-size:26px; font-weight:700; }
+  .stat-label{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+
+  .concept, .day{
+    padding:26px 28px; margin-top:26px;
+  }
+  .concept-head, .day-head{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:4px; }
+  .day-stamp, .concept-stamp{
+    font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600;
+    color:var(--accent); background:var(--accent-soft); padding:2px 8px; border-radius:5px;
+  }
+  .day-title, .concept-title{ font-family:"Fraunces",serif; font-size:22px; font-weight:600; }
+  .day-files{ display:block; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink-soft); margin-bottom:14px; }
+
+  .field{ margin-top:16px; }
+  .field-label{ font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); font-weight:600; margin-bottom:6px; }
+
+  .terminal{
+    background:var(--code-bg); color:var(--code-ink); font-family:"IBM Plex Mono",monospace;
+    font-size:12.8px; line-height:1.6; padding:14px 16px; border-radius:9px;
+    overflow-x:auto; white-space:pre;
+  }
+  .terminal .ok{ color:#7BC7A3; }
+  .terminal .bad{ color:#E08370; }
+  .terminal .dim{ color:#8A93A6; }
+
+  .bug-box{
+    border:1px solid var(--danger); background:var(--danger-soft);
+    border-radius:10px; padding:14px 16px; margin-top:16px;
+  }
+  .bug-label{ font-weight:700; font-size:12.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--danger); margin-bottom:6px; }
+
+  .why-box{
+    border:1px solid var(--success); background:var(--success-soft);
+    border-radius:10px; padding:14px 16px; margin-top:16px;
+  }
+  .why-label{ font-weight:700; font-size:12.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--success); margin-bottom:6px; }
+
+  pre{ margin:0; }
+  pre code{ background:none; padding:0; }
+  .code-block{
+    background:var(--code-bg); color:var(--code-ink); border-radius:9px; padding:14px 16px;
+    overflow-x:auto; font-size:12.8px; line-height:1.6;
+  }
+  .code-block code{ background:none; color:inherit; padding:0; }
+
+  .table-wrap{ overflow-x:auto; margin-top:8px; }
+  table{ border-collapse:collapse; width:100%; font-size:13.5px; }
+  th, td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); }
+  tr:last-child td{ border-bottom:none; }
+
+  .pill-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .pill{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; padding:4px 10px;
+    border-radius:999px; background:var(--surface-alt); border:1px solid var(--border);
+  }
+
+  .diagram-wrap{ overflow-x:auto; }
+  figure{ margin:16px 0 6px; }
+  figcaption{ font-size:12.5px; color:var(--ink-soft); margin-top:8px; }
+  svg{ color:var(--ink); }
+  .svg-accent{ color:var(--accent); }
+  .svg-danger{ color:var(--danger); }
+  .svg-success{ color:var(--success); }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+  @media (max-width:700px){ .two-col{ grid-template-columns:1fr; } }
+  .mini-card{ background:var(--surface-alt); border-radius:10px; padding:14px 16px; }
+  .mini-card h4{ margin:0 0 6px; font-size:13.5px; font-family:"Fraunces",serif; font-weight:600; }
+  .mini-card p{ margin:0; font-size:13px; color:var(--ink-soft); }
+
+  .flow-card{ padding:20px 22px; margin-top:16px; }
+  .flow-head{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .flow-num{
+    font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:12px;
+    background:var(--accent); color:var(--surface); width:22px; height:22px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .flow-title{ font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:15px; }
+  .flow-role{ font-size:12.5px; color:var(--ink-soft); }
+  .flow-one-liner{ font-size:13.5px; color:var(--ink-soft); margin:6px 0 0; }
+  .flow-next{ margin-top:12px; font-size:12.5px; color:var(--accent); font-weight:600; }
+
+  footer{ color:var(--ink-soft); font-size:12.5px; padding:30px 44px; }
+
+  @media (max-width:820px){
+    .sidebar{ position:static; height:auto; width:auto; border-right:none; border-bottom:1px solid var(--border); }
+    .layout{ flex-direction:column; }
+    main{ padding:28px 18px 80px; }
+    footer{ padding-left:18px; }
+  }
+</style>
+</head>
+<body>
+
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand-eyebrow">Ticketing Platform</div>
+    <div class="brand-name">Seat Lock</div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Overview</div>
+      <a class="nav-link" href="#overview"><span class="nav-tag">·</span>The problem</a>
+      <a class="nav-link" href="#hld"><span class="nav-tag">·</span>Why this shape</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Concepts (theory)</div>
+      <a class="nav-link" href="#c-locking"><span class="nav-tag">C1</span>Optimistic vs pessimistic</a>
+      <a class="nav-link" href="#c-redis"><span class="nav-tag">C2</span>Redis SETNX + TTL</a>
+      <a class="nav-link" href="#c-twostore"><span class="nav-tag">C3</span>Two-store coordination</a>
+      <a class="nav-link" href="#c-idempotency"><span class="nav-tag">C4</span>Idempotency</a>
+      <a class="nav-link" href="#c-problemdetail"><span class="nav-tag">C5</span>RFC 7807 errors</a>
+      <a class="nav-link" href="#c-correlation"><span class="nav-tag">C6</span>MDC + correlation IDs</a>
+      <a class="nav-link" href="#c-testcontainers"><span class="nav-tag">C7</span>Testcontainers vs fakes</a>
+      <a class="nav-link" href="#c-config"><span class="nav-tag">C8</span>Config layering</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Week 1 build log</div>
+      <a class="nav-link" href="#day1"><span class="nav-tag">D1</span>Design + skeleton</a>
+      <a class="nav-link" href="#day2"><span class="nav-tag">D2</span>Seat + availability</a>
+      <a class="nav-link" href="#day3"><span class="nav-tag">D3</span>Hold + release</a>
+      <a class="nav-link" href="#day4"><span class="nav-tag">D4</span>Hardening</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Bug museum</div>
+      <a class="nav-link" href="#bug1"><span class="nav-tag">B1</span>Scheduler vs teardown</a>
+      <a class="nav-link" href="#bug2"><span class="nav-tag">B2</span>Config shadowing</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Quick revision</div>
+      <a class="nav-link" href="#flow-seat"><span class="nav-tag">1</span>Seat.java</a>
+      <a class="nav-link" href="#flow-holdservice"><span class="nav-tag">2</span>HoldService.java</a>
+      <a class="nav-link" href="#flow-reconcile"><span class="nav-tag">3</span>HoldReconciliationService</a>
+      <a class="nav-link" href="#flow-geh"><span class="nav-tag">4</span>GlobalExceptionHandler</a>
+      <a class="nav-link" href="#flow-correlation"><span class="nav-tag">5</span>CorrelationIdFilter</a>
+      <a class="nav-link" href="#flow-compose"><span class="nav-tag">6</span>docker-compose.yml</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <section id="overview">
+      <p class="eyebrow">Java · Spring Boot · Postgres · Redis · Testcontainers · Docker</p>
+      <h2 style="font-size:38px;">Making sure two people never win the same seat</h2>
+      <p class="lede" style="margin-top:12px;">A deep build log for <code>inventory-service</code>, the first microservice of the ticketing-platform track — not just what was built, but the theory underneath every decision, why it was made, and the real bugs that came from making it. Read the Concepts section first if a mechanism feels unfamiliar; the day-by-day log links back to it.</p>
+
+      <div class="stat-row">
+        <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Days logged</div></div>
+        <div class="card stat-tile"><div class="stat-num">8</div><div class="stat-label">Concepts explained</div></div>
+        <div class="card stat-tile"><div class="stat-num">30</div><div class="stat-label">Tests, real Postgres + Redis</div></div>
+        <div class="card stat-tile"><div class="stat-num">3</div><div class="stat-label">Real bugs caught live</div></div>
+      </div>
+
+      <div class="card" style="padding:18px 22px; margin-top:24px;">
+        <div class="field-label">The one scenario every section below refers back to</div>
+        <p style="margin:6px 0 0; font-size:14.5px;">Two people tap "book" on the <strong>same seat</strong>, at the <strong>same instant</strong>, from two different phones. Exactly one of them must get it. The other must see a clean, honest "someone else got there first" — not a crash, not a double-booking, not a seat that silently vanishes from the system. Every mechanism on this page exists to make that true, and to make an abandoned attempt clean itself up automatically a few minutes later.</p>
+      </div>
+    </section>
+
+    <section id="hld" style="margin-top:56px;">
+      <p class="eyebrow">HLD</p>
+      <h2>Why a dedicated inventory-service, and why two stores</h2>
+      <p>The rest of the ticketing platform (catalog, booking, payment, notifications) doesn't exist yet — by design, Week 1 builds exactly one service, all the way to production-hardened, before adding a second. Two high-level decisions shape everything below:</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Why inventory is its own service</h4>
+          <p>Seat availability is read constantly (every visitor browsing a show) and written rarely but contentiously (a burst of holds on a popular show's release). That read/write shape, and its scaling profile under a flash-sale spike, is completely different from booking orchestration or payment retries — bundling them into one service would mean scaling the wrong thing under load.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Why two stores, not one</h4>
+          <p>Postgres is durable but has no native "expire this row after 5 minutes" primitive. Redis has TTL natively but nothing stops two unrelated write paths from touching the same row underneath it. Neither store's strengths cover the other's gap — so both are used, each for the one job it's actually good at. See <a href="#c-twostore">Concept 3</a>.</p>
+        </div>
+      </div>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 780 200" role="img" aria-label="A client sends a hold request to inventory-service. inventory-service checks Redis for a fast TTL-backed lock, then updates Postgres with an optimistic version check. Postgres is the durable source of truth; Redis is the self-healing lock.">
+            <defs>
+              <marker id="sl-arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono, monospace" font-size="12.5">
+              <rect x="15" y="70" width="120" height="50" rx="8" fill="none" stroke="currentColor"/>
+              <text x="75" y="99" text-anchor="middle">Client A + B</text>
+
+              <rect x="220" y="70" width="160" height="50" rx="8" class="svg-accent" fill-opacity=".12" stroke="currentColor"/>
+              <text x="300" y="99" text-anchor="middle">inventory-service</text>
+
+              <rect x="470" y="15" width="150" height="50" rx="8" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+              <text x="545" y="38" text-anchor="middle">Redis</text>
+              <text x="545" y="53" text-anchor="middle" font-size="10" opacity=".7">fast lock, TTL</text>
+
+              <rect x="470" y="125" width="150" height="50" rx="8" class="svg-success" fill-opacity=".14" stroke="currentColor"/>
+              <text x="545" y="148" text-anchor="middle">Postgres</text>
+              <text x="545" y="163" text-anchor="middle" font-size="10" opacity=".7">source of truth</text>
+            </g>
+            <g stroke="currentColor" fill="none" stroke-width="1.3">
+              <line x1="135" y1="95" x2="218" y2="95" marker-end="url(#sl-arrow1)"/>
+              <line x1="380" y1="86" x2="468" y2="50" marker-end="url(#sl-arrow1)"/>
+              <line x1="380" y1="104" x2="468" y2="145" marker-end="url(#sl-arrow1)"/>
+            </g>
+            <g font-family="IBM Plex Mono, monospace" font-size="10">
+              <text x="150" y="82">POST /hold</text>
+              <text x="392" y="62">1. SETNX key EX 300</text>
+              <text x="392" y="120">2. UPDATE ... WHERE version=?</text>
+            </g>
+          </svg>
+        </div>
+        <figcaption>Both checks happen on every hold — Redis first (cheap, fast-fail), Postgres second (the check that's actually enforceable against any writer, not just this code path).</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============ CONCEPTS ============ -->
+
+    <section id="concepts-intro" style="margin-top:60px;">
+      <p class="eyebrow">Concepts</p>
+      <h2>The theory behind every "why" below</h2>
+      <p>Eight mechanisms, explained twice each: what the idea is in general (the theory an interviewer would expect), and exactly how <code>inventory-service</code> uses it (the implementation an interviewer would probe next).</p>
+    </section>
+
+    <article class="card concept" id="c-locking">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 1</span>
+        <span class="concept-title">Optimistic vs. pessimistic locking</span>
+      </div>
+
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p>Two transactions both want to touch the same row. There are exactly two philosophies for stopping them from corrupting each other:</p>
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Pessimistic</h4>
+          <p><code>SELECT ... FOR UPDATE</code> — grab a real database lock on the row the moment you read it. Every other transaction wanting that row simply <em>waits</em> until you commit or roll back. Correct by construction, but every waiter is now blocked in real time — expensive under contention, and a slow holder stalls everyone behind it.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Optimistic</h4>
+          <p>Don't lock anything. Read the row, remember the version number you read it at, do your work, then write back with <code>WHERE id=? AND version=?</code>. If nobody else touched the row, the version still matches and your write succeeds. If someone else won the race, zero rows match your <code>WHERE</code> clause — your write silently updates nothing, and the ORM turns that into an exception you can catch.</p>
+        </div>
+      </div>
+      <p style="margin-top:12px;">Optimistic locking is the right default when conflicts are <em>rare</em> relative to reads — most seats, most of the time, are not being fought over. Pessimistic locking earns its cost when conflicts are common and blocking is cheaper than retrying (e.g. a single global counter every request touches).</p>
+
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it</h3>
+      <div class="code-block"><pre><code>@Entity
+public class Seat {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private SeatStatus status;
+
+    @Version
+    private Long version;   // <-- this one annotation is the whole mechanism
+}</code></pre></div>
+      <p style="margin-top:10px;">Hibernate does three things with that single <code>@Version</code> field, entirely on its own:</p>
+      <ol style="padding-left:20px; font-size:14.5px;">
+        <li>Every <code>SELECT</code> against this entity also fetches <code>version</code>.</li>
+        <li>Every <code>UPDATE</code> Hibernate generates includes <code>AND version = ?</code> in its <code>WHERE</code> clause, using the value that was read — and sets the new row's version to <code>current + 1</code>.</li>
+        <li>If the driver reports <strong>zero rows affected</strong> by that <code>UPDATE</code> (because some other transaction already bumped the version), Hibernate throws <code>OptimisticLockingFailureException</code> instead of silently doing nothing.</li>
+      </ol>
+      <div class="terminal">-- what Hibernate actually sends for HoldService granting a hold:
+UPDATE seats
+   SET status = 'HELD', version = 2
+ WHERE id = 7 AND version = 1;
+<span class="dim">-- if a concurrent request already moved this row to version 2,
+-- the WHERE clause matches nothing → 0 rows updated → exception.</span></div>
+      <p style="margin-top:10px;">This is why <code>HoldService</code> never has to write a manual <code>if (someone else has it) throw</code> check for the Postgres side — the version column enforces it at the SQL level, for <em>every</em> writer, including code that doesn't even know about the hold flow.</p>
+
+      <div class="why-box">
+        <div class="why-label">Why optimistic, here specifically</div>
+        <p>A given seat is contended by at most a handful of concurrent requests, for a few hundred milliseconds, during the specific moment someone clicks "hold." Pessimistic locking would mean every hold attempt blocks on a real database lock even when there's no actual conflict 99.9% of the time — optimistic locking pays nothing when there's no conflict, and only pays a retry (or a clean 409) on the rare occasion there is one.</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-redis">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 2</span>
+        <span class="concept-title">Redis SETNX + TTL, as a distributed lock</span>
+      </div>
+
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p><code>SETNX key value</code> ("SET if Not eXists") is atomic at the Redis server level: if the key is absent, it's created and the command returns success; if it already exists, nothing changes and the command reports failure. Because Redis processes commands single-threaded, there is no window where two clients can both "win" — this is exactly a mutual-exclusion lock, implemented as one atomic server-side operation instead of application-level coordination.</p>
+      <p>The missing piece a plain lock always has is <strong>cleanup</strong>: if the process holding the lock crashes, or a network partition eats its "I'm done" message, the lock is held forever. Redis's <code>EX</code> (expire) option attached to the same atomic command solves exactly that — the key deletes itself after N seconds with zero additional code, zero cron job, zero "did the cleanup job run" anxiety.</p>
+
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it</h3>
+      <div class="code-block"><pre><code>Boolean acquired = redisTemplate.opsForValue()
+        .setIfAbsent("hold:" + seatId, holderId, Duration.ofSeconds(300));
+// true  -> we now own this seat's hold, for up to 5 minutes
+// false -> someone already holds it (check who, below)</code></pre></div>
+      <p style="margin-top:10px;"><code>setIfAbsent(key, value, ttl)</code> is Spring Data Redis's name for the atomic <code>SET key value NX EX 300</code> command — one round trip, one atomic decision, TTL attached from the start (not set in a second call, which would leave a tiny window where the key exists with no expiry if the process died between the two calls).</p>
+
+      <div class="pill-row">
+        <span class="pill">key = hold:&lt;seatId&gt;</span>
+        <span class="pill">value = holderId</span>
+        <span class="pill">TTL = inventory.hold.ttl-seconds (300)</span>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Why the value is the holderId, not a random token</div>
+        <p>Storing the requester's own id as the lock's value (instead of a server-generated opaque token) means a retry by the <em>same</em> caller can be recognized as a retry, not a conflict — reading the key back and comparing it to the incoming holderId is the entire idempotency check (see <a href="#c-idempotency">Concept 4</a>). No separate "who owns this lock" table needed.</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-twostore">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 3</span>
+        <span class="concept-title">Two-store coordination &amp; compensating actions</span>
+      </div>
+
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p>The moment a "transaction" spans two different data stores that don't share a commit protocol, you lose the atomicity a single database gives you for free. Redis and Postgres cannot both commit or both roll back as one unit — there is a real window between "Redis says yes" and "Postgres says yes" where the system is in an intermediate state. The standard answer, borrowed from the saga pattern used across microservices, is: don't prevent the intermediate state, <strong>detect and compensate</strong> for it. If step 2 fails after step 1 already succeeded, explicitly undo step 1 rather than leaving it dangling.</p>
+
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it</h3>
+      <div class="code-block"><pre><code>Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, holderId, ttl);
+if (Boolean.TRUE.equals(acquired)) {
+    try {
+        // ...Postgres @Version update...
+    } catch (RuntimeException ex) {
+        redisTemplate.delete(key);   // <-- the compensating action
+        throw ex;
+    }
+}</code></pre></div>
+      <p style="margin-top:10px;">Step 1 (Redis SETNX) succeeds first. If step 2 (the Postgres update) then fails for <em>any</em> reason — the seat doesn't exist, it's already booked, or a genuine optimistic-lock conflict — the <code>catch</code> block deletes the Redis key before re-throwing. Without this, a request that failed at step 2 would still leave the seat looking "held" in Redis for up to 5 minutes, with no actual hold behind it: a phantom lock nobody could break except by waiting out the TTL.</p>
+
+      <div class="bug-box">
+        <div class="bug-label">The failure mode this specifically prevents</div>
+        <p>Client sends a hold for a seat that's already <code>BOOKED</code> in Postgres, but nothing is currently in Redis for it (maybe a previous hold's TTL already expired and reconciliation hasn't swept yet). Redis SETNX succeeds — the key didn't exist. The Postgres check then finds <code>status=BOOKED</code> and throws. Without the compensating delete, that seat would show as "held" to every other client for up to 5 minutes, even though the actual attempt failed and nobody holds it.</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-idempotency">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 4</span>
+        <span class="concept-title">Idempotency: same request twice, one effect</span>
+      </div>
+
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p>A network call can fail after the server did the work but before the client saw the response — the client has no way to tell "it never happened" apart from "it happened but I didn't hear back." The only safe client behavior is to retry. The only safe server behavior, then, is to make retrying the exact same request produce the exact same end state as doing it once — not a second seat held, not a second charge, not an error that implies something went wrong when nothing did.</p>
+
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it — two different shapes, on purpose</h3>
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Hold: idempotent by recognizing the retry</h4>
+          <p>If <code>hold:{seatId}</code> already exists, <code>HoldService</code> reads the stored value back. If it equals the caller's own <code>holderId</code>, this is the same caller asking again — return the same success response, touch nothing in Postgres a second time. A <em>different</em> holderId, by contrast, is a genuine conflict (409).</p>
+        </div>
+        <div class="mini-card">
+          <h4>Release: idempotent by treating "already done" as success</h4>
+          <p>If no hold exists for the seat at all — already released, or the TTL beat the caller to it — <code>release()</code> simply returns. The end state the caller wanted (no hold on this seat) is already true. There's no reason to fail an operation whose entire goal has already been achieved.</p>
+        </div>
+      </div>
+      <p style="margin-top:12px;">Two different mechanisms, same principle: judge idempotency by comparing to <em>the end state the caller wants</em>, not by whether this exact code path has run before.</p>
+    </article>
+
+    <article class="card concept" id="c-problemdetail">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 5</span>
+        <span class="concept-title">RFC 7807 ProblemDetail &amp; centralized exception handling</span>
+      </div>
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p>RFC 7807 is an actual IETF standard for what an HTTP API error body should look like — a consistent JSON shape (<code>type</code>, <code>title</code>, <code>status</code>, <code>detail</code>) instead of every endpoint inventing its own. Spring's <code>ProblemDetail</code> class produces exactly this shape. Pairing it with <code>@RestControllerAdvice</code> means exception-to-HTTP-status mapping happens in <strong>one place</strong> for the whole application — no controller method needs its own <code>try/catch</code>, and every 4xx/5xx response looks the same to every client.</p>
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Exception</th><th>Status</th><th>Meaning</th></tr>
+          <tr><td class="mono">ResourceNotFoundException</td><td class="mono">404</td><td>Seat, or seat-under-this-show, doesn't exist.</td></tr>
+          <tr><td class="mono">ConflictException</td><td class="mono">409</td><td>The resource's state disagrees with the request (already held, already booked).</td></tr>
+          <tr><td class="mono">ForbiddenException</td><td class="mono">403</td><td>The resource is fine — you just don't own this hold.</td></tr>
+          <tr><td class="mono">OptimisticLockingFailureException</td><td class="mono">409</td><td>Hibernate's own exception when a version check fails — mapped the same way as a business-level conflict.</td></tr>
+          <tr><td class="mono">MethodArgumentNotValidException</td><td class="mono">400</td><td>A <code>@Valid</code> DTO failed field validation (e.g. blank <code>holderId</code>).</td></tr>
+          <tr><td class="mono">Exception (anything else)</td><td class="mono">500</td><td>Logged in full server-side; the client only ever sees a generic message — the real exception text is never leaked.</td></tr>
+        </table>
+      </div>
+      <div class="why-box">
+        <div class="why-label">Why 403 is a separate class from 409</div>
+        <p>409 means "try again differently, the resource state changed." 403 means "nothing about the resource is wrong — you specifically are not allowed this action." Collapsing both into one exception type would tell a client the wrong thing to do next: retrying a forbidden release will never succeed no matter how many times you try, unlike a real conflict.</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-correlation">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 6</span>
+        <span class="concept-title">MDC &amp; correlation IDs</span>
+      </div>
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p>In production, one server handles thousands of interleaved requests on a shared thread pool — a plain log file is a single stream where every request's lines are shuffled together with every other request's. A <strong>correlation ID</strong> is a value generated (or received from an upstream caller) once per request and attached to every log line written during that request, so a human — or a log-search query — can pull out exactly one request's story from the noise. MDC (Mapped Diagnostic Context) is SLF4J's mechanism for this: a thread-local map that the logging pattern can read from automatically, without passing the ID as a parameter to every single log call.</p>
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it</h3>
+      <div class="code-block"><pre><code>String correlationId = request.getHeader("X-Correlation-Id");
+if (correlationId == null || correlationId.isBlank()) {
+    correlationId = UUID.randomUUID().toString();
+}
+response.setHeader("X-Correlation-Id", correlationId);
+MDC.put("correlationId", correlationId);
+try {
+    chain.doFilter(request, response);
+} finally {
+    MDC.remove("correlationId");   // <-- not optional
+}</code></pre></div>
+      <div class="bug-box">
+        <div class="bug-label">Why the finally block is load-bearing, not defensive style</div>
+        <p>Tomcat's request-handling threads are pooled and reused. If <code>MDC.remove</code> is skipped (an early return, an uncaught throw before cleanup), the <em>next, completely unrelated</em> request that happens to land on the same pooled thread would silently inherit this request's correlation id in its own logs — a real, hard-to-notice bug, since logs would look normal, just wrong.</p>
+      </div>
+      <p style="margin-top:10px;">Reading the incoming header (not always generating a fresh one) is what makes this a real building block for distributed tracing later: once booking-service exists and calls inventory-service, the same correlation id can be threaded through both services' logs for one end-to-end user action.</p>
+    </article>
+
+    <article class="card concept" id="c-testcontainers">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 7</span>
+        <span class="concept-title">Testcontainers instead of H2 / embedded fakes</span>
+      </div>
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p>A common shortcut for "fast" tests is swapping the real database for an in-memory one (H2 pretending to be Postgres) or an embedded fake (a Java-only Redis stand-in). These start fast and need no Docker — but they don't behave identically to the real thing: SQL dialect differences, constraint-enforcement differences, and — critical for this project — <strong>optimistic-locking and unique-constraint behavior that can silently differ</strong> between H2's Postgres-compatibility mode and real Postgres. Testcontainers instead starts the actual Postgres and actual Redis Docker images for the test run, then throws them away — slower per run, but testing the real thing.</p>
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it</h3>
+      <div class="code-block"><pre><code>@DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)  // <-- the line that matters
+@Testcontainers
+class SeatRepositoryTest {
+    @Container
+    static PostgreSQLContainer&lt;?&gt; postgres = new PostgreSQLContainer&lt;&gt;("postgres:16-alpine")...</code></pre></div>
+      <p style="margin-top:10px;"><code>@DataJpaTest</code> silently swaps in H2 <strong>by default</strong> unless <code>replace = NONE</code> is specified — an easy, invisible mistake that would have quietly defeated the entire point of this project's test suite. <code>HoldServiceTest</code> goes further and boots real Postgres <em>and</em> real Redis together in the same test, since the bug that class exists to prevent (a Redis lock outliving Postgres state) can only be reproduced when both stores are the real coordination-sensitive thing, not a fake of either.</p>
+      <div class="why-box">
+        <div class="why-label">The concrete cost/benefit, from this project's own numbers</div>
+        <p>The full 30-test suite (six Testcontainers-backed classes, several booting a full Spring context against fresh Postgres+Redis containers) takes 2-4 minutes to run — noticeably slower than an H2-backed suite would be. That cost was accepted deliberately: this service's entire reason to exist is behavior (locking, constraints, TTL expiry) that a faster fake cannot faithfully reproduce.</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-config">
+      <div class="concept-head">
+        <span class="concept-stamp">CONCEPT 8</span>
+        <span class="concept-title">Spring config layering — profiles, properties, and how they silently break</span>
+      </div>
+      <h3 style="margin-top:14px; font-size:15px;">The general theory</h3>
+      <p>Spring Boot resolves <code>application.yml</code> from the classpath. When several JARs or source roots each contribute a file with that exact name, the classloader resolves <code>classpath:/application.yml</code> to <strong>exactly one</strong> of them — not a merge of all of them. Profile-specific files (<code>application-&lt;profile&gt;.yml</code>) work completely differently: they only load when that profile is explicitly active, and when they do, Spring layers them <em>on top of</em> the base file, with the profile's values overriding just the keys it defines — everything else from the base file survives untouched. Confusing the two mental models (same-name replacement vs. profile-name layering) is a very easy, very silent mistake.</p>
+      <h3 style="margin-top:20px; font-size:15px;">How this project actually does it (after getting it wrong once — see <a href="#bug2">Bug Museum #2</a>)</h3>
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>src/main/resources/application.yml</h4>
+          <p>The real config: datasource, Redis, <code>ddl-auto: update</code>, the logging pattern, and sensible dev defaults for every <code>inventory.*</code> property.</p>
+        </div>
+        <div class="mini-card">
+          <h4>src/test/resources/application-test.yml</h4>
+          <p>Loaded only by classes carrying <code>@ActiveProfiles("test")</code>, and only overrides <code>inventory.reconciliation.enabled: false</code> — everything else still comes from the base file, correctly merged.</p>
+        </div>
+      </div>
+      <p style="margin-top:12px;"><code>@ConfigurationProperties</code> (<code>InventoryProperties</code>) is the other half of this concept: it gives application <em>code</em> a typed, validated view of one property subtree, instead of scattering raw <code>${inventory.hold.ttl-seconds:300}</code> placeholder strings through business logic. A typo in a bound property name fails loudly at startup; a typo inside a placeholder string just silently returns the default forever.</p>
+    </article>
+
+    <!-- ============ DAY LOG ============ -->
+
+    <section id="weeklog-intro" style="margin-top:60px;">
+      <p class="eyebrow">Week 1 — Phase 0</p>
+      <h2>inventory-service, day by day</h2>
+      <p>Each entry links back to the concept it leans on hardest, plus the real terminal output from actually running it — not a tidied-up retelling.</p>
+    </section>
+
+    <article class="card day" id="day1">
+      <div class="day-head">
+        <span class="day-stamp">DAY 1</span>
+        <span class="day-title">Design + repo skeleton</span>
+      </div>
+      <span class="day-files">docker-compose.yml · pom.xml · InventoryServiceApplication.java · InventoryServiceApplicationTests.java</span>
+
+      <div class="field">
+        <div class="field-label">What got designed before any code</div>
+        <p style="font-size:14.5px;">Two stores, two lifetimes — Postgres <code>Seat</code> (durable) and Redis <code>hold:&#123;seatId&#125;</code> (TTL, deliberately <strong>not</strong> persisted). The <code>docker-compose.yml</code> volume mount reflects this design decision directly: Postgres gets one, Redis doesn't. A Redis restart losing an in-flight hold should free the seat, not strand it — see <a href="#c-redis">Concept 2</a>.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Skeleton, verified live before anything else was built on top of it</div>
+        <div class="terminal">@SpringBootTest + @Testcontainers, real Postgres 16 + Redis 7
+contextLoads() — deliberately empty body
+
+<span class="ok">Started InventoryServiceApplicationTests in 16.582 seconds</span>
+<span class="dim">1 passed — the assertion IS that Spring can wire the whole context
+against real infrastructure without throwing, before Day 2 exists</span></div>
+        <p style="margin-top:8px; font-size:13.5px; color:var(--ink-soft);">A real bug even at this stage: guessed the Testcontainers Redis import as <code>redis.testcontainers.RedisContainer</code> — the real package is <code>com.redis.testcontainers.RedisContainer</code>. Found via an actual compile error, not caught in review.</p>
+      </div>
+    </article>
+
+    <article class="card day" id="day2">
+      <div class="day-head">
+        <span class="day-stamp">DAY 2</span>
+        <span class="day-title">Seat entity, repository, availability</span>
+      </div>
+      <span class="day-files">Seat.java · SeatStatus.java · SeatRepository.java · SeatService.java · SeatController.java · SeatSeedConfig.java</span>
+
+      <div class="field">
+        <div class="field-label">The layering, matching the Java track's existing convention</div>
+        <p style="font-size:14.5px;"><code>SeatController</code> → <code>SeatService</code> → <code>SeatRepository</code> → <code>Seat</code>, same shape as <code>GenAiBackend/backend</code>. <code>SeatSeedConfig</code> stands in for catalog-service (which doesn't exist until Phase 2) by seeding 10 demo seats on startup — kept as its own <code>@Configuration</code> class rather than a <code>@Bean</code> on the app class specifically so a <code>@WebMvcTest</code> slice never has to construct a real <code>SeatRepository</code> just to satisfy an unrelated bean's dependency.</p>
+      </div>
+
+      <div class="terminal">SeatRepositoryTest (@DataJpaTest, replace=NONE, real Postgres) — 4 passed
+  ✓ findByShowId returns only seats for that show
+  ✓ findByShowId returns [] for an unknown show — not an error
+  ✓ new seat gets AVAILABLE + a version on insert
+  ✓ duplicate (show_id, seat_number) -> DataIntegrityViolationException
+
+SeatControllerTest (@WebMvcTest, SeatService mocked) — 2 passed
+  ✓ GET /shows/1/seats/availability never leaks the internal `version` field</div>
+
+      <div class="bug-box">
+        <div class="bug-label">A test deliberately NOT written — and why</div>
+        <p>The obvious next test — read the same seat twice, update through one handle, then try updating through the other and expect <code>OptimisticLockingFailureException</code> — doesn't actually work inside one <code>@DataJpaTest</code> transaction. A single persistence context returns the <em>same managed instance</em> for both reads (first-level cache), so there's no staleness to reproduce without either detaching entities (which then collides with JPA's <code>merge()</code> semantics) or real concurrent threads. That proof is exactly what Day 5's failure experiment does properly, against the running app.</p>
+      </div>
+    </article>
+
+    <article class="card day" id="day3">
+      <div class="day-head">
+        <span class="day-stamp">DAY 3</span>
+        <span class="day-title">Hold, release &amp; reconciliation</span>
+      </div>
+      <span class="day-files">HoldService.java · HoldReconciliationService.java · HoldController.java · GlobalExceptionHandler.java · exception/*.java</span>
+
+      <p style="font-size:14.5px;">The concurrency heart of the whole platform. See <a href="#c-locking">Concept 1</a>, <a href="#c-redis">Concept 2</a>, <a href="#c-twostore">Concept 3</a>, and <a href="#c-idempotency">Concept 4</a> — everything in <code>HoldService</code> is one of those four ideas, wired together.</p>
+
+      <div class="field">
+        <div class="field-label">The open question Day 1's README explicitly flagged, closed here</div>
+        <p style="font-size:14.5px;">If a hold's Redis TTL expires with nobody calling <code>/release</code> (the common case — an abandoned checkout), what reverts the Postgres row from <code>HELD</code> back to <code>AVAILABLE</code>? Nothing, until <code>HoldReconciliationService</code>: a <code>@Scheduled</code> polling sweep, checked against real Redis rather than trusted blindly, that finds every <code>HELD</code> seat whose Redis key is already gone and reverts it.</p>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Why polling, not Redis keyspace-notification pub/sub</div>
+        <p>Redis can publish an event the instant a key expires — tempting, since it means zero polling delay. But pub/sub delivery in Redis is fire-and-forget: a notification published while the app was mid-restart is gone forever, no replay, no queue. A seat that missed that one notification would stay <code>HELD</code> permanently. A periodic sweep is slightly less immediate but self-heals even after a missed event — the right trade for correctness over latency here.</p>
+      </div>
+
+      <div class="terminal">HoldServiceTest — real Postgres AND Redis together — 10 passed
+  ✓ hold grants + flips Postgres to HELD
+  ✓ same holderId twice -> idempotent, not a second hold
+  ✓ different holderId while held -> 409 Conflict
+  ✓ hold on an already-BOOKED seat -> 409, AND releases the Redis key it just took
+  ✓ hold on wrong show / unknown seat -> 404
+  ✓ release by rightful holder -> frees seat + Redis key
+  ✓ release by wrong holder -> 403, hold left intact
+  ✓ release when nothing is held -> no-op, not an error
+  ✓ release never un-books a seat that became BOOKED while held
+
+HoldReconciliationServiceTest — 3 passed
+  ✓ HELD seat with an expired/absent Redis key -> reverted to AVAILABLE
+  ✓ HELD seat with a still-active Redis key -> left alone
+  ✓ AVAILABLE/BOOKED seats -> never touched, regardless of Redis</div>
+
+      <p style="margin-top:12px; font-size:13.5px; color:var(--ink-soft);">Two real bugs surfaced building this — both significant enough to get their own Bug Museum entries: <a href="#bug1">#1, scheduler vs. Testcontainers teardown</a> and <a href="#bug2">#2, config-file shadowing</a>.</p>
+    </article>
+
+    <article class="card day" id="day4">
+      <div class="day-head">
+        <span class="day-stamp">DAY 4</span>
+        <span class="day-title">Hardening: tracing, typed config, Actuator, Docker</span>
+      </div>
+      <span class="day-files">CorrelationIdFilter.java · InventoryProperties.java · Dockerfile · docker-compose.yml</span>
+
+      <p style="font-size:14.5px;">Four independent hardening moves — see <a href="#c-correlation">Concept 6</a> and <a href="#c-config">Concept 8</a> for the theory behind the first two.</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Correlation IDs, for real</h4>
+          <p>The <code>%X&#123;correlationId:-none&#125;</code> slot in the logging pattern had shown "none" since Day 1. <code>CorrelationIdFilter</code> fills it — reuse an incoming <code>X-Correlation-Id</code> header, or generate one, for the life of every request.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Hardcoded config, closed</h4>
+          <p>The 5-minute hold TTL was a Java <code>Duration.ofMinutes(5)</code> constant — a direct violation of Week 1's own "nothing hardcoded" rule. <code>InventoryProperties</code> replaces it with <code>inventory.hold.ttl-seconds</code>, typed and env-overridable.</p>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:20px;">
+        <div class="field-label">Docker Compose now runs the whole service, not just its dependencies</div>
+        <div class="code-block"><pre><code># Dockerfile — dependency layer cached separately from app code,
+# same principle as narration-enrichment's Python Dockerfile
+FROM eclipse-temurin:17-jdk AS build
+COPY mvnw .mvn pom.xml ./
+RUN ./mvnw dependency:go-offline -B     # cached unless pom.xml changes
+COPY src ./src
+RUN ./mvnw package -DskipTests -B
+
+FROM eclipse-temurin:17-jre-alpine
+COPY --from=build /app/target/inventory-service-*.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]</code></pre></div>
+        <p style="margin-top:10px; font-size:14.5px;"><code>docker-compose.yml</code>'s <code>inventory-service</code> entry uses <code>depends_on: condition: service_healthy</code> on both Postgres and Redis — the app container won't even start until both dependencies report healthy, not just "started" (a container can be running long before Postgres is actually ready to accept connections).</p>
+      </div>
+
+      <div class="terminal">$ docker compose up --build
+<span class="ok">postgres  Healthy</span>
+<span class="ok">redis     Healthy</span>
+<span class="ok">inventory-service  Started</span>
+$ curl http://localhost:8081/actuator/health
+{"status":"<span class="ok">UP</span>"}</div>
+
+      <p style="margin-top:12px; font-size:13.5px; color:var(--ink-soft);">30 tests total — 4 new in <code>CorrelationIdFilterTest</code>, checking MDC is set during the request, cleared after, and cleared <em>even when the downstream chain throws</em>.</p>
+    </article>
+
+    <!-- ============ BUG MUSEUM ============ -->
+
+    <section id="bugmuseum-intro" style="margin-top:60px;">
+      <p class="eyebrow">Bug museum</p>
+      <h2>Real failures, kept on purpose</h2>
+      <p>Not mistakes to be embarrassed about — evidence that the tests were actually exercising something real. Each one changed how a later part of this project was built.</p>
+    </section>
+
+    <article class="card day" id="bug1">
+      <div class="day-head">
+        <span class="day-stamp" style="background:var(--danger-soft); color:var(--danger);">BUG 1</span>
+        <span class="day-title">A live scheduler outliving its own Testcontainers</span>
+      </div>
+      <div class="bug-box">
+        <div class="bug-label">What happened</div>
+        <p>The moment <code>HoldReconciliationService</code>'s <code>@Scheduled</code> method existed, <em>every</em> <code>@SpringBootTest</code> in the suite silently gained a live background timer. Test classes run sequentially, each starting and stopping its own Testcontainers Postgres/Redis. A scheduled sweep from one test class's context fired <em>after</em> that class's containers were already torn down, hit a dead Postgres port, and logged a raw "Connection refused" — even though every actual test assertion still passed.</p>
+      </div>
+      <div class="why-box">
+        <div class="why-label">The fix</div>
+        <p>Gate the whole bean behind <code>@ConditionalOnProperty(inventory.reconciliation.enabled)</code>, default <code>true</code> in real config but <code>false</code> for the entire test module — so the bean simply doesn't exist in most tests. The one test class that actually needs it (<code>HoldReconciliationServiceTest</code>) explicitly re-enables it via its own <code>@DynamicPropertySource</code>, with an interval set far longer than the test itself runs.</p>
+      </div>
+      <p style="margin-top:12px; font-size:13.5px; color:var(--ink-soft);"><strong>The generalizable lesson:</strong> adding a background scheduler to any Spring app changes the risk profile of every test in the suite that boots a full context, not just the tests for the feature the scheduler serves.</p>
+    </article>
+
+    <article class="card day" id="bug2">
+      <div class="day-head">
+        <span class="day-stamp" style="background:var(--danger-soft); color:var(--danger);">BUG 2</span>
+        <span class="day-title">A config file that replaced instead of layering — three times</span>
+      </div>
+      <div class="bug-box">
+        <div class="bug-label">Round 1 — the wrong mental model</div>
+        <p>To fix Bug 1, a <code>src/test/resources/application.yml</code> was created containing just <code>inventory.reconciliation.enabled: false</code>. Same filename as the real <code>src/main/resources/application.yml</code>. Spring Boot resolves <code>classpath:/application.yml</code> to exactly <strong>one</strong> file — and Surefire puts test-classes ahead of classes on the classpath — so this new file didn't merge with the main config, it <em>completely replaced it</em>. <code>ddl-auto: update</code> vanished. Every test that touched the database — including ones with nothing to do with reconciliation — started failing with <code>relation "seats" does not exist</code>.</p>
+      </div>
+      <div class="why-box">
+        <div class="why-label">Round 2 — the correct fix</div>
+        <p>Rename to <code>src/test/resources/application-test.yml</code> and add <code>@ActiveProfiles("test")</code> to the specific test classes that need it. Profile-specific files <em>layer</em> on top of the base config instead of replacing it — this is the actual, documented Spring Boot mechanism for exactly this situation.</p>
+      </div>
+      <div class="bug-box">
+        <div class="bug-label">Round 3 — the fix didn't actually apply, on disk</div>
+        <p>Re-running tests <em>still</em> failed with the same "relation does not exist" error, even after deleting the bad file from source. The cause: Maven's incremental <code>test</code> goal copies <code>src/test/resources</code> into <code>target/test-classes</code>, but doesn't delete files from the target that no longer exist in the source. A stale, already-compiled copy of the original shadowing file was still sitting in <code>target/test-classes/application.yml</code>, still winning on the classpath. <code>mvn clean test</code> finally cleared it.</p>
+      </div>
+      <p style="margin-top:12px; font-size:13.5px; color:var(--ink-soft);"><strong>The generalizable lesson:</strong> "fixed in source" and "fixed on disk" are different claims. A non-clean incremental build can keep reproducing a bug you've already deleted the cause of.</p>
+    </article>
+
+    <!-- ============ QUICK REVISION ============ -->
+
+    <section id="quickrevision" style="margin-top:60px;">
+      <p class="eyebrow">Quick revision</p>
+      <h2>The files, one by one, night-before-interview style</h2>
+      <p>Read top to bottom. Each row is one line worth remembering, not a full re-explanation — those live in the Day log and Concepts above.</p>
+
+      <div class="card flow-card" id="flow-seat">
+        <div class="flow-head">
+          <span class="flow-num">1</span>
+          <span class="flow-title">Seat.java</span>
+          <span class="flow-role">The entity the whole service exists to protect</span>
+        </div>
+        <p class="flow-one-liner">Everything else in this service is machinery built around safely changing this one entity's <code>status</code>.</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">@UniqueConstraint(columnNames = &#123;"show_id","seat_number"&#125;)</td><td>The only integrity rule this service enforces about seat identity — two rows for the same seat on the same show would make "availability" itself ambiguous.</td></tr>
+          <tr><td class="mono">@Enumerated(EnumType.STRING) SeatStatus status</td><td>Stored as the literal word <code>AVAILABLE</code>/<code>HELD</code>/<code>BOOKED</code> in Postgres, not an integer — readable directly in a SQL client, and safe if enum ordering ever changes.</td></tr>
+          <tr><td class="mono">@Version Long version</td><td>The entire optimistic-locking mechanism — see <a href="#c-locking">Concept 1</a>.</td></tr>
+          <tr><td class="mono">protected Seat() &#123;&#125;</td><td>JPA requires a no-arg constructor to build entities via reflection; marked <code>protected</code>, not <code>public</code>, so application code is steered toward the real constructor instead.</td></tr>
+        </table>
+        </div>
+        <div class="flow-next">read/written by <strong>SeatRepository</strong> · mutated by <strong>HoldService</strong> and <strong>HoldReconciliationService</strong></div>
+      </div>
+
+      <div class="card flow-card" id="flow-holdservice">
+        <div class="flow-head">
+          <span class="flow-num">2</span>
+          <span class="flow-title">HoldService.java</span>
+          <span class="flow-role">The concurrency heart</span>
+        </div>
+        <p class="flow-one-liner">Every line here is Concept 1, 2, 3, or 4 from above, applied.</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">redisTemplate.opsForValue().setIfAbsent(key, holderId, ttl)</td><td>The atomic Redis lock acquisition — Concept 2.</td></tr>
+          <tr><td class="mono">if (holderId.equals(existingHolder))</td><td>The idempotent-retry check — Concept 4.</td></tr>
+          <tr><td class="mono">catch (RuntimeException ex) &#123; redisTemplate.delete(redisKey); throw ex; &#125;</td><td>The compensating action — Concept 3.</td></tr>
+          <tr><td class="mono">seatRepository.save(seat) // may throw OptimisticLockingFailureException</td><td>The actual correctness guarantee, independent of whatever the Redis check decided — Concept 1.</td></tr>
+          <tr><td class="mono">if (seat.getStatus() == SeatStatus.HELD) &#123; ...revert... &#125;</td><td>In <code>release()</code> — guards against un-booking a seat that became <code>BOOKED</code> while it was held. A hold and a confirmed booking are different lifecycle stages.</td></tr>
+        </table>
+        </div>
+        <div class="flow-next">reads config from <strong>InventoryProperties</strong> · errors handled by <strong>GlobalExceptionHandler</strong></div>
+      </div>
+
+      <div class="card flow-card" id="flow-reconcile">
+        <div class="flow-head">
+          <span class="flow-num">3</span>
+          <span class="flow-title">HoldReconciliationService.java</span>
+          <span class="flow-role">Closes the TTL-expiry gap</span>
+        </div>
+        <p class="flow-one-liner">The only component in this service that runs on a timer instead of in response to a request.</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">@ConditionalOnProperty(...matchIfMissing = true)</td><td>On by default in real config, off by default in the whole test module — see Bug Museum #1.</td></tr>
+          <tr><td class="mono">@Scheduled(fixedDelayString = "$&#123;inventory.reconciliation.interval-ms:30000&#125;")</td><td>Polling, not Redis pub/sub — a deliberate trade of latency for reliability, see the Day 3 why-box.</td></tr>
+          <tr><td class="mono">reconcileOnce() // separate from the @Scheduled wrapper</td><td>Split out purely so tests can trigger exactly one pass deterministically, instead of racing a timer.</td></tr>
+          <tr><td class="mono">if (Boolean.FALSE.equals(redisTemplate.hasKey(key)))</td><td>Only reverts a seat if Redis genuinely has no key for it — never assumes staleness just from being <code>HELD</code>.</td></tr>
+        </table>
+        </div>
+        <div class="flow-next">reads <strong>SeatRepository.findByStatus(HELD)</strong> · writes back through the same repository</div>
+      </div>
+
+      <div class="card flow-card" id="flow-geh">
+        <div class="flow-head">
+          <span class="flow-num">4</span>
+          <span class="flow-title">GlobalExceptionHandler.java</span>
+          <span class="flow-role">One place, every error shape</span>
+        </div>
+        <p class="flow-one-liner">Same pattern as GenAiBackend/backend's handler, deliberately kept consistent across both Java tracks.</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">extends ResponseEntityExceptionHandler</td><td>Lets this class override Spring MVC's own built-in handling (like <code>handleMethodArgumentNotValid</code>) instead of only adding new handlers.</td></tr>
+          <tr><td class="mono">ProblemDetail.forStatusAndDetail(...)</td><td>Builds the RFC 7807 shape — Concept 5.</td></tr>
+          <tr><td class="mono">@ExceptionHandler(Exception.class) ... log.error(..., exc_info) ... generic 500</td><td>The catch-all: full detail logged server-side, nothing but a generic message ever reaches the caller.</td></tr>
+        </table>
+        </div>
+        <div class="flow-next">catches whatever <strong>HoldController</strong>/<strong>SeatController</strong> let escape</div>
+      </div>
+
+      <div class="card flow-card" id="flow-correlation">
+        <div class="flow-head">
+          <span class="flow-num">5</span>
+          <span class="flow-title">CorrelationIdFilter.java</span>
+          <span class="flow-role">Fills the logging pattern's placeholder</span>
+        </div>
+        <p class="flow-one-liner">The first thing that runs on every request; the last thing that cleans up after it.</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">extends GenericFilterBean</td><td>Spring Boot auto-registers any <code>Filter</code>-implementing <code>@Component</code> — no manual <code>FilterRegistrationBean</code> wiring needed.</td></tr>
+          <tr><td class="mono">httpRequest.getHeader(HEADER_NAME)</td><td>Reuse-if-present — lets an upstream caller (or a future gateway) propagate its own trace id through this service.</td></tr>
+          <tr><td class="mono">finally &#123; MDC.remove(MDC_KEY); &#125;</td><td>Prevents a correlation id leaking into a later, unrelated request on the same pooled thread — see Concept 6.</td></tr>
+        </table>
+        </div>
+        <div class="flow-next">fills <strong>logging.pattern.console</strong>'s <code>%X&#123;correlationId&#125;</code> slot</div>
+      </div>
+
+      <div class="card flow-card" id="flow-compose">
+        <div class="flow-head">
+          <span class="flow-num">6</span>
+          <span class="flow-title">docker-compose.yml</span>
+          <span class="flow-role">One command, three containers, correct order</span>
+        </div>
+        <p class="flow-one-liner">Answers "how does the whole thing actually start," not just "how is the app built."</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Line</th><th>What it does</th></tr>
+          <tr><td class="mono">postgres: volumes: - pgdata:/var/lib/postgresql/data</td><td>Durable — a row survives <code>docker compose down &amp;&amp; up</code>.</td></tr>
+          <tr><td class="mono">redis: (no volumes entry)</td><td>Deliberately not durable — a lost hold on restart should free the seat, matching Concept 2/3's design.</td></tr>
+          <tr><td class="mono">depends_on: postgres: condition: service_healthy</td><td>Waits for Postgres to actually accept connections, not just for its container process to start.</td></tr>
+          <tr><td class="mono">inventory-service: environment: DB_HOST: postgres</td><td>Container-network hostnames, not <code>localhost</code> — inside the compose network, service names resolve to each other's containers.</td></tr>
+        </table>
+        </div>
+        <div class="flow-next">this is the one command that satisfies Week 1's DoD: <code>docker compose up --build</code></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Profile-specific override, NOT a same-named application.yml: Spring
+# Boot resolves classpath:/application.yml to exactly ONE resource, and
+# Surefire puts test-classes ahead of classes on the classpath — so a
+# src/test/resources/application.yml would silently REPLACE the main
+# config wholesale (ddl-auto and everything else with it) rather than
+# layer on top of it. This file, activated only via @ActiveProfiles
+# ("test"), correctly MERGES with the base application.yml instead.
+#
+# Real bug this project hit: the first version of this override used the
+# same filename as the main config, which wiped out `ddl-auto: update` —
+# every test in the module started failing with "relation seats does not
+# exist", including ones that have nothing to do with reconciliation.
+inventory:
+  reconciliation:
+    enabled: false
