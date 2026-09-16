@@ -16,6 +16,7 @@ from instructor.core.exceptions import InstructorRetryException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from narration_enrichment import rag
 from narration_enrichment.db import get_db, list_enrichments, save_enrichment
 from narration_enrichment.models import TransactionEnrichment
 from narration_enrichment.schemas import (
@@ -24,7 +25,7 @@ from narration_enrichment.schemas import (
     BatchItemResult,
     EnrichmentRecordResponse,
 )
-from narration_enrichment.service import enrich_narration
+from narration_enrichment.service import enrich_narration, get_raw_client
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,8 +41,32 @@ class EnrichRequest(BaseModel):
 
 
 def _enrich_and_persist(narration: str, db: Session) -> TransactionEnrichment:
-    result = enrich_narration(narration)
-    save_enrichment(db, narration, result)
+    raw_client = get_raw_client()
+
+    # RAG retrieval is an enhancement, not the critical path — if it
+    # breaks (embedding call down, bad data in the DB), enrichment must
+    # still work exactly as it did before Week 3, just without the extra
+    # context. A retrieval bug should never become an enrichment outage.
+    context = None
+    try:
+        query_embedding = rag.embed_text(raw_client, narration, task_type="RETRIEVAL_QUERY")
+        similar = rag.find_similar_examples(db, query_embedding)
+        context = rag.build_context_block(similar)
+    except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
+        logger.warning("rag_retrieval_failed error=%s", exc)
+
+    result = enrich_narration(narration, context=context)
+
+    # Same reasoning in reverse: the user already has their answer at this
+    # point. A failure to embed-for-storage should cost future RAG quality
+    # for this one row, not the response that's about to be returned.
+    embedding = None
+    try:
+        embedding = rag.embed_text(raw_client, narration, task_type="RETRIEVAL_DOCUMENT")
+    except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
+        logger.warning("rag_embedding_failed error=%s", exc)
+
+    save_enrichment(db, narration, result, embedding=embedding)
     return result
 
 

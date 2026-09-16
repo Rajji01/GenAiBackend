@@ -27,11 +27,20 @@ _raw_client = genai.Client(
 )
 _client = instructor.from_genai(_raw_client, model=_settings.model_name)
 
+
+def get_raw_client():
+    # rag.py needs the raw (non-Instructor-wrapped) client for embedding
+    # calls — embed_content isn't a structured-output call Instructor has
+    # any role in, so it goes straight to the same underlying client
+    # service.py already built, rather than constructing a second one.
+    return _raw_client
+
+
 # Config-driven in spirit even though it's a constant here: this is the one
 # place the prompt is defined, not copy-pasted per call site.
 PROMPT_TEMPLATE = """Look at this bank transaction narration and tell me the
 merchant, the category, the transaction type, and how confident you are.
-
+{context_block}
 Narration: {narration}
 """
 
@@ -66,29 +75,40 @@ def _is_transient_provider_error(exc: BaseException) -> bool:
     wait=wait_exponential(multiplier=1, min=1, max=10),
     reraise=True,
 )
-def _call_llm(narration: str) -> TransactionEnrichment:
+def _call_llm(narration: str, context: str | None) -> TransactionEnrichment:
     # This is a SEPARATE retry layer from Instructor's own max_retries
     # below — that one retries a bad SHAPE by re-asking the model; this
     # one retries a failed CALL because the provider itself was briefly
     # unavailable. Conflating the two into one retry loop would mean a
     # shape problem and a quota problem both looked the same from the
     # outside, which they aren't and shouldn't be handled the same way.
+    context_block = f"\n{context}\n" if context else ""
+    prompt = PROMPT_TEMPLATE.format(narration=narration, context_block=context_block)
     return _client.create(
         response_model=TransactionEnrichment,
-        messages=[{"role": "user", "content": PROMPT_TEMPLATE.format(narration=narration)}],
+        messages=[{"role": "user", "content": prompt}],
         max_retries=_settings.max_retries,
     )
 
 
-def enrich_narration(narration: str) -> TransactionEnrichment:
+def enrich_narration(narration: str, context: str | None = None) -> TransactionEnrichment:
+    # `context` is Week 3's RAG hook: rag.py retrieves similar past
+    # narrations and formats them into this string. None (the default)
+    # means "no similar-enough history yet" — falls back to exactly Day
+    # 3's plain prompt, unchanged.
+    #
     # DEBUG only: the narration can contain PII (masked card numbers,
     # names). It must never reach INFO-level logs, which is where log
     # aggregation and long retention usually live.
     logger.debug("enrich_narration_raw narration=%r", narration)
-    logger.info("enrich_started narration_length=%d", len(narration))
+    logger.info(
+        "enrich_started narration_length=%d rag_context_used=%s",
+        len(narration),
+        context is not None,
+    )
 
     started_at = time.monotonic()
-    result = _call_llm(narration)
+    result = _call_llm(narration, context)
     latency_ms = (time.monotonic() - started_at) * 1000
 
     logger.info(

@@ -8,6 +8,7 @@ that isn't "read it once off the wire." This is that: one table, one save
 function, one list function.
 """
 
+import json
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
@@ -29,6 +30,12 @@ class EnrichmentRecord(Base):
     transaction_type = Column(String, nullable=False)
     confidence = Column(Float, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # Week 3 (RAG): the narration's embedding, JSON-encoded — SQLite has no
+    # native vector type, and a JSON text column is the simplest thing that
+    # works at this scale (a handful to a few thousand rows). A real
+    # production-scale version would reach for a vector index; this
+    # project's actual row count doesn't justify one yet.
+    embedding = Column(String, nullable=True)
 
 
 _settings = get_settings()
@@ -51,13 +58,19 @@ def get_db():
         db.close()
 
 
-def save_enrichment(db: Session, narration: str, result: TransactionEnrichment) -> EnrichmentRecord:
+def save_enrichment(
+    db: Session,
+    narration: str,
+    result: TransactionEnrichment,
+    embedding: list[float] | None = None,
+) -> EnrichmentRecord:
     record = EnrichmentRecord(
         narration=narration,
         merchant=result.merchant,
         category=result.category,
         transaction_type=result.transaction_type,
         confidence=result.confidence,
+        embedding=json.dumps(embedding) if embedding is not None else None,
     )
     db.add(record)
     db.commit()
@@ -73,3 +86,10 @@ def list_enrichments(db: Session, limit: int = 20, offset: int = 0) -> list[Enri
         .limit(limit)
         .all()
     )
+
+
+def list_records_with_embeddings(db: Session) -> list[EnrichmentRecord]:
+    # The RAG knowledge base: every past enrichment that has an embedding
+    # to compare against. No LIMIT here on purpose at this project's scale
+    # — see rag.py's own note about where that stops being true.
+    return db.query(EnrichmentRecord).filter(EnrichmentRecord.embedding.isnot(None)).all()

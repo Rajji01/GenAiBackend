@@ -20,7 +20,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from narration_enrichment.db import Base, get_db
+from narration_enrichment.db import Base, EnrichmentRecord, get_db
 from narration_enrichment.main import app
 from narration_enrichment.models import TransactionEnrichment
 
@@ -63,6 +63,21 @@ def _clean_table():
     with _test_engine.begin() as conn:
         conn.execute(Base.metadata.tables["enrichment_records"].delete())
     yield
+
+
+FAKE_EMBEDDING = [0.1] * 256
+
+
+@pytest.fixture(autouse=True)
+def _mock_embeddings():
+    # Applies to every test in this file, not just the RAG-specific ones —
+    # without it, every /enrich or /enrich/batch call would make two real
+    # embedding API calls. Patched on the rag MODULE (main.py does
+    # `from narration_enrichment import rag`, not `from ...rag import
+    # embed_text`), which is exactly the boundary Day 5's notes flagged as
+    # the one that actually matters.
+    with patch("narration_enrichment.rag.embed_text", return_value=FAKE_EMBEDDING):
+        yield
 
 
 def test_health_check():
@@ -216,3 +231,72 @@ def test_batch_isolates_a_failing_item_from_the_rest():
     # Both successful items should have been persisted, the failed one not.
     stored = client.get("/enrichments").json()
     assert len(stored) == 2
+
+
+def test_enrich_calls_llm_with_no_context_when_the_history_is_empty():
+    # Cold-start case: nothing in the DB yet, so there is nothing honest
+    # to retrieve. enrich_narration must be called with context=None,
+    # falling back to exactly Day 3's plain prompt.
+    fake_result = TransactionEnrichment(
+        merchant="Swiggy", category="food_delivery", transaction_type="UPI", confidence=0.9
+    )
+    with patch(
+        "narration_enrichment.main.enrich_narration", return_value=fake_result
+    ) as mock_enrich:
+        client.post("/enrich", json={"narration": "UPI/P2M/.../SWIGGY/Payment"})
+
+    mock_enrich.assert_called_once_with("UPI/P2M/.../SWIGGY/Payment", context=None)
+
+
+def test_enrich_builds_rag_context_from_a_similar_past_record():
+    # Seed one prior enrichment whose embedding matches FAKE_EMBEDDING
+    # exactly — the mocked embed_text returns that same vector for every
+    # call, so cosine similarity is 1.0 and it clears MIN_SIMILARITY.
+    import json as _json
+
+    db = _TestSessionLocal()
+    db.add(EnrichmentRecord(
+        narration="UPI/P2M/OLD/SWIGGY BANGALORE/Payment",
+        merchant="Swiggy",
+        category="food_delivery",
+        transaction_type="UPI",
+        confidence=0.9,
+        embedding=_json.dumps(FAKE_EMBEDDING),
+    ))
+    db.commit()
+    db.close()
+
+    fake_result = TransactionEnrichment(
+        merchant="Swiggy", category="food_delivery", transaction_type="UPI", confidence=0.9
+    )
+    with patch(
+        "narration_enrichment.main.enrich_narration", return_value=fake_result
+    ) as mock_enrich:
+        client.post("/enrich", json={"narration": "UPI/P2M/NEW/SWIGGY BANGALORE/Payment"})
+
+    _, kwargs = mock_enrich.call_args
+    assert kwargs["context"] is not None
+    assert "SWIGGY BANGALORE/Payment" in kwargs["context"]
+    assert "food_delivery" in kwargs["context"]
+
+
+def test_enrich_degrades_gracefully_when_embedding_call_fails():
+    # RAG is an enhancement, not the critical path. If the embedding call
+    # itself is down, /enrich must still succeed — just without context.
+    fake_result = TransactionEnrichment(
+        merchant="Swiggy", category="food_delivery", transaction_type="UPI", confidence=0.9
+    )
+    with patch("narration_enrichment.rag.embed_text", side_effect=RuntimeError("embedding API down")):
+        with patch(
+            "narration_enrichment.main.enrich_narration", return_value=fake_result
+        ) as mock_enrich:
+            response = client.post("/enrich", json={"narration": "UPI/P2M/.../SWIGGY/Payment"})
+
+    assert response.status_code == 200
+    mock_enrich.assert_called_once_with("UPI/P2M/.../SWIGGY/Payment", context=None)
+
+    # The enrichment itself is still persisted, just with no embedding —
+    # meaning it won't be retrievable as a future RAG example either, a
+    # soft degradation rather than a hard failure.
+    stored = client.get("/enrichments").json()
+    assert len(stored) == 1

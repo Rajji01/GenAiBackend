@@ -76,9 +76,9 @@ Then either:
 uv run pytest -v
 ```
 
-28 tests, no network calls, no API key required — the LLM is mocked out
-for every test that goes through the HTTP layer, and the database is
-swapped for an in-memory SQLite instance.
+43 tests, no network calls, no API key required — the LLM and the
+embedding calls are both mocked out for every test that goes through the
+HTTP layer, and the database is swapped for an in-memory SQLite instance.
 
 ## Evaluate (costs real API quota — run manually, not in CI)
 
@@ -106,6 +106,26 @@ curl http://localhost:8000/enrichments
 SQLite (`db.py`); `/enrichments` lists what's stored. A bad item inside a
 batch is isolated — it's recorded as a failure in that item's slot, the
 rest of the batch still completes.
+
+## RAG (retrieval-augmented consistency)
+
+No separate endpoint — it's transparent inside `/enrich` and
+`/enrich/batch`. Every call now:
+
+1. embeds the incoming narration and searches past persisted enrichments
+   for similar ones (cosine similarity, floor 0.70, top 3),
+2. if any are found, folds them into the prompt as "here's how similar
+   past narrations were classified",
+3. embeds and stores the new narration's vector alongside its result, so
+   it can itself be retrieved by future calls.
+
+The first calls against an empty database get no context (nothing honest
+to retrieve yet) and behave exactly like Week 1/2. As the table fills up,
+the model is shown its own past decisions for genuinely similar
+narrations, which is what makes classification more consistent over time
+instead of independently re-guessing every time. If the embedding call
+itself fails, `/enrich` still returns its normal result with no context —
+this is an enhancement, not a dependency.
 
 ## Run in Docker
 
@@ -146,6 +166,21 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   network call. Wrapping the route handler instead would let the request
   return "on time" while the provider call kept running in the
   background, still burning cost.
+- **Own persisted data as the RAG knowledge base, not a vector database** —
+  Phase 2 already persists every enrichment. Reusing that as the retrieval
+  corpus (an `embedding` column on the same table, cosine similarity in
+  plain Python) gets few-shot consistency without a new infrastructure
+  dependency at this project's scale. Embeddings use `task_type` asymmetry
+  (`RETRIEVAL_DOCUMENT` for what's stored, `RETRIEVAL_QUERY` for what's
+  searched) — skipping that distinction quietly degrades similarity scores
+  without ever raising an error.
+- **RAG retrieval and storage both degrade, never fail, the request** —
+  both embedding calls in `_enrich_and_persist` are wrapped in their own
+  try/except that logs and falls back to `context=None` /
+  `embedding=None`. A broken embedding call should cost this one row's
+  future retrievability, not turn a working `/enrich` into an outage.
+  Verified live by mocking `embed_text` to raise and confirming `/enrich`
+  still returns 200.
 - **PII/prompt content logged at DEBUG only, metadata at INFO** — a bank
   narration can carry account fragments or names. Verified live: the
   running server's INFO logs contain `narration_length=51`, never the
@@ -209,3 +244,27 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   504) — deliberately separate from Instructor's own retry, which handles
   bad *shape*, not a failed *call*. A non-transient error (400, 404) is
   never retried, since it would just fail identically three times.
+
+## Week 3
+
+- **Day 1 — a real bug from a live eval run** — `InstructorRetryException`
+  wraps *every* underlying failure, including a transient provider error
+  that had already exhausted `service.py`'s own retry — not just a genuine
+  shape/validation failure. An exhausted 503 was being reported to the
+  caller as a misleading 422. Fixed by inspecting `exc.__cause__` before
+  choosing the status code, confirmed with a test built around the actual
+  wrapped-exception shape (mocking the real API boundary,
+  `_raw_client.models.generate_content`, not `_client.create` directly).
+- **RAG** — `rag.py` embeds every narration (`gemini-embedding-001`, 256
+  dims) and stores the vector alongside the row Phase 2 already persists.
+  A new narration is embedded as a query, compared by cosine similarity
+  against past rows, and the closest matches (above a similarity floor,
+  capped to top 3) are folded into the prompt as few-shot context. Proved
+  live, not just by unit test: seeding a past "UBER TRIP PAYMENT" row as
+  `category="transfer"` flipped a fresh identical narration's
+  classification from `"other"` (the original, RAG-less finding) to
+  `"transfer"` — a genuinely clean before/after showing the model
+  following its own retrieved history. A second live case (a fictional
+  local vendor already classified correctly without help) showed no
+  difference, reported as-is rather than swapped out for a flattering
+  example.

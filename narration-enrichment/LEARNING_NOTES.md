@@ -341,4 +341,97 @@ data"` instead of `503 "provider unavailable"`. Fixed by inspecting
 
 ---
 
+# Week 3, RAG — making the model consistent with its own past decisions
+
+**Files:** `rag.py` (new), `db.py`, `service.py`, `main.py`, `tests/test_rag.py` (new), `tests/test_api.py`
+
+**The problem this addresses:** Phase 1's eval already showed the model
+can classify the same *kind* of merchant differently on different calls,
+and has no way to know about local/unusual merchants it wasn't trained
+on. Nothing forces it to agree with an earlier decision about basically
+the same narration.
+
+**The design decision made before writing any code:** don't reach for a
+vector database. This project already persists every enrichment
+(Phase 2, `db.py`). That table already *is* a knowledge base — it just
+needed a vector on each row and a similarity search. Adding a dedicated
+vector DB for a few hundred/thousand rows would be infrastructure the
+project doesn't need yet, not correctness.
+
+**How it works end to end:**
+1. A new narration arrives. Before calling the LLM, it's embedded
+   (`task_type="RETRIEVAL_QUERY"`) and compared by cosine similarity
+   against every past row that has a stored embedding.
+2. Matches above a similarity floor (0.70), capped to the top 3, get
+   formatted into a short "here's how similar past narrations were
+   classified" block and folded into the prompt.
+3. After the LLM responds, the *new* narration is embedded again — this
+   time with `task_type="RETRIEVAL_DOCUMENT"` — and that vector is stored
+   alongside the row, so it becomes a candidate for future lookups.
+
+**The `task_type` asymmetry is not cosmetic.** Gemini's embedding model
+optimizes a "this is a document to be found later" vector differently
+from "this is a query searching for something" — using the same
+task_type for both silently produces worse similarity scores, with no
+error to warn you. Confirmed by reading the actual API docs rather than
+assuming both calls could just use the same default.
+
+**Cold start, handled honestly:** an empty table (or a genuinely novel
+narration with nothing similar enough) returns no examples, and
+`build_context_block` returns `None` — the prompt falls back to exactly
+the plain Week 1 version. There's no attempt to force in irrelevant
+examples just because the feature exists.
+
+**Graceful degradation, proven, not assumed:** both embedding calls
+(retrieval and storage) are wrapped in their own try/except in
+`_enrich_and_persist`. A test (`test_enrich_degrades_gracefully_when_embedding_call_fails`)
+mocks `embed_text` to raise, and confirms `/enrich` still returns 200
+with `context=None` — RAG is an enhancement layered on top of a working
+system, not a new point of failure for it.
+
+**Live proof, not just unit tests — and reported honestly both ways:**
+- First attempt: seeded a fictional local vendor ("Chaiwala Express") as
+  `food_delivery`, then sent a new, similar narration with and without
+  the RAG context. Both came back identical — the model already got it
+  right without help. This was reported as a genuine null result, not
+  quietly dropped for a better-looking example.
+- Second attempt, deliberately chosen from a case Phase 1's eval had
+  already gotten wrong: seeded a past `"UBER TRIP PAYMENT"` row with
+  `category="transfer"` (simulating a human correction), then sent a
+  fresh, near-identical Uber narration. **Without** RAG context it
+  classified as `"other"` (matching the original Phase 1 finding).
+  **With** RAG context retrieving the seeded row, it classified as
+  `"transfer"` — a clean, real demonstration that the model's output
+  changed because of retrieved history, not because anything about the
+  model itself changed.
+
+**A loose end noticed, not yet chased down:** the Uber query actually
+retrieved *two* seeded rows above the similarity floor (Uber and
+Chaiwala), not just the Uber one — both cleared 0.70 even though they're
+unrelated merchants. At 256 dimensions and this few real data points,
+the similarity floor may be looser than it looks; worth revisiting once
+there's enough real usage to tune `MIN_SIMILARITY` on data instead of by
+eye.
+
+**Self-check:**
+- Why does `build_context_block` return `None` instead of an empty
+  string for the no-examples case, and why does `service.py` check
+  `if context` rather than `if context is not None` when deciding whether
+  to inject the block into the prompt?
+- `rag.py` duplicates `_is_transient_provider_error`'s logic as its own
+  private `_is_transient`, instead of importing it from `service.py`.
+  Given the two retry policies currently behave identically, what's the
+  actual argument for the duplication rather than just importing it?
+- The embedding column is stored as a JSON-encoded string on the same
+  row, decoded and compared in a Python loop for every request. At what
+  rough scale (rows, or requests/sec) would this genuinely stop being
+  "fine for now" and become a real bottleneck — and what would you reach
+  for first when it does?
+- Both live tests seeded the "similar past narration" by hand before
+  calling `/enrich`. What would have to be different about this feature
+  for it to produce a genuinely useful example on someone's *very first*
+  real narration, with no seeding at all?
+
+---
+
 Try the self-check questions above first, same as always.

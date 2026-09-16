@@ -208,6 +208,7 @@
 </head>
 <body>
 
+
 <div class="layout">
   <nav class="sidebar">
     <div class="brand-eyebrow">Week 1 Build Log</div>
@@ -239,6 +240,7 @@
     <div class="nav-group">
       <div class="nav-group-title">Week 3</div>
       <a class="nav-link" href="#week3-d1"><span class="nav-tag">D1</span>Wrong-boundary mock</a>
+      <a class="nav-link" href="#week3-rag"><span class="nav-tag">D2</span>RAG</a>
     </div>
 
     <div class="nav-group">
@@ -260,9 +262,9 @@
       <p class="lede" style="margin-top:12px;">A six-entry build log: what was fed to the model, what shape we needed back, where that broke, and exactly why the fix works — with the real terminal output at every step, not a tidied-up retelling.</p>
 
       <div class="stat-row">
-        <div class="card stat-tile"><div class="stat-num">10</div><div class="stat-label">Log entries</div></div>
-        <div class="card stat-tile"><div class="stat-num">10</div><div class="stat-label">Real bugs hit</div></div>
-        <div class="card stat-tile"><div class="stat-num">30</div><div class="stat-label">Tests, 0 live calls</div></div>
+        <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Log entries</div></div>
+        <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Real bugs hit</div></div>
+        <div class="card stat-tile"><div class="stat-num">43</div><div class="stat-label">Tests, 0 live calls</div></div>
         <div class="card stat-tile"><div class="stat-num">20/day</div><div class="stat-label">Free-tier quota cap</div></div>
       </div>
 
@@ -893,6 +895,105 @@ tests/test_api.py::test_enrich_returns_503_when_a_transient_provider_error_exhau
 <span class="dim">30 passed — this time against the exact exception shape confirmed live</span></div>
 
       <p style="margin-top:12px;">Nothing here needed a second LLM provider, a bigger retry library, or more code — the fix is two lines. The lesson is the mocking boundary: a mock one layer off from reality can pass every test in the file and still test nothing real.</p>
+    </article>
+
+    <article class="card day" id="week3-rag">
+      <div class="day-head">
+        <span class="day-stamp">WEEK 3 · D2</span>
+        <span class="day-title">Teaching the model its own past decisions</span>
+      </div>
+      <span class="day-files">rag.py (new) · db.py · service.py · main.py · tests/test_rag.py (new) · tests/test_api.py</span>
+
+      <div class="field">
+        <div class="field-label">The problem, from Phase 1's own eval</div>
+        <p style="font-size:14.5px;">Nothing forces the model to classify the same kind of merchant the same way twice, and it has no memory of a local/unusual merchant it wasn't trained on. The fix chosen deliberately does <strong>not</strong> add a vector database — Phase 2 already persists every enrichment in SQLite. That table already <em>is</em> a knowledge base; it just needed a vector on each row and a similarity search.</p>
+      </div>
+
+      <figure>
+        <div class="diagram-wrap">
+          <svg viewBox="0 0 760 190" role="img" aria-label="A new narration is embedded as a query, compared by cosine similarity against past stored embeddings, and matches above the floor are folded into the prompt before the LLM call. The new narration is then embedded as a document and stored for future lookups.">
+            <defs>
+              <marker id="lab-arrow-rag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <g font-family="IBM Plex Mono, monospace" font-size="11.5">
+              <rect x="10" y="20" width="150" height="46" rx="7" fill="none" stroke="currentColor"/>
+              <text x="85" y="48" text-anchor="middle">new narration</text>
+
+              <rect x="220" y="20" width="160" height="46" rx="7" class="svg-accent" fill-opacity=".1" stroke="currentColor"/>
+              <text x="300" y="43" text-anchor="middle">embed_text</text>
+              <text x="300" y="57" text-anchor="middle" font-size="9.5" opacity=".7">task_type=QUERY</text>
+
+              <rect x="440" y="20" width="180" height="46" rx="7" fill="none" stroke="currentColor"/>
+              <text x="530" y="43" text-anchor="middle">find_similar_examples</text>
+              <text x="530" y="57" text-anchor="middle" font-size="9.5" opacity=".7">cosine sim &gt;= 0.70, top 3</text>
+
+              <rect x="220" y="120" width="220" height="46" rx="7" class="svg-success" fill-opacity=".12" stroke="currentColor"/>
+              <text x="330" y="143" text-anchor="middle">build_context_block</text>
+              <text x="330" y="157" text-anchor="middle" font-size="9.5" opacity=".7">None if no examples clear the floor</text>
+
+              <rect x="580" y="120" width="160" height="46" rx="7" fill="none" stroke="currentColor" stroke-dasharray="4 3"/>
+              <text x="660" y="143" text-anchor="middle">LLM prompt</text>
+              <text x="660" y="157" text-anchor="middle" font-size="9.5" opacity=".7">+ context, if any</text>
+            </g>
+            <g stroke="currentColor" fill="none" stroke-width="1.3">
+              <line x1="160" y1="43" x2="218" y2="43" marker-end="url(#lab-arrow-rag)"/>
+              <line x1="380" y1="43" x2="438" y2="43" marker-end="url(#lab-arrow-rag)"/>
+              <line x1="500" y1="66" x2="360" y2="118" marker-end="url(#lab-arrow-rag)"/>
+              <line x1="440" y1="143" x2="578" y2="143" marker-end="url(#lab-arrow-rag)"/>
+            </g>
+          </svg>
+        </div>
+        <figcaption>Storage runs the mirror image after the LLM responds: the same narration is embedded again with <code>task_type=DOCUMENT</code> and saved on its row, becoming a future candidate.</figcaption>
+      </figure>
+
+      <div class="bug-box">
+        <div class="bug-label">Not cosmetic — the task_type asymmetry</div>
+        <p>Gemini's embedding model optimizes "this will be searched for" (<code>RETRIEVAL_DOCUMENT</code>) differently from "this is doing the searching" (<code>RETRIEVAL_QUERY</code>). Using the same task_type for both doesn't error — it just quietly produces worse similarity scores, which is a much harder bug to notice than a crash.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Live proof, round 1 — an honest null result</div>
+        <div class="terminal">Seeded: "Chaiwala Express" -&gt; food_delivery
+Query:  "UPI/P2M/.../CHAIWALA EXPRESS DELHI/Payment"
+
+WITHOUT RAG context: <span class="ok">food_delivery</span>
+WITH RAG context:    <span class="ok">food_delivery</span>
+<span class="dim">No difference — the model already had this one right.</span></div>
+        <p style="margin-top:8px; font-size:14.5px;">Reported as-is instead of swapped for a better-looking example — a feature that "helps" every time you happen to pick a flattering case isn't proven, it's cherry-picked.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Live proof, round 2 — a genuinely clean before/after</div>
+        <div class="terminal">Seeded: "UBER TRIP PAYMENT" -&gt; category="transfer"  (a human-style correction)
+Query:  "UBER TRIP PAYMENT" (fresh, near-identical narration)
+
+WITHOUT RAG context: <span class="bad">other</span>       <span class="dim">(matches the original Phase 1 finding)</span>
+WITH RAG context:    <span class="ok">transfer</span>   <span class="dim">(follows the seeded past decision)</span></div>
+        <p style="margin-top:8px; font-size:14.5px;">This is the real demonstration: same narration, same model, same prompt template — the only variable was whether retrieved history was in context, and the classification changed because of it.</p>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Graceful degradation — proven, not assumed</div>
+        <div class="terminal">with patch("narration_enrichment.rag.embed_text", side_effect=RuntimeError("embedding API down")):
+    response = client.post("/enrich", json={...})
+
+assert response.status_code == <span class="ok">200</span>
+mock_enrich.assert_called_once_with(narration, context=<span class="ok">None</span>)</div>
+        <p style="margin-top:8px; font-size:14.5px;">Both embedding calls in <code>_enrich_and_persist</code> sit inside their own try/except. RAG is layered on top of a working system — if the embedding API is down, <code>/enrich</code> still returns its normal result, just without extra context.</p>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">A loose end noticed, not chased down</div>
+        <p>The Uber query above actually retrieved <em>two</em> seeded rows above the 0.70 floor — Uber and the unrelated Chaiwala row — not just the Uber one. At 256 dimensions and only a handful of real rows, the similarity floor may be looser than it looks. Worth revisiting once there's enough real usage to tune <code>MIN_SIMILARITY</code> on data instead of by eye — flagged honestly here rather than silently ignored.</p>
+      </div>
+
+      <div class="terminal">tests/test_rag.py ..........                                          <span class="ok">10 passed</span>
+tests/test_api.py::test_enrich_calls_llm_with_no_context_when_the_history_is_empty <span class="ok">PASSED</span>
+tests/test_api.py::test_enrich_builds_rag_context_from_a_similar_past_record       <span class="ok">PASSED</span>
+tests/test_api.py::test_enrich_degrades_gracefully_when_embedding_call_fails       <span class="ok">PASSED</span>
+<span class="dim">43 passed — no network calls, embeddings mocked at the rag module boundary</span></div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
