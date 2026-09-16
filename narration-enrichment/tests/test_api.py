@@ -14,6 +14,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from google.genai.errors import APIError
 from instructor.core.exceptions import InstructorRetryException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -117,6 +118,8 @@ def test_enrich_rejects_too_short_narration_before_ever_calling_the_llm():
 
 
 def test_enrich_returns_422_when_llm_output_never_validates():
+    # No __cause__ set — a genuine shape/validation failure, nothing to do
+    # with the provider being unavailable.
     exhausted = InstructorRetryException(
         "model never produced a valid shape after retries",
         n_attempts=3,
@@ -129,6 +132,24 @@ def test_enrich_returns_422_when_llm_output_never_validates():
 
     assert response.status_code == 422
     assert "Could not extract" in response.json()["detail"]
+
+
+def test_enrich_returns_503_when_a_transient_provider_error_exhausts_retries():
+    # Week 3 bug: this is the shape .create() ACTUALLY raises when
+    # service.py's tenacity retry exhausts on a real 429/503/504 — the
+    # original APIError lives in __cause__. Before the fix, this landed
+    # in the branch above and returned a misleading 422.
+    cause = APIError(503, {"error": {"code": 503, "message": "boom", "status": "UNAVAILABLE"}})
+    exhausted = InstructorRetryException("boom", n_attempts=3, total_usage=None)
+    exhausted.__cause__ = cause
+
+    with patch("narration_enrichment.main.enrich_narration", side_effect=exhausted):
+        response = client.post(
+            "/enrich", json={"narration": "some real-looking narration here"}
+        )
+
+    assert response.status_code == 503
+    assert "temporarily unavailable" in response.json()["detail"]
 
 
 def test_enrich_returns_504_on_provider_timeout():

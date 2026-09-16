@@ -280,3 +280,65 @@ reaching for a second LLM provider or a heavier database than the
 project's actual scale justifies.
 
 Try the self-check questions above first, same as always.
+
+---
+
+# Week 3, Day 1 — a live run catches a bug 30 passing tests missed
+
+**Files:** `service.py` (`_is_transient_provider_error`), `main.py`, `tests/test_service_retry.py`, `tests/test_api.py`
+
+**What happened:** the daily quota reset overnight, so the first thing
+done was re-run `eval/run_eval.py` for a clean baseline. It worked
+(11/12 completed, 100% accuracy) — but the one failure's *exact error
+string* didn't match what Phase 3's retry-with-backoff was written to
+detect.
+
+**The bug:** `_is_transient_provider_error` checked `isinstance(exc, APIError)`.
+That's never what `_client.create()` actually raises. Instructor's own
+internal retry loop catches *every* exception from the underlying call —
+including ones it never actually shape-retried — and re-raises it as
+`InstructorRetryException(...) from original_error`. So the real
+`APIError` was always sitting one level down, in `exc.__cause__` — and
+the retry-with-backoff built in Week 2, Phase 3, had **never once fired**,
+in any real request, since the day it was written.
+
+**Why the tests didn't catch it:** `test_service_retry.py` mocked
+`_client.create` to raise a *raw* `APIError` directly — which is a
+perfectly reasonable-looking mock, and 9/9 tests passed against it. It
+just didn't match what `.create()` actually raises in real life. The
+tests were internally consistent and completely wrong about the world
+outside them.
+
+**The fix:** check both the exception itself and its `__cause__`. Rewrote
+the tests to raise the *actual* wrapped shape (confirmed live, by mocking
+one level deeper — `_raw_client.models.generate_content`, the real
+boundary Instructor itself wraps — and reading what came out).
+
+**A second, related bug this exposed in `main.py`:** the exhausted-retry
+case (a real 503 that survived 3 backoff attempts and still failed) was
+landing in the *same* `except InstructorRetryException` branch as a
+genuine shape/validation failure — both raise the same exception type —
+and was being reported to the caller as `422 "Could not extract structured
+data"` instead of `503 "provider unavailable"`. Fixed by inspecting
+`exc.__cause__` inside that one `except` block.
+
+**Self-check:**
+- Why does mocking `_client.create` directly produce a *different*
+  exception shape than mocking `_raw_client.models.generate_content`
+  (the layer underneath it)? What is `_client.create` actually doing
+  between those two points?
+- This bug shipped, passed code review (such as it was), passed 9 unit
+  tests, and sat untriggered through every request in Week 2 — because
+  the failure mode it was meant to handle is inherently rare (transient
+  provider errors) and nothing ever exercised it for real until this
+  morning's eval run. What's the general lesson about testing failure
+  paths that don't happen often, versus ones that happen on every
+  request?
+- The fix adds a second `isinstance` check on `exc.__cause__`. What
+  happens to this detection logic if a future version of Instructor
+  changes how it wraps exceptions — does anything here re-break silently,
+  or does it fail loudly?
+
+---
+
+Try the self-check questions above first, same as always.

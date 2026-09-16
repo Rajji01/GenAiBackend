@@ -51,9 +51,21 @@ def enrich(request: EnrichRequest, db: Session = Depends(get_db)) -> Transaction
         return _enrich_and_persist(request.narration, db)
 
     except InstructorRetryException as exc:
-        # The model never produced a shape our schema accepts, even after
-        # retrying. The caller needs to know their input couldn't be
-        # processed — this is a 422, not a 500.
+        # Week 3 bug, found via a live eval run: .create() wraps EVERY
+        # underlying failure in InstructorRetryException, including a
+        # transient provider error that exhausted service.py's own
+        # tenacity retry — not just a genuine shape/validation failure.
+        # The real APIError (if any) is in exc.__cause__; without this
+        # check, an exhausted 503 was silently reported as "your input
+        # was unprocessable" (422) instead of "the provider is down" (503).
+        cause = exc.__cause__
+        if isinstance(cause, APIError) and cause.code in {429, 503, 504}:
+            logger.warning("enrich_provider_error code=%s status=%s", cause.code, cause.status)
+            raise HTTPException(
+                status_code=503,
+                detail="The enrichment provider is temporarily unavailable. Please retry.",
+            ) from exc
+
         logger.warning("enrich_validation_failed error=%s", exc)
         raise HTTPException(
             status_code=422,
@@ -68,11 +80,10 @@ def enrich(request: EnrichRequest, db: Session = Depends(get_db)) -> Transaction
         ) from exc
 
     except APIError as exc:
-        # service.py already retried this 3x with backoff if it looked
-        # transient (429/503/504) — reaching here means those retries
-        # were exhausted, or it was a non-transient provider error
-        # (e.g. a genuinely bad request to the API). Either way it's the
-        # provider's problem right now, not ours — 503, not 500.
+        # Defensive only — real usage never reaches here (.create() always
+        # wraps this into InstructorRetryException, handled above), but if
+        # a future Instructor version ever changes that, this still maps
+        # it to the right status instead of a generic 500.
         logger.warning("enrich_provider_error code=%s status=%s", exc.code, exc.status)
         raise HTTPException(
             status_code=503,

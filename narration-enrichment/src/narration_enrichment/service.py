@@ -45,7 +45,19 @@ _TRANSIENT_CODES = {429, 503, 504}
 
 
 def _is_transient_provider_error(exc: BaseException) -> bool:
-    return isinstance(exc, APIError) and exc.code in _TRANSIENT_CODES
+    # Found live, Week 3: Instructor's OWN internal retry_sync_v2 catches
+    # every exception from the underlying API call — including ones that
+    # were never actually shape-retried — and re-raises it wrapped as
+    # InstructorRetryException(...) from original_error. So .create()
+    # never raises a raw APIError; it always raises InstructorRetryException
+    # with the real APIError sitting in __cause__. Checking only
+    # isinstance(exc, APIError) here looked correct and passed every test,
+    # but never once matched a real failure — this transient-retry logic
+    # was dead code until this second check was added.
+    if isinstance(exc, APIError) and exc.code in _TRANSIENT_CODES:
+        return True
+    cause = exc.__cause__
+    return isinstance(cause, APIError) and cause.code in _TRANSIENT_CODES
 
 
 @retry(

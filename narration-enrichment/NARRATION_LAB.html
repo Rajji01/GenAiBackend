@@ -237,6 +237,11 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">Week 3</div>
+      <a class="nav-link" href="#week3-d1"><span class="nav-tag">D1</span>Wrong-boundary mock</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -255,9 +260,9 @@
       <p class="lede" style="margin-top:12px;">A six-entry build log: what was fed to the model, what shape we needed back, where that broke, and exactly why the fix works — with the real terminal output at every step, not a tidied-up retelling.</p>
 
       <div class="stat-row">
-        <div class="card stat-tile"><div class="stat-num">9</div><div class="stat-label">Log entries</div></div>
-        <div class="card stat-tile"><div class="stat-num">8</div><div class="stat-label">Real bugs hit</div></div>
-        <div class="card stat-tile"><div class="stat-num">28</div><div class="stat-label">Tests, 0 live calls</div></div>
+        <div class="card stat-tile"><div class="stat-num">10</div><div class="stat-label">Log entries</div></div>
+        <div class="card stat-tile"><div class="stat-num">10</div><div class="stat-label">Real bugs hit</div></div>
+        <div class="card stat-tile"><div class="stat-num">30</div><div class="stat-label">Tests, 0 live calls</div></div>
         <div class="card stat-tile"><div class="stat-num">20/day</div><div class="stat-label">Free-tier quota cap</div></div>
       </div>
 
@@ -834,6 +839,60 @@ def _call_llm(narration): ...</code></pre>
       <div class="terminal">tests/test_service_retry.py::test_recovers_after_transient_errors_within_the_retry_budget <span class="ok">PASSED</span>
 tests/test_service_retry.py::test_non_transient_error_is_not_retried_at_all <span class="ok">PASSED</span>
 <span class="dim">9 passed — real tenacity backoff logic, real APIError objects, zero network calls</span></div>
+      <p style="margin-top:10px; font-size:13.5px; color:var(--danger);">⚠ These 9 tests passed and this logic still never fired in production — see Week 3, Day 1 below.</p>
+    </article>
+
+    <section id="week3-intro" style="margin-top:64px;">
+      <p class="eyebrow">Week 3</p>
+      <h2>A live run catches what 30 passing tests missed</h2>
+      <p>Day 1 of Week 3 was meant to be a quick re-confirmation: quota resets overnight, run the eval once more for a clean baseline. It surfaced a real bug in Phase 3's retry logic instead — one that had shipped, passed code review, passed 9 tests, and never once fired in production.</p>
+    </section>
+
+    <article class="card day" id="week3-d1">
+      <div class="day-head">
+        <span class="day-stamp">WEEK 3 · D1</span>
+        <span class="day-title">The retry logic that never ran</span>
+      </div>
+      <span class="day-files">service.py · main.py · tests/test_service_retry.py · tests/test_api.py</span>
+
+      <div class="field">
+        <div class="field-label">What a clean re-run looked like</div>
+        <div class="terminal">calls completed              11/12
+call failure rate            8%
+accuracy: all fields         <span class="ok">100%</span>  (of calls that completed)</div>
+        <p style="margin-top:8px; font-size:14.5px;">Good news on the surface — but the one failure's error string was <code>InstructorRetryException: 504 DEADLINE_EXCEEDED...</code>, not the raw <code>APIError</code> the Phase 3 retry code was written to catch.</p>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">The bug — mocked at the wrong boundary</div>
+        <p><code>_is_transient_provider_error</code> checked <code>isinstance(exc, APIError)</code>. Instructor's <em>own</em> internal retry loop catches every exception from the real API call and re-raises it as <code>InstructorRetryException(...) from original_error</code> — <code>.create()</code> never raises a bare <code>APIError</code>. Confirmed by mocking one layer deeper than the tests did:</p>
+      </div>
+      <div class="terminal">with patch.object(_raw_client.models, 'generate_content', side_effect=err):
+    _call_llm('test')
+<span class="dim">Exception seen by caller: <span class="bad">InstructorRetryException</span></span>
+<span class="dim">Is APIError? <span class="bad">False</span></span>
+<span class="dim">__cause__ type: <span class="ok">APIError</span> · code: 504</span></div>
+      <p style="margin-top:10px; font-size:14.5px;">The Week 2 tests had mocked <code>_client.create</code> directly — one layer higher — which raises whatever you tell it to, unwrapped. That mock was internally consistent and completely unlike reality.</p>
+
+      <div class="field">
+        <div class="field-label">The fix</div>
+        <pre><code>def _is_transient_provider_error(exc):
+    if isinstance(exc, APIError) and exc.code in _TRANSIENT_CODES:
+        return True
+    cause = exc.__cause__
+    return isinstance(cause, APIError) and cause.code in _TRANSIENT_CODES</code></pre>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">A second bug this exposed, in main.py</div>
+        <p>An exhausted transient error and a genuine shape failure both raise <code>InstructorRetryException</code> — so a real, retried-3x, still-failing 503 was landing in the same branch as "the model gave bad output," and being reported to the caller as <code>422</code> instead of <code>503</code>. Fixed by checking <code>exc.__cause__</code> inside that one <code>except</code> block before deciding the status code.</p>
+      </div>
+
+      <div class="terminal">tests/test_service_retry.py::test_transient_codes_are_recognized_via_the_wrapped_exception <span class="ok">PASSED</span>
+tests/test_api.py::test_enrich_returns_503_when_a_transient_provider_error_exhausts_retries <span class="ok">PASSED</span>
+<span class="dim">30 passed — this time against the exact exception shape confirmed live</span></div>
+
+      <p style="margin-top:12px;">Nothing here needed a second LLM provider, a bigger retry library, or more code — the fix is two lines. The lesson is the mocking boundary: a mock one layer off from reality can pass every test in the file and still test nothing real.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
