@@ -98,6 +98,18 @@ def test_health_check():
     assert response.json() == {"status": "ok"}
 
 
+def test_response_carries_a_generated_correlation_id_when_none_was_sent():
+    response = client.get("/health")
+    correlation_id = response.headers.get("X-Correlation-Id")
+    assert correlation_id is not None
+    assert correlation_id != "none"
+
+
+def test_response_echoes_back_a_caller_supplied_correlation_id():
+    response = client.get("/health", headers={"X-Correlation-Id": "caller-chosen-id"})
+    assert response.headers["X-Correlation-Id"] == "caller-chosen-id"
+
+
 def test_enrich_returns_structured_response_when_llm_succeeds():
     fake_result = TransactionEnrichment(
         merchant="Swiggy",

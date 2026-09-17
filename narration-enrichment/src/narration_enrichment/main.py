@@ -10,7 +10,7 @@ code that already exists, not a hand-maintained spec.)
 import logging
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from google.genai.errors import APIError
 from instructor.core.exceptions import InstructorRetryException
 from pydantic import BaseModel, Field
@@ -18,6 +18,12 @@ from sqlalchemy.orm import Session
 
 from narration_enrichment import rag
 from narration_enrichment.config import get_settings
+from narration_enrichment.correlation import (
+    HEADER_NAME,
+    CorrelationIdLogFilter,
+    new_correlation_id,
+    set_correlation_id,
+)
 from narration_enrichment.db import get_db, list_enrichments, save_enrichment
 from narration_enrichment.models import TransactionEnrichment
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
@@ -31,11 +37,40 @@ from narration_enrichment.service import enrich_narration, get_raw_client
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    format="%(asctime)s %(levelname)s [%(correlation_id)s] %(name)s %(message)s",
 )
+# Real bug, caught live: a filter attached to the ROOT LOGGER via
+# addFilter() does NOT run for records from child loggers (service.py's
+# logger, rag.py's logger, ...) propagating up to it — Logger.filter()
+# is only invoked by the logger that originates the record, while
+# propagation calls each ancestor's HANDLERS directly, bypassing the
+# ancestor's own Logger.filter(). The filter has to sit on the handler
+# instead, since Handler.handle() does check its own filters regardless
+# of which logger the record came from. Attaching it to the logger
+# looked correct, imported cleanly, and would have raised
+# "KeyError: 'correlation_id'" on the very first logger.info() call
+# anywhere else in the codebase — confirmed by actually triggering one.
+for _handler in logging.getLogger().handlers:
+    _handler.addFilter(CorrelationIdLogFilter())
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Narration Enrichment", version="0.2.0")
+
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    # No explicit reset/cleanup needed here, unlike the Java track's
+    # MDC.remove() in a finally block: Starlette runs each request in its
+    # own asyncio Task, and a ContextVar set inside one Task is invisible
+    # to every other concurrently running Task — there's no shared,
+    # reused thread for a value to leak across. The isolation Java has to
+    # earn with a try/finally, asyncio gives for free per-Task.
+    incoming = request.headers.get(HEADER_NAME)
+    correlation_id = incoming if incoming else new_correlation_id()
+    set_correlation_id(correlation_id)
+    response = await call_next(request)
+    response.headers[HEADER_NAME] = correlation_id
+    return response
 
 _settings = get_settings()
 rate_limiter = RateLimiter(

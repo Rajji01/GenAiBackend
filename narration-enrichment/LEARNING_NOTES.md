@@ -506,4 +506,80 @@ finite API quota to re-prove arithmetic would be waste, not rigor.
 
 ---
 
+# Week 4, continued — correlation IDs, and a real bug found building them
+
+**Files:** `correlation.py` (new), `main.py`, `tests/test_correlation.py` (new), `tests/test_api.py`
+
+**The motivation:** requests now fan out into several internal calls —
+RAG retrieval, the rate limiter, the generative call, a DB write — each
+logging its own lines. Without something tying them together, reading
+the logs for one specific request means guessing from timing alone which
+lines belong together. This is the exact same problem the Java
+ticketing-platform track solved with `CorrelationIdFilter` and Java's
+MDC — same problem, different language's tools.
+
+**The mechanism:** a module-level `contextvars.ContextVar` holds the
+current request's correlation id. A `logging.Filter` subclass reads it
+and stamps it onto every `LogRecord` as `record.correlation_id`, so the
+format string's `%(correlation_id)s` always has something to read. A
+FastAPI `@app.middleware("http")` reads an incoming `X-Correlation-Id`
+header (or generates a UUID4 if absent), sets the ContextVar for the
+duration of the request, and echoes the same id back in the response
+header.
+
+**Why no explicit cleanup, unlike Java's `finally { MDC.remove() }`:**
+Java's thread-pool-backed servers reuse worker threads across requests,
+so an MDC value left behind by one request leaks into whichever
+unrelated request lands on that same thread next — that's exactly why
+the Java version's cleanup is load-bearing, not defensive style. Python's
+asyncio gives this isolation for free: Starlette runs each request in
+its own Task, and a `ContextVar.set()` inside one Task never becomes
+visible to a different, concurrently running Task. Same guarantee,
+opposite reason — no shared, reused execution context to leak across
+here in the first place.
+
+**The real bug, found live, not by inspection:** the first version
+attached the filter with `logging.getLogger().addFilter(CorrelationIdLogFilter())`.
+This imported cleanly, read as obviously correct, and would have been
+very easy to ship without ever noticing anything wrong — until the very
+first `logger.info()` call from any module *other than* `main.py` itself
+(which is to say: nearly every log line this project has ever written)
+hit `KeyError: 'correlation_id'` inside Python's own logging internals.
+
+**Why it actually breaks, mechanically:** `Logger.handle()` calls
+`self.filter(record)` — using only the filters attached to the logger
+that *originated* the call. Propagation up to an ancestor logger (via
+`Logger.callHandlers`) calls each ancestor's *handlers* directly; it
+never calls the ancestor's own `.filter()` a second time. So a filter
+added to the root logger only ever runs for messages logged directly
+via the root logger itself — every other logger's messages walk straight
+past it. The fix: attach the filter to the *handler* instead
+(`handler.addFilter(...)`) — `Handler.handle()` checks its own filters
+for every record that reaches it, regardless of which logger it
+originated from.
+
+**How this was actually confirmed** (not assumed from reading the
+docs): running `main.logger.info(...)` directly in a fresh interpreter
+reproduced the exact `KeyError` with the original code, and produced
+clean, correctly-formatted output after the fix — both checked by
+actually running it, in that order.
+
+**Self-check:**
+- Python's logging module caught the `KeyError` internally and printed
+  "--- Logging error ---" to stderr instead of raising it up to the
+  caller. What does that failure mode mean for how likely this bug would
+  have been to get noticed in a real deployment, versus a language where
+  a broken format string raises immediately?
+- The two regression tests for this bug build their own private logger
+  hierarchy (`logging.getLogger("test_isolated_wrong_place_parent")`)
+  instead of using the real root logger directly. What would have gone
+  wrong if they'd used the real root logger the way the first reproduction
+  attempt (informally, in a REPL) did?
+- `correlation.py`'s `CorrelationIdLogFilter.filter()` always returns
+  `True`. What would it mean, in Python's logging model, for a filter's
+  `filter()` method to return `False` — and is there ever a legitimate
+  reason *this specific* filter would want to?
+
+---
+
 Try the self-check questions above first, same as always.

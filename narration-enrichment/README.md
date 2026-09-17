@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-51 tests, no network calls, no API key required — the LLM and the
+59 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 
@@ -227,6 +227,12 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   anything else → a generic 500 that never echoes the real exception
   message back to the caller. The same principle as the Java project's
   `GlobalExceptionHandler`, in a different language.
+- **A logging filter belongs on the handler, not the logger** — found the
+  hard way (see Week 4 below): `Logger.addFilter()` only affects records
+  that logger itself originates, not records from child loggers merely
+  propagating through it. `Handler.addFilter()` is the one that actually
+  applies regardless of origin, since every propagated record still has
+  to pass through the handler it ultimately reaches.
 
 ## The week, day by day
 
@@ -324,3 +330,28 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   proving the route returns 429 without ever calling the mocked LLM, and
   that a batch isolates an item that lands after the limit trips the same
   way a provider failure already does).
+- **Correlation IDs** — `correlation.py`, the Python equivalent of the
+  ticketing-platform track's `CorrelationIdFilter`: a `contextvars.ContextVar`
+  holds the current request's id, and a `logging.Filter` attaches it to
+  every log line so `%(correlation_id)s` in the log format is never blank
+  mid-request. No explicit cleanup needed the way Java's `finally { MDC.remove() }`
+  is — Starlette runs each request in its own asyncio Task, and a
+  `ContextVar` set inside one Task is invisible to every other
+  concurrently running Task, so there's no shared, reused thread for a
+  value to leak across.
+- **A real bug, caught live, in the correlation ID work itself** — the
+  filter was first attached via `logging.getLogger().addFilter(...)`,
+  which looked correct and imported cleanly, but silently never runs:
+  `Logger.filter()` is only invoked by the logger that *originates* a
+  record, while propagation to an ancestor calls that ancestor's
+  *handlers* directly, bypassing the ancestor's own filter. The very
+  first `logger.info()` call anywhere else in the codebase would have
+  raised `KeyError: 'correlation_id'` inside the logging module the
+  moment it ran for real — confirmed by actually triggering one, not by
+  reasoning about it in the abstract. Fixed by attaching the filter to
+  the handler instead (`handler.addFilter(...)`), which every log record
+  passes through regardless of which logger it came from. Pinned down
+  with two dedicated regression tests, using an isolated logger tree
+  rather than the real root logger — the real one already carries the
+  fix by the time the suite has imported `main.py` once, which would
+  have silently masked the bug being tested for.
