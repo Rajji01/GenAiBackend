@@ -85,3 +85,18 @@ class RateLimiter:
         with self._lock:
             self._minute.calls.clear()
             self._day.calls.clear()
+
+    def remaining(self) -> tuple[int, int]:
+        """(calls left this minute, calls left today) — a read-only
+        peek for /stats. Evicts stale entries first so a caller doesn't
+        see a window that looks exhausted purely because nothing has
+        called acquire() recently to trigger its own eviction.
+        """
+        now = self._time_fn()
+        with self._lock:
+            self._minute.evict_stale(now)
+            self._day.evict_stale(now)
+            return (
+                max(0, self._minute.limit - len(self._minute.calls)),
+                max(0, self._day.limit - len(self._day.calls)),
+            )

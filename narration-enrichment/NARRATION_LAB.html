@@ -279,6 +279,7 @@
       <div class="nav-group-title">Week 4</div>
       <a class="nav-link" href="#week4-ratelimit"><span class="nav-tag">·</span>Rate limiting</a>
       <a class="nav-link" href="#week4-correlation"><span class="nav-tag">·</span>Correlation IDs</a>
+      <a class="nav-link" href="#week4-stats"><span class="nav-tag">·</span>/stats endpoint</a>
     </div>
 
     <div class="nav-group">
@@ -301,9 +302,9 @@
 
       <div class="stat-row">
         <div class="card stat-tile"><div class="stat-num">7</div><div class="stat-label">LLM concepts explained</div></div>
-        <div class="card stat-tile"><div class="stat-num">13</div><div class="stat-label">Log entries</div></div>
+        <div class="card stat-tile"><div class="stat-num">14</div><div class="stat-label">Log entries</div></div>
         <div class="card stat-tile"><div class="stat-num">12</div><div class="stat-label">Real bugs hit</div></div>
-        <div class="card stat-tile"><div class="stat-num">59</div><div class="stat-label">Tests, 0 live calls</div></div>
+        <div class="card stat-tile"><div class="stat-num">68</div><div class="stat-label">Tests, 0 live calls</div></div>
         <div class="card stat-tile"><div class="stat-num">20/day</div><div class="stat-label">Free-tier quota cap</div></div>
       </div>
 
@@ -1317,6 +1318,48 @@ x-correlation-id: <span class="ok">my-custom-trace-id</span>                   <
   ✓ a filter on the HANDLER correctly reaches a child logger's records
 
 59 passed total</div>
+    </article>
+
+    <article class="card day" id="week4-stats">
+      <div class="day-head">
+        <span class="day-stamp">WEEK 4</span>
+        <span class="day-title">/stats — aggregate what's already there</span>
+      </div>
+      <span class="day-files">db.py · rate_limiter.py · schemas.py · main.py · tests/test_db.py (new)</span>
+
+      <p style="font-size:14.5px;">Nothing new to persist — just a lens on data <code>/enrich</code> was already saving, plus a read-only peek at the rate limiter's own headroom.</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>GROUP BY in the database</h4>
+          <p><code>get_category_counts</code> aggregates with SQL, not "fetch every row and <code>Counter()</code> them in Python." Invisible at this scale, the right habit regardless of it.</p>
+        </div>
+        <div class="mini-card">
+          <h4>NULL is not 0.0</h4>
+          <p><code>AVG()</code> over zero rows is SQL <code>NULL</code>. Reporting a fake <code>0.0</code> average would claim there's data behind it when there isn't — <code>average_confidence: float | None</code> makes the distinction part of the API contract itself.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">remaining() vs acquire() — reading a quota shouldn't spend it</div>
+        <p><code>RateLimiter.remaining()</code> evicts stale entries and reports headroom without recording a call — checking how much is left is not itself a use of the thing being checked.</p>
+      </div>
+
+      <div class="terminal">$ curl localhost:8124/stats
+{
+  "total_enrichments": 0,
+  "average_confidence": null,
+  "category_breakdown": [],
+  "rate_limit_remaining_this_minute": 5,
+  "rate_limit_remaining_today": 20
+}
+<span class="dim">real server, real empty table — matches the unit tests' empty-case exactly</span></div>
+
+      <div class="terminal">tests/test_db.py — 4 passed (real in-memory SQLite, not mocked)
+tests/test_rate_limiter.py — +3 for remaining()
+tests/test_api.py — +2 integration against /stats
+
+68 passed total</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

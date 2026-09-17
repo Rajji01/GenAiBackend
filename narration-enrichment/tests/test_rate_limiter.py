@@ -89,3 +89,35 @@ def test_reset_clears_all_recorded_calls():
     limiter.reset()
 
     limiter.acquire()  # would have raised if reset() hadn't cleared state
+
+
+def test_remaining_reflects_calls_made_so_far():
+    clock = FakeClock()
+    limiter = RateLimiter(per_minute=5, per_day=20, time_fn=clock)
+
+    assert limiter.remaining() == (5, 20)
+    limiter.acquire()
+    limiter.acquire()
+    assert limiter.remaining() == (3, 18)
+
+
+def test_remaining_does_not_itself_consume_a_call():
+    clock = FakeClock()
+    limiter = RateLimiter(per_minute=1, per_day=100, time_fn=clock)
+
+    limiter.remaining()
+    limiter.remaining()
+    limiter.remaining()
+
+    limiter.acquire()  # still the first real call — remaining() never counted
+
+
+def test_remaining_recovers_once_the_per_minute_window_ages_out():
+    clock = FakeClock()
+    limiter = RateLimiter(per_minute=1, per_day=100, time_fn=clock)
+
+    limiter.acquire()
+    assert limiter.remaining() == (0, 99)
+
+    clock.advance(60.1)
+    assert limiter.remaining() == (1, 99)

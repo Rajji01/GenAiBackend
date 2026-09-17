@@ -582,4 +582,58 @@ actually running it, in that order.
 
 ---
 
+# Week 4, continued — a /stats endpoint
+
+**Files:** `db.py`, `rate_limiter.py`, `schemas.py`, `main.py`, `tests/test_db.py` (new), `tests/test_rate_limiter.py`, `tests/test_api.py`
+
+**The motivation:** there was no way to answer "how is this doing" without
+manually reading raw rows from `/enrichments` or the SQLite file directly.
+`/stats` aggregates what's already persisted — total count, average
+confidence, a per-category breakdown — plus a live peek at the rate
+limiter's remaining headroom, all from data that already exists.
+
+**Where the aggregation happens, and why it matters:** `get_category_counts`
+and `get_total_and_average_confidence` use SQL `GROUP BY`/`COUNT`/`AVG`
+directly, not "fetch every row and count them in Python." At this
+project's current scale the difference is invisible; the habit of
+pushing aggregation into the database rather than the application layer
+is the part worth keeping regardless of scale.
+
+**A small but real correctness detail:** `AVG()` over zero rows is SQL
+`NULL`, not `0`. Reporting `average_confidence: 0.0` on an empty table
+would actively mislead a caller into thinking there's data averaging to
+zero, rather than no data at all. `get_total_and_average_confidence`
+returns `None` in that case, and the response schema types the field as
+`float | None` to make that distinction visible in the API contract
+itself, not just in a comment.
+
+**`RateLimiter.remaining()` — read without mutating:** exposing the rate
+limiter's internal state for `/stats` needed a method that reports
+headroom *without* recording a call the way `acquire()` does — checking
+your remaining quota shouldn't itself spend quota. It still evicts stale
+entries first, so it reports the *current* truth rather than a stale
+count from whenever `acquire()` was last called.
+
+**Verified live, on the actual empty-table case:** ran a real instance
+and hit `/stats` cold — `total_enrichments: 0`, `average_confidence: null`,
+`category_breakdown: []`, full rate-limit headroom (`5`, `20`) — matching
+exactly what the unit tests assert for the same starting state.
+
+**Self-check:**
+- Why does `get_category_counts` order by count descending in the SQL
+  query itself, rather than sorting the already-small result list in
+  Python after fetching it?
+- `RateLimiter.remaining()` and `acquire()` both call `evict_stale()`
+  under the same lock. What would go wrong — or would anything go wrong
+  at all — if `remaining()` didn't take the lock, on the theory that it's
+  "just reading"?
+- The `/stats` response embeds live rate-limiter state (headroom that
+  changes with every `/enrich` call) inside the same response as
+  historical DB aggregates (which only change on a successful save).
+  Is mixing "live" and "historical" data in one response a reasonable
+  design, or does it deserve to be two separate endpoints — and what
+  would the actual argument be, either way?
+
+---
+
 Try the self-check questions above first, same as always.

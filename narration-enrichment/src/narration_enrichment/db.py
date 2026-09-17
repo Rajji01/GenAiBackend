@@ -11,7 +11,7 @@ function, one list function.
 import json
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine
+from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine, func
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from narration_enrichment.config import get_settings
@@ -93,3 +93,24 @@ def list_records_with_embeddings(db: Session) -> list[EnrichmentRecord]:
     # to compare against. No LIMIT here on purpose at this project's scale
     # — see rag.py's own note about where that stops being true.
     return db.query(EnrichmentRecord).filter(EnrichmentRecord.embedding.isnot(None)).all()
+
+
+def get_category_counts(db: Session) -> list[tuple[str, int]]:
+    # GROUP BY in the database, not "fetch everything and Counter() it in
+    # Python" — the aggregation belongs where the data lives, and this
+    # scales to however many rows exist without pulling them all into
+    # memory just to count them.
+    return (
+        db.query(EnrichmentRecord.category, func.count(EnrichmentRecord.id))
+        .group_by(EnrichmentRecord.category)
+        .order_by(func.count(EnrichmentRecord.id).desc())
+        .all()
+    )
+
+
+def get_total_and_average_confidence(db: Session) -> tuple[int, float | None]:
+    total = db.query(func.count(EnrichmentRecord.id)).scalar()
+    # AVG over zero rows is SQL NULL, not 0 — surfacing that as None
+    # rather than a misleading 0.0 average with nothing behind it.
+    average_confidence = db.query(func.avg(EnrichmentRecord.confidence)).scalar()
+    return total, average_confidence

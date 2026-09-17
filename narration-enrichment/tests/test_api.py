@@ -369,3 +369,39 @@ def test_enrich_batch_isolates_items_that_land_after_the_rate_limit_trips():
     # soft degradation rather than a hard failure.
     stored = client.get("/enrichments").json()
     assert len(stored) == 1
+
+
+def test_stats_on_an_empty_table_reports_zero_and_no_average():
+    response = client.get("/stats")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_enrichments"] == 0
+    assert body["average_confidence"] is None
+    assert body["category_breakdown"] == []
+
+
+def test_stats_reflects_persisted_enrichments_and_rate_limiter_headroom():
+    settings = get_settings()
+    swiggy = TransactionEnrichment(
+        merchant="Swiggy", category="food_delivery", transaction_type="UPI", confidence=0.8
+    )
+    amazon = TransactionEnrichment(
+        merchant="Amazon", category="shopping", transaction_type="POS", confidence=0.6
+    )
+    with patch("narration_enrichment.main.enrich_narration", side_effect=[swiggy, amazon]):
+        client.post("/enrich", json={"narration": "narration-1"})
+        client.post("/enrich", json={"narration": "narration-2"})
+
+    response = client.get("/stats")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_enrichments"] == 2
+    assert body["average_confidence"] == pytest.approx(0.7)
+    assert {"category": "food_delivery", "count": 1} in body["category_breakdown"]
+    assert {"category": "shopping", "count": 1} in body["category_breakdown"]
+    # Two real /enrich calls above should have consumed two slots from
+    # the per-minute window — /stats reporting this without itself
+    # calling the LLM is the entire point of exposing rate_limiter.remaining().
+    assert body["rate_limit_remaining_this_minute"] == settings.enrich_rate_limit_per_minute - 2

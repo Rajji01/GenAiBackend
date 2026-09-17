@@ -24,14 +24,22 @@ from narration_enrichment.correlation import (
     new_correlation_id,
     set_correlation_id,
 )
-from narration_enrichment.db import get_db, list_enrichments, save_enrichment
+from narration_enrichment.db import (
+    get_category_counts,
+    get_db,
+    get_total_and_average_confidence,
+    list_enrichments,
+    save_enrichment,
+)
 from narration_enrichment.models import TransactionEnrichment
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
 from narration_enrichment.schemas import (
     BatchEnrichRequest,
     BatchEnrichResponse,
     BatchItemResult,
+    CategoryCount,
     EnrichmentRecordResponse,
+    StatsResponse,
 )
 from narration_enrichment.service import enrich_narration, get_raw_client
 
@@ -221,6 +229,22 @@ def enrich_batch(request: BatchEnrichRequest, db: Session = Depends(get_db)) -> 
 @app.get("/enrichments", response_model=list[EnrichmentRecordResponse])
 def get_enrichments(limit: int = 20, offset: int = 0, db: Session = Depends(get_db)) -> list[EnrichmentRecordResponse]:
     return list_enrichments(db, limit=limit, offset=offset)
+
+
+@app.get("/stats", response_model=StatsResponse)
+def get_stats(db: Session = Depends(get_db)) -> StatsResponse:
+    total, average_confidence = get_total_and_average_confidence(db)
+    category_breakdown = [
+        CategoryCount(category=category, count=count) for category, count in get_category_counts(db)
+    ]
+    minute_remaining, day_remaining = rate_limiter.remaining()
+    return StatsResponse(
+        total_enrichments=total,
+        average_confidence=average_confidence,
+        category_breakdown=category_breakdown,
+        rate_limit_remaining_this_minute=minute_remaining,
+        rate_limit_remaining_today=day_remaining,
+    )
 
 
 @app.get("/health")

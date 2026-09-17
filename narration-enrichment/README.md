@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-59 tests, no network calls, no API key required — the LLM and the
+68 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 
@@ -106,6 +106,31 @@ curl http://localhost:8000/enrichments
 SQLite (`db.py`); `/enrichments` lists what's stored. A bad item inside a
 batch is isolated — it's recorded as a failure in that item's slot, the
 rest of the batch still completes.
+
+## Stats
+
+```bash
+curl http://localhost:8000/stats
+```
+
+```json
+{
+  "total_enrichments": 0,
+  "average_confidence": null,
+  "category_breakdown": [],
+  "rate_limit_remaining_this_minute": 5,
+  "rate_limit_remaining_today": 20
+}
+```
+
+Aggregates what's already in `enrichment_records` (total count, average
+confidence, a per-category breakdown via `GROUP BY` in the database, not
+fetched-and-counted in Python) alongside a read-only peek at the Week 4
+rate limiter's current headroom — the same numbers that decide whether
+the *next* `/enrich` call would succeed, without spending one to find
+out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
+`AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
+would misleadingly imply there's data behind it.
 
 ## RAG (retrieval-augmented consistency)
 
@@ -355,3 +380,14 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   rather than the real root logger — the real one already carries the
   fix by the time the suite has imported `main.py` once, which would
   have silently masked the bug being tested for.
+- **`/stats`** — aggregates `enrichment_records` (total, average
+  confidence, category breakdown via `GROUP BY` in the database) plus a
+  read-only peek at the rate limiter's remaining headroom
+  (`RateLimiter.remaining()`, added alongside `acquire()` — a
+  non-mutating check that doesn't itself consume a slot). Verified live
+  against a real running instance with an empty table: `total_enrichments:
+  0`, `average_confidence: null` (not a misleading `0.0`), full headroom
+  (`5`/`20`) — matching the same empty-table case the unit tests cover.
+  9 new tests: 4 for `db.py`'s two new aggregation functions against a
+  real in-memory SQLite, 3 for `RateLimiter.remaining()`, 2 integration
+  against the actual `/stats` route.

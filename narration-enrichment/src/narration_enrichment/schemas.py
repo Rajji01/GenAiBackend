@@ -45,3 +45,19 @@ class EnrichmentRecordResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}  # build directly from the SQLAlchemy object
+
+
+class CategoryCount(BaseModel):
+    category: str
+    count: int
+
+
+class StatsResponse(BaseModel):
+    total_enrichments: int
+    average_confidence: float | None
+    category_breakdown: list[CategoryCount]
+    # Read-only peek at the Week 4 rate limiter's current headroom — the
+    # same numbers that determine whether the *next* /enrich call would
+    # succeed or get a 429, without actually attempting one.
+    rate_limit_remaining_this_minute: int
+    rate_limit_remaining_today: int
