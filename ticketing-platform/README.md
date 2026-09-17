@@ -190,7 +190,49 @@ easily hide the exact race condition this project exists to prevent.
   brings up all three containers from cold with no separate `mvnw` step.
   30 tests total — 4 new in `CorrelationIdFilterTest` (MDC set during the
   chain, cleared after, cleared even when the chain throws).
+- **Day 5 — the failure experiment, made repeatable, then done live too.**
+  `ConcurrentHoldFailureExperimentTest` fires two real threads at the same
+  seat with a `CountDownLatch` forcing them to start together, twice:
+  once through the full `HoldService.hold()` flow (proving the end-to-end
+  behavior), once bypassing Redis entirely and racing two threads directly
+  against `SeatRepository.save()` (proving Postgres's `@Version` alone,
+  independent of Redis — Day 2 explicitly deferred this exact proof since
+  it needs real threads, not sequential reads in one persistence context).
+  **A genuinely useful, honest finding from writing this:** in the normal
+  `/hold` flow, Redis's single-threaded `SETNX` is what actually resolves
+  the race in practice — one caller's key-set wins, the other gets a
+  `ConflictException` before Postgres is ever touched. Postgres's
+  `@Version` check is the independent, always-on safety net for any path
+  that reaches it (a future service, a manual fix, a bug in the Redis
+  check) — not a redundant no-op, since the second test above proves it
+  holds *even with Redis completely out of the picture*.
 
-## What's not built yet (by design, later days)
+  Then verified live, exactly as the plan asked ("2 curl in parallel"),
+  against a really running instance (`docker compose up -d postgres
+  redis` + `./mvnw spring-boot:run`, avoiding the heavier full container
+  build this run):
+  ```
+  $ curl -X POST http://localhost:8081/shows/1/seats/1/hold -d '{"holderId":"user-A"}' &
+  $ curl -X POST http://localhost:8081/shows/1/seats/1/hold -d '{"holderId":"user-B"}' &
 
-- The concurrent-hold failure experiment + integration test (Day 5)
+  user-A -> 409 {"title":"Conflict","detail":"Seat 1 is already held by someone else"}
+  user-B -> 200 {"seatId":1,"holderId":"user-B","ttlSeconds":300}
+  ```
+  The app's own logs for that exact pair of requests carry two different
+  correlation IDs (Day 4's filter, confirmed working under real concurrent
+  load, not just in its own unit test) — `90d9697e...` for the rejected
+  attempt, `c164c84a...` for the granted one. `GET /shows/1/seats/availability`
+  afterward confirms seat 1 as `HELD` — not a crash, not a double-hold,
+  exactly one winner.
+
+## Week 1 Definition of Done
+
+- [x] `hold` / `release` / `availability` endpoints working
+- [x] Concurrent same-seat hold → one 200, one clean 409 (no crash, no oversell) — proven twice: automated (`ConcurrentHoldFailureExperimentTest`) and live (two real parallel curls, Day 5 above)
+- [x] Redis TTL hold expires correctly (seat free) — `HoldReconciliationService`, Day 3
+- [x] Global exception handling + correlation ID in logs — Day 3 / Day 4
+- [x] Config env-driven, `.env.example` present, nothing hardcoded — `InventoryProperties`, Day 4
+- [x] Docker Compose up → sab chalta hai ek command se — Day 4
+- [x] 1+ integration test (Testcontainers) covering concurrent-hold — 2, Day 5
+- [x] README with architecture note + run steps + the failure experiment
+- [x] pushed to the repo (`GenAiBackend/ticketing-platform/inventory-service/`)

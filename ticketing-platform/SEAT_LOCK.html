@@ -233,6 +233,7 @@
       <a class="nav-link" href="#day2"><span class="nav-tag">D2</span>Seat + availability</a>
       <a class="nav-link" href="#day3"><span class="nav-tag">D3</span>Hold + release</a>
       <a class="nav-link" href="#day4"><span class="nav-tag">D4</span>Hardening</a>
+      <a class="nav-link" href="#day5"><span class="nav-tag">D5</span>Failure experiment</a>
     </div>
 
     <div class="nav-group">
@@ -260,9 +261,9 @@
       <p class="lede" style="margin-top:12px;">A deep build log for <code>inventory-service</code>, the first microservice of the ticketing-platform track — not just what was built, but the theory underneath every decision, why it was made, and the real bugs that came from making it. Read the Concepts section first if a mechanism feels unfamiliar; the day-by-day log links back to it.</p>
 
       <div class="stat-row">
-        <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Days logged</div></div>
+        <div class="card stat-tile"><div class="stat-num">5</div><div class="stat-label">Days logged</div></div>
         <div class="card stat-tile"><div class="stat-num">8</div><div class="stat-label">Concepts explained</div></div>
-        <div class="card stat-tile"><div class="stat-num">30</div><div class="stat-label">Tests, real Postgres + Redis</div></div>
+        <div class="card stat-tile"><div class="stat-num">32</div><div class="stat-label">Tests, real Postgres + Redis</div></div>
         <div class="card stat-tile"><div class="stat-num">3</div><div class="stat-label">Real bugs caught live</div></div>
       </div>
 
@@ -699,6 +700,55 @@ $ curl http://localhost:8081/actuator/health
 {"status":"<span class="ok">UP</span>"}</div>
 
       <p style="margin-top:12px; font-size:13.5px; color:var(--ink-soft);">30 tests total — 4 new in <code>CorrelationIdFilterTest</code>, checking MDC is set during the request, cleared after, and cleared <em>even when the downstream chain throws</em>.</p>
+    </article>
+
+    <article class="card day" id="day5">
+      <div class="day-head">
+        <span class="day-stamp">DAY 5</span>
+        <span class="day-title">The failure experiment — automated, then live</span>
+      </div>
+      <span class="day-files">ConcurrentHoldFailureExperimentTest.java</span>
+
+      <p style="font-size:14.5px;">Every earlier test called things one at a time. This is the one day whose entire point is making two callers race for real — a <code>CountDownLatch</code> holds both threads at the starting line and releases them together, as close to simultaneously as the JVM allows.</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Test 1 — the real flow</h4>
+          <p>Two threads call <code>HoldService.hold()</code> for the same seat. One gets a <code>HoldResponse</code>, the other a <code>ConflictException</code> — every single run, not "usually."</p>
+        </div>
+        <div class="mini-card">
+          <h4>Test 2 — Postgres alone, Redis bypassed entirely</h4>
+          <p>Two threads call <code>seatRepository.save()</code> directly, skipping <code>HoldService</code> and Redis completely. This is the one true proof of <a href="#c-locking">Concept 1</a> in isolation — exactly what Day 2 explicitly deferred, since it needs real threads.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">A genuinely useful thing this revealed</div>
+        <p>In the normal <code>/hold</code> flow, it's <strong>Redis's single-threaded SETNX that actually resolves the race in practice</strong> — one caller's key-set wins, the other fails the check and gets a clean <code>ConflictException</code> before Postgres is ever touched. Postgres's <code>@Version</code> is not a redundant no-op sitting behind it, though: Test 2 proves it independently holds the line even with Redis completely out of the picture — the safety net for any write path that isn't going through <code>HoldService</code>'s Redis gate at all (a future service, a manual fix, a bug in the Redis check itself).</p>
+      </div>
+
+      <div class="terminal">ConcurrentHoldFailureExperimentTest — 2 passed
+  ✓ two concurrent holds, same seat -> exactly one WON, one LOST:Conflict
+  ✓ two concurrent Postgres writes, Redis bypassed -> exactly one succeeds via @Version alone
+
+32 tests total, full suite, real Postgres + Redis throughout</div>
+
+      <div class="field">
+        <div class="field-label">Then done live, exactly as the plan asked — two real curls, in parallel</div>
+        <div class="terminal">$ curl -X POST localhost:8081/shows/1/seats/1/hold -d '&#123;"holderId":"user-A"&#125;' &amp;
+$ curl -X POST localhost:8081/shows/1/seats/1/hold -d '&#123;"holderId":"user-B"&#125;' &amp;
+
+user-A -&gt; <span class="bad">409</span> &#123;"title":"Conflict","detail":"Seat 1 is already held by someone else"&#125;
+user-B -&gt; <span class="ok">200</span> &#123;"seatId":1,"holderId":"user-B","ttlSeconds":300&#125;
+
+<span class="dim">app log for this exact pair of requests:</span>
+[<span class="dim">90d9697e...</span>] hold_conflict seatId=1 requestedBy=user-A
+[<span class="dim">c164c84a...</span>] hold_granted  seatId=1 holderId=user-B
+
+$ curl localhost:8081/shows/1/seats/availability
+<span class="dim">{"id":1,...,"status":"</span><span class="bad">HELD</span><span class="dim">"} — exactly one winner, no crash, no oversell</span></div>
+        <p style="margin-top:10px; font-size:13.5px; color:var(--ink-soft);">The two different correlation IDs on those log lines are Day 4's <code>CorrelationIdFilter</code>, confirmed working under genuine concurrent load — not just in its own isolated unit test.</p>
+      </div>
     </article>
 
     <!-- ============ BUG MUSEUM ============ -->
