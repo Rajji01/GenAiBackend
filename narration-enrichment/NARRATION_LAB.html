@@ -244,6 +244,11 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">Week 4</div>
+      <a class="nav-link" href="#week4-ratelimit"><span class="nav-tag">·</span>Rate limiting</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -262,9 +267,9 @@
       <p class="lede" style="margin-top:12px;">A six-entry build log: what was fed to the model, what shape we needed back, where that broke, and exactly why the fix works — with the real terminal output at every step, not a tidied-up retelling.</p>
 
       <div class="stat-row">
-        <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Log entries</div></div>
+        <div class="card stat-tile"><div class="stat-num">12</div><div class="stat-label">Log entries</div></div>
         <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Real bugs hit</div></div>
-        <div class="card stat-tile"><div class="stat-num">43</div><div class="stat-label">Tests, 0 live calls</div></div>
+        <div class="card stat-tile"><div class="stat-num">51</div><div class="stat-label">Tests, 0 live calls</div></div>
         <div class="card stat-tile"><div class="stat-num">20/day</div><div class="stat-label">Free-tier quota cap</div></div>
       </div>
 
@@ -994,6 +999,75 @@ tests/test_api.py::test_enrich_calls_llm_with_no_context_when_the_history_is_emp
 tests/test_api.py::test_enrich_builds_rag_context_from_a_similar_past_record       <span class="ok">PASSED</span>
 tests/test_api.py::test_enrich_degrades_gracefully_when_embedding_call_fails       <span class="ok">PASSED</span>
 <span class="dim">43 passed — no network calls, embeddings mocked at the rag module boundary</span></div>
+    </article>
+
+    <section id="week4-intro" style="margin-top:64px;">
+      <p class="eyebrow">Week 4</p>
+      <h2>Protecting the app's own quota, instead of just retrying into it</h2>
+      <p>Phase 1's eval (Week 2) discovered the free tier's real limits by hitting them: 5 requests/minute, and a separate 20 requests/day. Phase 3 already retries a transient 429 gracefully — but retrying still spends a real, doomed call to confirm a limit that's already knowable in advance, and the daily cap doesn't come back within any retry window. Week 4 rejects locally instead.</p>
+    </section>
+
+    <article class="card day" id="week4-ratelimit">
+      <div class="day-head">
+        <span class="day-stamp">WEEK 4</span>
+        <span class="day-title">A rate limiter with an injectable clock</span>
+      </div>
+      <span class="day-files">rate_limiter.py (new) · config.py · main.py · tests/test_rate_limiter.py (new) · tests/test_api.py</span>
+
+      <div class="field">
+        <div class="field-label">The mechanism</div>
+        <p style="font-size:14.5px;">A sliding-window counter over <em>two</em> independent windows at once — 60 seconds and 86400 seconds — each backed by a <code>deque</code> of call timestamps. Stale entries are evicted from the front before checking whether there's room for one more. A call must clear <strong>both</strong> windows to be allowed.</p>
+      </div>
+
+      <pre><code>def acquire(self) -&gt; None:
+    now = self._time_fn()          # &lt;-- injectable; real code passes nothing,
+    with self._lock:               #     tests pass a fake clock
+        self._minute.evict_stale(now)
+        self._day.evict_stale(now)
+        if len(self._minute.calls) &gt;= self._minute.limit:
+            raise RateLimitExceededError("per_minute", self._minute.retry_after(now))
+        if len(self._day.calls) &gt;= self._day.limit:
+            raise RateLimitExceededError("per_day", self._day.retry_after(now))
+        self._minute.calls.append(now)
+        self._day.calls.append(now)</code></pre>
+
+      <div class="why-box">
+        <div class="why-label">Why an injectable clock, not time.monotonic() called directly inside the class</div>
+        <p>A test proving "the 60-second window resets" would otherwise need to <code>time.sleep(60)</code> for real — slow, and a bad trade for one assertion. A <code>FakeClock</code> the test controls directly makes that assertion take milliseconds, deterministically, every run.</p>
+      </div>
+
+      <div class="terminal">tests/test_rate_limiter.py — 6 passed, 0.01s
+  ✓ allows calls up to the per-minute limit
+  ✓ rejects the call that would exceed it
+  ✓ window resets once the oldest call ages out       <span class="dim">(fake clock: advance(60.1), no real sleep)</span>
+  ✓ per-day limit enforced independently of per-minute
+  ✓ retry_after_seconds reflects time until oldest call expires
+  ✓ reset() clears all recorded calls</div>
+
+      <div class="field">
+        <div class="field-label">Wired in — and why the check sits exactly here, not at the top of the route</div>
+        <pre><code>context = ...  # RAG retrieval — a different model/quota, not counted here
+rate_limiter.acquire()                       # &lt;-- right before the real call
+result = enrich_narration(narration, context=context)</code></pre>
+        <p style="margin-top:8px; font-size:14.5px;">Counting RAG's embedding call against these limits would conflate two quotas that were never verified to share a cap — Phase 1 only ever measured the generative call.</p>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">Reused, not reinvented, for /enrich/batch</div>
+        <p><code>/enrich/batch</code> already isolates a per-item failure so one bad narration can't sink the other 49. A <code>RateLimitExceededError</code> raised mid-batch falls into that exact same per-item <code>except Exception</code> — zero new code needed for it to "just work" as a per-item failure once the quota trips.</p>
+      </div>
+
+      <div class="terminal">$ curl -i -X POST localhost:8000/enrich -d '{"narration":"..."}'
+<span class="dim">once the limit is hit:</span>
+HTTP/1.1 <span class="bad">429</span> Too Many Requests
+Retry-After: 47
+{"detail":"Rate limit exceeded (per_minute). Retry after 47s."}</div>
+
+      <p style="margin-top:10px; font-size:13.5px; color:var(--ink-soft);"><strong>A deliberate departure from Week 3's live-proof habit:</strong> RAG's proof needed a real API call because the claim was about the model's own behavior — no unit test could show whether Gemini's answer actually changed. This feature's claim is pure sliding-window arithmetic, no model involved — a fake clock and a mocked LLM prove it completely. Spending real, finite quota to re-prove arithmetic would be waste, not rigor.</p>
+
+      <div class="terminal">51 passed total — 6 new in test_rate_limiter.py, 2 new in test_api.py
+  ✓ /enrich returns 429 + Retry-After once exhausted, LLM never called
+  ✓ /enrich/batch isolates an item that lands after the limit trips</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

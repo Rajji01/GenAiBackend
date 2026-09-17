@@ -20,8 +20,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from narration_enrichment.config import get_settings
 from narration_enrichment.db import Base, EnrichmentRecord, get_db
-from narration_enrichment.main import app
+from narration_enrichment.main import app, rate_limiter
 from narration_enrichment.models import TransactionEnrichment
 
 # In-memory, per-test-run database — never touches the real
@@ -78,6 +79,17 @@ def _mock_embeddings():
     # the one that actually matters.
     with patch("narration_enrichment.rag.embed_text", return_value=FAKE_EMBEDDING):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    # Every test in this file shares one process-wide rate_limiter
+    # instance (same reason the DB engine is shared) — without a reset,
+    # a test running late in the file would inherit call history from
+    # every test before it and start failing for a reason that has
+    # nothing to do with what it's actually testing.
+    rate_limiter.reset()
+    yield
 
 
 def test_health_check():
@@ -294,6 +306,51 @@ def test_enrich_degrades_gracefully_when_embedding_call_fails():
 
     assert response.status_code == 200
     mock_enrich.assert_called_once_with("UPI/P2M/.../SWIGGY/Payment", context=None)
+
+
+def test_enrich_returns_429_with_retry_after_once_the_rate_limit_is_exhausted():
+    fake_result = TransactionEnrichment(
+        merchant="Swiggy", category="food_delivery", transaction_type="UPI", confidence=0.9
+    )
+    # Exhaust the per-minute quota by hand rather than firing real
+    # requests until it trips — cheaper, and the point being tested is
+    # the route's response to an already-exhausted limiter, not the
+    # limiter's own counting (that's test_rate_limiter.py's job).
+    settings = get_settings()
+    for _ in range(settings.enrich_rate_limit_per_minute):
+        rate_limiter.acquire()
+
+    with patch("narration_enrichment.main.enrich_narration", return_value=fake_result) as mock_enrich:
+        response = client.post("/enrich", json={"narration": "one narration too many"})
+
+    assert response.status_code == 429
+    assert response.headers["Retry-After"]
+    assert int(response.headers["Retry-After"]) > 0
+    # The whole point: the LLM is never called once the limit is hit —
+    # this is a local, free rejection, not a wasted call to the provider.
+    mock_enrich.assert_not_called()
+
+
+def test_enrich_batch_isolates_items_that_land_after_the_rate_limit_trips():
+    settings = get_settings()
+    good = TransactionEnrichment(
+        merchant="Swiggy", category="food_delivery", transaction_type="UPI", confidence=0.9
+    )
+    # Leave room for exactly one more call before the batch runs.
+    for _ in range(settings.enrich_rate_limit_per_minute - 1):
+        rate_limiter.acquire()
+
+    with patch("narration_enrichment.main.enrich_narration", return_value=good):
+        response = client.post(
+            "/enrich/batch",
+            json={"narrations": ["narration-1", "narration-2"]},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"][0]["success"] is True  # used the one remaining slot
+    assert body["results"][1]["success"] is False
+    assert body["results"][1]["error"] == "RateLimitExceededError"
 
     # The enrichment itself is still persisted, just with no embedding —
     # meaning it won't be retrievable as a future RAG example either, a

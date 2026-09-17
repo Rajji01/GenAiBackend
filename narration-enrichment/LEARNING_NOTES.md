@@ -434,4 +434,76 @@ eye.
 
 ---
 
+# Week 4 — rate limiting the app against its own known quota
+
+**Files:** `rate_limiter.py` (new), `config.py`, `main.py`, `tests/test_rate_limiter.py` (new), `tests/test_api.py`
+
+**The motivation, sourced directly from Phase 1's own data:** the eval
+run back in Week 2 discovered the free tier's exact limits by hitting
+them live — 5 requests/minute, and a separate 20 requests/day. Phase 3's
+retry-with-backoff already handles a transient 429 gracefully, but
+retrying still spends a real, doomed API call to confirm something
+already knowable in advance — and once the *daily* cap is spent, no
+amount of backoff brings it back before tomorrow. Rejecting locally, in
+front of the actual call, is strictly better for both the app and the
+quota: instant, free, and the caller gets a real `Retry-After` instead of
+watching three identical failures.
+
+**The design:** a sliding-window counter over two independent windows
+(60 seconds, 86400 seconds) that both must have room before a call is
+allowed. Implemented as a `deque` of call timestamps per window — stale
+entries are evicted from the front before checking whether there's room
+for one more. Deliberately in-process, not Redis-backed: this service
+runs as a single process, so a distributed limiter would be solving a
+problem that doesn't exist yet — the same "don't build infrastructure
+the current scale doesn't need" reasoning as choosing SQLite over a
+vector database for RAG in Week 3.
+
+**The one design choice that makes this properly testable:** the clock
+is injected (`time_fn`, defaulting to `time.monotonic`), not read via a
+bare `time.time()` call buried inside the class. A test proving "the
+60-second window actually resets" doesn't need to sleep for a real
+minute — it hands the limiter a fake clock and just moves it forward.
+
+**Where the check is placed, and why there specifically:** inside
+`_enrich_and_persist`, *after* RAG's retrieval embedding call but
+*before* the generative `enrich_narration` call. RAG's embedding call
+hits a different model/quota than the one Phase 1 actually measured —
+counting it against these specific limits would be conflating two
+different things that were never verified to share a cap.
+
+**Reused, not reinvented, for the batch endpoint:** `/enrich/batch`
+already isolates a per-item failure so one bad narration doesn't sink the
+other 49. A `RateLimitExceededError` raised mid-batch falls into that
+exact same per-item `except Exception` block, with zero new code — an
+item that lands after the quota trips is just reported as that item's
+failure, and the rest of the batch is unaffected.
+
+**A deliberate departure from Week 3's "prove it live" habit, explained
+rather than skipped quietly:** RAG's proof required a real API call,
+because the claim being tested was about the *model's* behavior — no
+amount of unit testing plain Python could show whether Gemini's output
+actually changed. The rate limiter's claim is different: it's pure
+sliding-window arithmetic with no model involved. A fake clock and a
+mocked LLM prove this completely and deterministically; spending real,
+finite API quota to re-prove arithmetic would be waste, not rigor.
+
+**Self-check:**
+- Why does the rate-limit check sit between the RAG retrieval call and
+  the generative call, rather than at the very top of the route, before
+  RAG runs at all?
+- The limiter checks the per-minute window before the per-day window
+  inside `acquire()`. Does that ordering change which `retry_after_seconds`
+  value a caller sees when *both* windows happen to be full at once — and
+  does that ordering choice actually matter to a real caller?
+- `RateLimiter.reset()` exists only for tests. What's the actual argument
+  for adding a method to production code whose only caller is a test
+  fixture, instead of, say, constructing a fresh `RateLimiter` per test?
+- This limiter lives entirely in one Python process's memory. What
+  specifically would break if this service were ever run as two replicas
+  behind a load balancer — and at what point would that actually become
+  worth solving, versus staying a known, accepted limitation?
+
+---
+
 Try the self-check questions above first, same as always.

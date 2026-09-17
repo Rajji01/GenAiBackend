@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-43 tests, no network calls, no API key required — the LLM and the
+51 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 
@@ -126,6 +126,30 @@ narrations, which is what makes classification more consistent over time
 instead of independently re-guessing every time. If the embedding call
 itself fails, `/enrich` still returns its normal result with no context —
 this is an enhancement, not a dependency.
+
+## Rate limiting
+
+The free tier's real limits (measured live in Phase 1, not from
+documentation) are two separate caps: **5 requests/minute** and **20
+requests/day**. `rate_limiter.py` enforces both locally, in front of the
+actual generative call, so a request that would exceed either one is
+rejected instantly with `429` and a `Retry-After` header — no wasted
+round trip to the provider, and no burning through the *daily* cap by
+retrying something that was never going to succeed today.
+
+```bash
+curl -i -X POST http://localhost:8000/enrich \
+  -H "Content-Type: application/json" -d '{"narration":"..."}'
+# once the limit is hit:
+# HTTP/1.1 429 Too Many Requests
+# Retry-After: 47
+# {"detail":"Rate limit exceeded (per_minute). Retry after 47s."}
+```
+
+In `/enrich/batch`, a narration that lands after the limiter trips is
+isolated the same way a provider failure already is — reported as that
+one item's failure (`error: "RateLimitExceededError"`), the rest of the
+batch is unaffected.
 
 ## Run in Docker
 
@@ -181,6 +205,19 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   future retrievability, not turn a working `/enrich` into an outage.
   Verified live by mocking `embed_text` to raise and confirming `/enrich`
   still returns 200.
+- **In-process sliding-window limiter, not Redis-backed** — this service
+  runs as one process; a distributed rate limiter would solve a problem
+  this deployment doesn't have. Same reasoning as reusing SQLite for RAG
+  instead of a vector database. The clock is injectable
+  (`time_fn=time.monotonic` by default) specifically so tests can prove a
+  60-second window resets without a real 60-second sleep.
+- **Reject locally before the call, don't rely on retrying the provider's
+  429** — Phase 3's retry-with-backoff already handles a transient 429
+  gracefully, but retrying still spends a real call to rediscover a limit
+  that's already known locally, and the *daily* cap doesn't recover
+  within any retry window. Checking first is strictly better: free,
+  instant, and the caller gets an honest `Retry-After` instead of
+  watching three retries fail identically.
 - **PII/prompt content logged at DEBUG only, metadata at INFO** — a bank
   narration can carry account fragments or names. Verified live: the
   running server's INFO logs contain `narration_length=51`, never the
@@ -268,3 +305,22 @@ curl -X POST http://localhost:8000/enrich -H "Content-Type: application/json" \
   local vendor already classified correctly without help) showed no
   difference, reported as-is rather than swapped out for a flattering
   example.
+
+## Week 4
+
+- **Rate limiting** — `rate_limiter.py`, a sliding-window limiter over
+  the exact two caps Phase 1 measured live (5/min, 20/day), checked
+  in-process right before the generative call. A request that would
+  exceed either window is rejected with `429` + `Retry-After` before any
+  network call is made — cheaper and more honest than waiting for the
+  provider's own `429` and retrying into a wall that won't move for the
+  rest of the day. Deliberately verified with a fake, test-controlled
+  clock rather than real waiting or spending real API quota: the
+  mechanism being tested is plain Python sliding-window arithmetic, not
+  an LLM-behavior claim, so unit tests with an injectable `time_fn` are
+  the right tool — unlike RAG, where only a real call could prove the
+  model's output actually changed. 8 new tests (6 unit, testing the
+  limiter's window/reset/retry-after logic directly; 2 integration,
+  proving the route returns 429 without ever calling the mocked LLM, and
+  that a batch isolates an item that lands after the limit trips the same
+  way a provider failure already does).

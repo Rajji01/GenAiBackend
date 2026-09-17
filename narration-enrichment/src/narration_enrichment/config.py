@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # Postgres here, but the repository pattern below doesn't change.
     database_url: str = "sqlite:///./narration_enrichment.db"
 
+    # Week 4 — the exact free-tier limits Phase 1's eval measured live,
+    # not a guess. Kept overridable via env for the day these numbers
+    # change (a paid tier, a quota increase) without a code change.
+    enrich_rate_limit_per_minute: int = 5
+    enrich_rate_limit_per_day: int = 20
+
 
 @lru_cache
 def get_settings() -> Settings:

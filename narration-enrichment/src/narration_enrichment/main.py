@@ -17,8 +17,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from narration_enrichment import rag
+from narration_enrichment.config import get_settings
 from narration_enrichment.db import get_db, list_enrichments, save_enrichment
 from narration_enrichment.models import TransactionEnrichment
+from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
 from narration_enrichment.schemas import (
     BatchEnrichRequest,
     BatchEnrichResponse,
@@ -34,6 +36,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Narration Enrichment", version="0.2.0")
+
+_settings = get_settings()
+rate_limiter = RateLimiter(
+    per_minute=_settings.enrich_rate_limit_per_minute,
+    per_day=_settings.enrich_rate_limit_per_day,
+)
 
 
 class EnrichRequest(BaseModel):
@@ -55,6 +63,10 @@ def _enrich_and_persist(narration: str, db: Session) -> TransactionEnrichment:
     except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
         logger.warning("rag_retrieval_failed error=%s", exc)
 
+    # Checked right before the actual generative call, not at the top of
+    # the route — RAG's retrieval embedding above doesn't count against
+    # this quota, only the structured-extraction call does.
+    rate_limiter.acquire()
     result = enrich_narration(narration, context=context)
 
     # Same reasoning in reverse: the user already has their answer at this
@@ -74,6 +86,14 @@ def _enrich_and_persist(narration: str, db: Session) -> TransactionEnrichment:
 def enrich(request: EnrichRequest, db: Session = Depends(get_db)) -> TransactionEnrichment:
     try:
         return _enrich_and_persist(request.narration, db)
+
+    except RateLimitExceededError as exc:
+        logger.warning("enrich_rate_limited scope=%s retry_after=%.1f", exc.scope, exc.retry_after_seconds)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded ({exc.scope}). Retry after {exc.retry_after_seconds:.0f}s.",
+            headers={"Retry-After": str(int(exc.retry_after_seconds) + 1)},
+        ) from exc
 
     except InstructorRetryException as exc:
         # Week 3 bug, found via a live eval run: .create() wraps EVERY
