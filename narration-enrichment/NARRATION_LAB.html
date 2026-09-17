@@ -178,6 +178,27 @@
   .bug-label{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--danger); font-weight:700; margin-bottom:6px; }
   .bug-box p{ margin:0; font-size:14.5px; }
 
+  .why-box{
+    margin-top:16px; border:1px solid var(--success); border-radius:8px;
+    background:var(--success-soft); padding:13px 16px;
+  }
+  .why-label{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--success); font-weight:700; margin-bottom:6px; }
+  .why-box p{ margin:0; font-size:14.5px; }
+
+  .concept{ padding:26px 28px 24px; margin-top:20px; }
+  .concept-stamp{
+    font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:700;
+    color:var(--accent); background:var(--accent-soft); padding:3px 9px; border-radius:6px;
+  }
+  .concept-title{ font-size:21px; font-weight:600; }
+  .concept h4{ font-size:13.5px; margin:18px 0 6px; }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+  @media (max-width:700px){ .two-col{ grid-template-columns:1fr; } }
+  .mini-card{ background:var(--surface-alt); border-radius:8px; padding:13px 15px; }
+  .mini-card h4{ margin:0 0 6px; font-size:13.5px; font-weight:600; }
+  .mini-card p{ margin:0; font-size:13.5px; color:var(--ink-soft); }
+
   table{ border-collapse:collapse; width:100%; margin-top:12px; font-size:14px; }
   th,td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
   th{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); font-weight:600; }
@@ -218,6 +239,17 @@
       <div class="nav-group-title">Overview</div>
       <a class="nav-link" href="#overview"><span class="nav-tag">·</span>The problem</a>
       <a class="nav-link" href="#flow"><span class="nav-tag">·</span>Request flow</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">LLM concepts (theory)</div>
+      <a class="nav-link" href="#c-nexttoken"><span class="nav-tag">C1</span>Next-token generation</a>
+      <a class="nav-link" href="#c-tokens"><span class="nav-tag">C2</span>Tokens &amp; context window</a>
+      <a class="nav-link" href="#c-toolcalling"><span class="nav-tag">C3</span>Function/tool calling</a>
+      <a class="nav-link" href="#c-embeddings"><span class="nav-tag">C4</span>Embeddings &amp; similarity</a>
+      <a class="nav-link" href="#c-rag"><span class="nav-tag">C5</span>RAG</a>
+      <a class="nav-link" href="#c-quotas"><span class="nav-tag">C6</span>Provider quotas</a>
+      <a class="nav-link" href="#c-retries"><span class="nav-tag">C7</span>Retry strategy</a>
     </div>
 
     <div class="nav-group">
@@ -267,6 +299,7 @@
       <p class="lede" style="margin-top:12px;">A six-entry build log: what was fed to the model, what shape we needed back, where that broke, and exactly why the fix works — with the real terminal output at every step, not a tidied-up retelling.</p>
 
       <div class="stat-row">
+        <div class="card stat-tile"><div class="stat-num">7</div><div class="stat-label">LLM concepts explained</div></div>
         <div class="card stat-tile"><div class="stat-num">12</div><div class="stat-label">Log entries</div></div>
         <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Real bugs hit</div></div>
         <div class="card stat-tile"><div class="stat-num">51</div><div class="stat-label">Tests, 0 live calls</div></div>
@@ -351,6 +384,162 @@
         <figcaption>Only one path reaches the LLM at all — a too-short narration is rejected by <code>EnrichRequest</code> before <code>enrich_narration</code> is ever called. Every other outcome is a specific exception type mapped to a specific status, plus one catch-all that never echoes its real message.</figcaption>
       </figure>
     </section>
+
+    <section id="concepts-intro" style="margin-top:56px;">
+      <p class="eyebrow">LLM concepts</p>
+      <h2>The theory behind every day below</h2>
+      <p>Seven ideas, each explained twice: what's actually going on inside an LLM API in general, and exactly where that theory shows up as a real finding, bug, or design choice in this project — not as a separate lecture, as the reason the code looks the way it does.</p>
+    </section>
+
+    <article class="card concept" id="c-nexttoken">
+      <div class="day-head">
+        <span class="concept-stamp">CONCEPT 1</span>
+        <span class="concept-title">Next-token generation — why "just ask for JSON" is fragile</span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The theory</div>
+        <p>An LLM is, mechanically, a next-token predictor: given the tokens so far, it produces a probability distribution over what token comes next, samples one, and repeats. It has no built-in notion of "a JSON document" as a structural contract — it's producing a plausible continuation of the conversation, token by token. When a prompt says "respond with JSON," the model is *statistically inclined* to comply because of how it was trained (instruction-tuning, RLHF), not because anything mechanically forces the output into a valid, parseable shape.</p>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">Exactly this, reproduced live — Day 2</div>
+        <p>Three different, real failures came from this one gap between "usually complies" and "mechanically guaranteed": a response wrapped in a <code>```json</code> markdown fence (the model treating its answer as a code block, a very common training-data pattern), <code>"confidence": "High"</code> (a string where a float was asked for — the model paraphrased the *concept* correctly, not the *type*), and a fully nested object where a scalar was expected. None of these are "the model being bad" — they're next-token generation doing exactly what it does, with nothing to stop a plausible-but-wrong shape from being just as likely as the right one.</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-tokens">
+      <div class="day-head">
+        <span class="concept-stamp">CONCEPT 2</span>
+        <span class="concept-title">Tokens, context windows, and where "thinking" fits in the budget</span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The theory</div>
+        <p>Models don't process text as characters or whole words — they process <strong>tokens</strong>, subword chunks a tokenizer maps text into. Every model has a maximum <em>context window</em> (the total tokens it can hold in play at once — input plus output) and often a separate hard cap specifically on output length (<code>max_output_tokens</code>). Reasoning-capable models like <code>gemini-3.6-flash</code> can generate internal "thinking" tokens before producing the visible answer — and on many providers, those thinking tokens are drawn from the <em>same</em> output budget as the answer itself, not a separate allowance.</p>
+      </div>
+
+      <div class="terminal">Day 1, live: max_output_tokens set too low
+-> model spent its whole budget "thinking"
+-> <span class="bad">visible answer silently truncated</span>, no error raised</div>
+      <p style="margin-top:8px; font-size:14px;">This wasn't in any doc read beforehand — it was found by making one real call, inspecting the actual token usage in the response, and noticing the visible text was cut short with no exception thrown. A model failing silently, not loudly, is the whole reason this was worth checking for real instead of assuming a "reasonable" token limit would just work.</p>
+    </article>
+
+    <article class="card concept" id="c-toolcalling">
+      <div class="day-head">
+        <span class="concept-stamp">CONCEPT 3</span>
+        <span class="concept-title">Function/tool calling — structure enforced by the API, not the prompt</span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The theory</div>
+        <p>Function calling (also called tool calling) is a <em>native</em> capability most modern LLM APIs expose, separate from plain chat completion. The caller supplies a schema — field names, types, which are required — describing a "function" the model can call. The provider constrains generation so the model's output for that turn is a structured arguments payload matching the schema, returned as its own distinct object in the API response, not as free text you then have to parse yourself. This is enforced at the decoding/API level, which is why it's categorically more reliable than a prompt that just asks nicely for JSON (Concept 1).</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Day 2 — prompting for JSON</h4>
+          <p>A casual prompt, the model's raw text response parsed with <code>json.loads()</code>. All three of Concept 1's failures came from exactly this path.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Day 3 — Instructor's Mode.TOOLS</h4>
+          <p><code>response_model=TransactionEnrichment</code> becomes the function schema Gemini is constrained against. Same three narrations, same model — all three came back clean, typed, and validated.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Why this is the primary defense, and max_retries is only a safety net</div>
+        <p><code>Mode.TOOLS</code> is what makes a correct shape <em>likely by construction</em>, not just likely by luck. The retry on top of it exists for the rarer case where even a schema-constrained call still comes back with something the Pydantic model rejects (an out-of-range confidence, an unrecognized category) — a second line of defense, not the first.</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-embeddings">
+      <div class="day-head">
+        <span class="concept-stamp">CONCEPT 4</span>
+        <span class="concept-title">Embeddings &amp; cosine similarity — meaning as geometry</span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The theory</div>
+        <p>An embedding model maps a piece of text to a fixed-length vector of floats, trained so that texts with similar <em>meaning</em> land at vectors pointing in similar <em>directions</em> — regardless of exact wording. Cosine similarity measures exactly that: the cosine of the angle between two vectors, ranging from -1 (opposite meaning) to 1 (identical meaning), deliberately ignoring vector length so it compares orientation, not magnitude. This is what turns "search by meaning" into ordinary arithmetic: dot product divided by the product of norms.</p>
+      </div>
+
+      <pre><code>def cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0</code></pre>
+
+      <div class="why-box">
+        <div class="why-label">Asymmetric retrieval — a real detail, not a footnote</div>
+        <p>Gemini's embedding model treats "text being stored for later search" (<code>task_type=RETRIEVAL_DOCUMENT</code>) and "text doing the searching" (<code>task_type=RETRIEVAL_QUERY</code>) as different jobs internally, optimizing each differently. Using the same task_type for both doesn't error — it just quietly produces worse similarity scores. This is exactly the kind of thing you only catch by reading the actual API semantics, not by guessing that "an embedding is an embedding."</p>
+      </div>
+    </article>
+
+    <article class="card concept" id="c-rag">
+      <div class="day-head">
+        <span class="concept-stamp">CONCEPT 5</span>
+        <span class="concept-title">RAG — grounding a frozen model in data it never trained on</span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The theory</div>
+        <p>An LLM's weights are frozen at training time — it knows nothing about data created after that cutoff, or data specific to one deployment (your own users' past decisions, your own documents). Retrieval-Augmented Generation solves this without touching the model at all: at request time, relevant external context is retrieved (via embeddings + similarity search, Concept 4) and folded directly into the prompt as extra information the model can use for <em>this one call</em>. The model isn't retrained or fine-tuned — it's handed the right context, on demand, right when it needs it.</p>
+      </div>
+
+      <div class="terminal">Live proof, Week 3: seeded "UBER TRIP PAYMENT" -> category="transfer"
+Query: a fresh, near-identical "UBER TRIP PAYMENT" narration
+
+WITHOUT retrieved context: <span class="bad">other</span>      (matches the original, RAG-less finding)
+WITH retrieved context:    <span class="ok">transfer</span>  (follows the retrieved past decision)</div>
+      <p style="margin-top:8px; font-size:14px;">Same model, same weights, same prompt template — the only variable was whether retrieved context was present. This is the theory made concrete: nothing about the <em>model</em> changed, only what it was shown.</p>
+    </article>
+
+    <article class="card concept" id="c-quotas">
+      <div class="day-head">
+        <span class="concept-stamp">CONCEPT 6</span>
+        <span class="concept-title">Provider quotas — usually more than one axis at once</span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The theory</div>
+        <p>LLM APIs commonly enforce several independent quota axes simultaneously — requests-per-minute (protects against bursts), tokens-per-minute (protects against a few huge requests instead of many small ones), and requests-per-day (protects overall capacity planning). Hitting any <em>one</em> of them returns a 429, and different axes reset on completely different clocks — a per-minute cap clears in seconds, a per-day cap doesn't clear until the next day regardless of how patiently you wait and retry.</p>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">Both axes, found live — Phase 1</div>
+        <p>Running the Week 2 eval unpaced surfaced <strong>two separate</strong> 429s with different <code>quotaId</code>s: a 5 requests/minute cap, and a 20 requests/day cap. Nothing in the docs was consulted first — this came from reading the actual error payload of a real 429.</p>
+      </div>
+      <p style="margin-top:10px; font-size:14px;">This is precisely why Week 4's rate limiter tracks <em>two</em> independent sliding windows rather than one — a single "requests per minute" counter would have been solving only half of a two-part real constraint.</p>
+    </article>
+
+    <article class="card concept" id="c-retries">
+      <div class="day-head">
+        <span class="concept-stamp">CONCEPT 7</span>
+        <span class="concept-title">Retry strategy — a failed call and a wrong shape are different problems</span>
+      </div>
+
+      <div class="field">
+        <div class="field-label">The theory</div>
+        <p>Not every LLM failure calls for the same fix. A <strong>transient</strong> failure (429 rate-limited, 503 overloaded, 504 timed out) means the exact same request would likely succeed if sent again after a short wait — classic exponential-backoff territory, and retrying doesn't need to know anything about what was asked. A <strong>shape/validation</strong> failure (the model's output doesn't match the required structure) is a completely different problem: retrying the identical request would likely fail identically, since nothing about the situation changed. What actually helps is a <em>reask</em> — feeding the model back its own bad output plus the specific validation error, so the next attempt has new information to correct against.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Instructor's own retry (max_retries)</h4>
+          <p>A reask loop for shape failures — the model sees what it got wrong last time, not a blind repeat.</p>
+        </div>
+        <div class="mini-card">
+          <h4>service.py's tenacity retry</h4>
+          <p>Exponential backoff for transient provider errors (429/503/504) — a completely separate mechanism, deliberately not merged with the one above.</p>
+        </div>
+      </div>
+
+      <div class="bug-box">
+        <div class="bug-label">Week 3, Day 1 — confusing which layer actually fired</div>
+        <p>Instructor wraps <em>every</em> underlying failure — including an already-exhausted transient error — in the same <code>InstructorRetryException</code> type it uses for a genuine shape failure. Treating them as the same thing meant an exhausted 503 (the provider being down, Concept 6/7's transient case) was being reported to callers as a 422 ("your input was bad," Concept 1's shape case) — two different problems wearing the same exception type. The fix was inspecting <code>exc.__cause__</code> to tell them apart before deciding the response.</p>
+      </div>
+    </article>
 
     <!-- DAY 1 -->
     <article class="card day" id="day1">
