@@ -65,7 +65,9 @@ These have been established across many sessions. Break them and the user will c
 
 - **Week 1** — inventory-service ✅ **DONE + committed + pushed** (`0b97be5`).
 - **Week 2** — booking-service ✅ **DONE + committed + pushed** (`1abd8ec` code, `b9e507e` notes). 6 live-verified failure experiments, 3 real bugs caught+fixed live.
-- **Week 3 (DONE 2026-09-20)** — payment-service + outbox pattern + refund path + dangling-saga recovery. Days 1-4 all committed + pushed as 4 day-specific commits (`e4cb1d8`, `2e767a4`, `2629131`, `d1ddd5e`). Live-verified with 7 checks + 2 failure experiments (F1 auth-fail, F2 capture-fail) — all passed.
+- **Week 3 (DONE 2026-09-20)** — payment-service + outbox pattern + refund path + dangling-saga recovery + notification-service downstream consumer + MDC-across-scheduled-boundary fix. Six commits: `e4cb1d8` Day 1 design, `2e767a4` Day 2 payment-service, `2629131` Day 3 booking-side (PaymentClient + Outbox + Recovery), `d1ddd5e` Day 4 live-verify + docs, `8235fea` Day 5 notification-service (outbox end-to-end), `8a30afa` Day 6 correlation-id fix. Live-verified with 7 checks + F1/F2 failure experiments + 4-service end-to-end pipeline.
+
+- **Week 4 (up next)** — AWS foundation per ROADMAP (IAM/VPC/RDS/ECR/ECS Fargate/ALB). **User-driven per standing rule.** Claude pairs on Terraform + verification but does NOT autonomously touch AWS resource creation ("bs aws ki service smai banaunga" — 2026-09-20 reconfirmation).
   - New module `payment-service/` — Java 17 Spring Boot, Adapter+Factory+Strategy for UPI/Card/NetBanking stubs, 6-state Payment machine, 2-step auth+capture. Own Postgres DB (`payment`).
   - booking-service updates: `PaymentClient` (Resilience4j with fresh `payment` instance, all Bug 5+6 lessons pre-applied), Outbox (entity + repo + service + poller + `EventBus` stub), `BookingRecoveryService` (2-min age filter, drives forward or rolls back), refund path on captured-but-confirm-fail, `Booking.payment_id` + `refund_pending` columns.
   - docker-compose: payment-service added on 8083, `create-payment-db.sh` init script.

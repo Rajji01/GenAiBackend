@@ -77,8 +77,9 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 **Services:**
 
 - **`inventory-service/`** — Week 1's Spring Boot service (seats, holds, availability, confirm). Complete + tested + committed.
-- **`booking-service/`** — Week 2's saga orchestrator + Week 3 additions (PaymentClient, Outbox, BookingRecoveryService, refund path).
-- **`payment-service/`** — Week 3's service (Adapter+Factory+Strategy for payment methods, 2-step auth+capture, refund lifecycle). Compile-clean, not live-verified/committed yet.
+- **`booking-service/`** — Week 2's saga orchestrator + Week 3 additions (PaymentClient, Outbox, BookingRecoveryService, refund path, EventBus HTTP push, correlation-id-in-outbox-row fix).
+- **`payment-service/`** — Week 3's service (Adapter+Factory+Strategy for payment methods, 2-step auth+capture, refund lifecycle). Committed + live-verified.
+- **`notification-service/`** — Week 3 Day 5's downstream consumer (port 8084). POST /notifications/receive webhook + read endpoints. Committed + live-verified end-to-end.
 
 Each service directory has the standard Maven layout:
 - `pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/` — build
@@ -91,10 +92,11 @@ Each service directory has the standard Maven layout:
 **Booking-service Week 3 packages:**
 - `outbox/` — `OutboxEvent`, `OutboxRepository`, `OutboxService` (write within tx), `OutboxPublisher` (`@Scheduled` drain), `EventBus` (stub, will become SNS in Phase 3)
 
-**Test count check (as of last commit `8d255fe`):**
+**Test count check (as of last commit `8a30afa`):**
 - `inventory-service`: 40 tests green
 - `booking-service`: 26 tests green (old `BookingSagaServiceTest` deleted with Week 3's saga rewrite; tests get rebuilt at end-pass per user directive)
 - `payment-service`: 0 tests (Week 3, deferred)
+- `notification-service`: 0 tests (Week 3 Day 5, deferred)
 
 ### 🐍 Narration track (`narration-enrichment/`)
 
