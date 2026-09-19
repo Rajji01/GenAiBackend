@@ -1,8 +1,10 @@
 package com.ticketing.booking.outbox;
 
+import com.ticketing.booking.filter.CorrelationIdFilter;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -34,6 +36,15 @@ public class OutboxPublisher {
         List<OutboxEvent> batch = findBatch();
         if (batch.isEmpty()) return;
         for (OutboxEvent event : batch) {
+            // Week 3 Day 6 fix — restore the correlation id captured at
+            // record time so downstream services and logs see the same
+            // trace across the @Scheduled boundary. Cleared in finally
+            // to avoid leaking one event's id onto the next event's
+            // publish (the scheduled thread is reused across events).
+            String captured = event.getCorrelationId();
+            if (captured != null) {
+                MDC.put(CorrelationIdFilter.MDC_KEY, captured);
+            }
             try {
                 eventBus.publish(event.getEventType(), event.getPayload());
                 markPublished(event.getId());
@@ -43,6 +54,8 @@ public class OutboxPublisher {
                 // Leave unpublished; next iteration retries. If the same
                 // event keeps failing, a real broker's DLQ is the answer
                 // — Phase 3.
+            } finally {
+                MDC.remove(CorrelationIdFilter.MDC_KEY);
             }
         }
     }

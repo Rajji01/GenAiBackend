@@ -49,12 +49,21 @@ public class OutboxEvent {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    // Week 3 Day 6 addition — captured from MDC at record time so
+    // the correlation id survives the @Scheduled thread boundary.
+    // Without this the publisher (running in a scheduled thread with
+    // an empty MDC) would drop the tracing context; downstreams got
+    // correlation_id=null.
+    @Column(name = "correlation_id", length = 64)
+    private String correlationId;
+
     protected OutboxEvent() {} // JPA
 
-    public OutboxEvent(String aggregateId, String eventType, String payload) {
+    public OutboxEvent(String aggregateId, String eventType, String payload, String correlationId) {
         this.aggregateId = aggregateId;
         this.eventType = eventType;
         this.payload = payload;
+        this.correlationId = correlationId;
     }
 
     @PrePersist
@@ -72,4 +81,5 @@ public class OutboxEvent {
     public String getPayload() { return payload; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getPublishedAt() { return publishedAt; }
+    public String getCorrelationId() { return correlationId; }
 }
