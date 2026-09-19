@@ -536,6 +536,66 @@ GET /notifications/holder/user-D5
       <p><strong>Live-verify not re-run for this fix</strong> — mechanism proven by three-file inspection; end-to-end test at the next fresh <code>docker compose up</code> will show <code>notifications.correlation_id</code> populated instead of null. Deferred to save Docker daemon churn on this fragile machine.</p>
     </div>
 
+    <div class="card day" id="d7">
+      <div class="day-head"><div class="day-stamp">DAY 7</div><div class="day-title">Consumer deduplication by event_id — "idempotent consumer" contract enforced</div></div>
+      <div class="day-files">updated: booking OutboxEvent + EventBus + OutboxPublisher; notification Notification + ReceiveEventRequest + NotificationRepository + NotificationService + NotificationResponse · commit: 0f57290</div>
+
+      <p>The capstone. All prior days documented "at-least-once outbox means consumers must be idempotent" as a <em>contract</em>; this day makes the DB actually <strong>enforce</strong> it.</p>
+
+      <div class="why-box"><div class="why-label">✅ Producer + consumer sides, matched</div>
+        <p style="margin:0;"><strong>Producer:</strong> OutboxEvent gets an <code>event_id</code> (UUID, NOT NULL, unique) populated in the constructor — atomic with row insert, no window without an id. EventBus.publish signature is now <code>(eventId, eventType, payload)</code>; the HTTP body carries eventId first-class.</p>
+        <p style="margin-top:10px;margin-bottom:0;"><strong>Consumer:</strong> Notification entity gains <code>event_id</code> with unique constraint. NotificationService.receive does two-layer dedup: fast path via <code>findByEventId</code>, slow path catches <code>DataIntegrityViolationException</code> on concurrent-receive race, re-reads winning row, returns it.</p>
+      </div>
+
+      <p><strong>Why this actually matters:</strong> the outbox pattern's whole failure surface is "publish succeeded but mark_published failed → next poll re-publishes → duplicate delivery." Before Day 7 that would silently create duplicate notification rows, duplicate emails, duplicate anything downstream did. Now it's a DB-enforced no-op with a log line.</p>
+    </div>
+
+    <div class="card day" id="live-verify-day567">
+      <div class="day-head"><div class="day-stamp">DAYS 5-7 · LIVE EVIDENCE</div><div class="day-title">Real 4-service stack verify — all three fixes proven together</div></div>
+      <p>After Days 5+6+7 landed, brought up the full 4-service stack (Postgres+Redis in Docker, all 4 services via <code>./mvnw</code>) and ran three checks — one per day. All passed. Pre-handled Bug 7 re-strike by dropping <code>notifications</code> and <code>outbox_events</code> tables before startup so ddl-auto could create them fresh with the new NOT NULL columns.</p>
+
+      <div class="field"><div class="field-label">Check A — Day 5 (notification pipe)</div>
+      <pre class="terminal">POST /bookings showId=1 seatIds=[7] holderId=user-D7
+  <span class="ok">→ 201 CONFIRMED bookingId=40 paymentRef=pay-6</span>
+[2s later, outbox poller drains]
+booking.log: <span class="ok">event_published eventId=c831525b-... type=BookingConfirmed to=notification-service</span>
+notification.log: <span class="ok">notification_received id=1 eventId=c831525b-... bookingId=40 holderId=user-D7</span></pre></div>
+
+      <div class="field"><div class="field-label">Check B — Day 6 (correlation-id survives @Scheduled)</div>
+      <pre class="terminal">Client sent: <span class="dim">X-Correlation-Id: de853806-c1e8-4fb8-b56e-ac832e93b268</span>
+
+booking outbox_events row:
+  correlation_id = <span class="ok">de853806-c1e8-4fb8-b56e-ac832e93b268</span>
+
+notification.notifications row:
+  correlation_id = <span class="ok">de853806-c1e8-4fb8-b56e-ac832e93b268</span>   <span class="dim">← SAME ID!</span>
+
+<span class="dim">Client's trace id survived: request-thread → outbox row → @Scheduled thread</span>
+<span class="dim">  → HTTP push → notification. Full 4-service trace via a single grep.</span></pre></div>
+
+      <div class="field"><div class="field-label">Check C — Day 7 (dedup fires on duplicate delivery)</div>
+      <pre class="terminal"><span class="dim"># Simulate duplicate delivery: POST same event_id again directly</span>
+POST /notifications/receive
+  { "eventId": "c831525b-bff1-4f61-a276-5ffaabc5fe13",   <span class="dim">← same as before</span>
+    "eventType": "BookingConfirmed", "payload": "{...}" }
+
+Response: <span class="ok">HTTP 202 { "id": 1, "eventId": "c831525b-...", ... }</span>
+<span class="dim"># Note: same "id":1 as the first receive — dedup returned existing row</span>
+
+notification.log:
+  <span class="ok">event_dedup_skip eventId=c831525b-... type=BookingConfirmed priorId=1</span>
+
+Database check: SELECT COUNT(*) FROM notifications WHERE event_id='c831525b-...';
+  <span class="ok">→ 1</span>   <span class="dim">← Only ONE row despite two POSTs. Consumer idempotency in code.</span></pre></div>
+
+      <div class="why-box"><div class="why-label">The whole Week 3 pattern, now proven</div>
+      <strong>Producer:</strong> atomic state-change + outbox row insert (Days 3+4).<br>
+      <strong>Transport:</strong> poller drains + HTTP push, with correlation id carried through the async boundary (Days 5+6).<br>
+      <strong>Consumer:</strong> DB-enforced dedup on event_id (Day 7).<br>
+      Together = at-least-once delivery + idempotent consumers = zero silent duplicates. This is what Week 3 was building toward for seven days.
+      </div>
+    </div>
+
     <!-- ================ BUG MUSEUM ================ -->
     <h2 style="margin-top:60px;">Bug museum — four real ones caught live</h2>
 
