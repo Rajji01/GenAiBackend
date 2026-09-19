@@ -1,0 +1,51 @@
+server:
+  # 8083 — inventory=8081, booking=8082, payment=8083. Three services,
+  # three distinct ports so host-side dev can talk to any of them
+  # without proxy confusion.
+  port: ${SERVER_PORT:8083}
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    # Own database — database-per-service invariant. Same Postgres server
+    # as inventory + booking in local dev (see db-init/create-payment-db.sh),
+    # separate RDS in real AWS.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payment}
+    username: ${DB_USERNAME:payment_user}
+    password: ${DB_PASSWORD:payment_pass}
+
+  jpa:
+    hibernate:
+      # Same reasoning as the other services: fine for bootstrap, real
+      # deployments need Flyway/Liquibase (deferred).
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+payment:
+  auth:
+    # How long an AUTHORIZED payment stays valid before auto-void. Real
+    # gateways use 7 days; local dev uses 1 hour so the void path is
+    # exercisable in a session. Set via env in real deployment.
+    window-hours: ${PAYMENT_AUTH_WINDOW_HOURS:1}
+  simulate:
+    # Failure-injection knobs, exercised by the Day 5 failure experiments.
+    # None enabled in normal dev.
+    authorize-failure: ${PAYMENT_SIMULATE_AUTH_FAILURE:false}
+    capture-failure: ${PAYMENT_SIMULATE_CAPTURE_FAILURE:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    # Filled by CorrelationIdFilter — same shape as inventory + booking so
+    # a single grep across three services' logs reads consistently.
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{correlationId:-none}] %logger{36} - %msg%n"
