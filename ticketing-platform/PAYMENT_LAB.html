@@ -137,6 +137,8 @@
       <a class="nav-link" href="#d2"><span class="nav-tag">D2</span> payment-service skeleton</a>
       <a class="nav-link" href="#d3"><span class="nav-tag">D3</span> booking-side wiring</a>
       <a class="nav-link" href="#d4"><span class="nav-tag">D4</span> Docker + live-verify</a>
+      <a class="nav-link" href="#d5"><span class="nav-tag">D5</span> notification-service (4th)</a>
+      <a class="nav-link" href="#d6"><span class="nav-tag">D6</span> MDC across @Scheduled</a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">Bug museum</div>
@@ -166,11 +168,12 @@
     <p class="lede">A deep build log for Week 3 of the ticketing-platform: a real <code>payment-service</code> extracted from Week 2's <code>PaymentStub</code>, plus the two invisible plumbing patterns that make it trustworthy — <strong>outbox for atomic event publishing</strong> and a <strong>dangling-saga recovery sweep</strong> for crash mid-flight. Every design decision has a <em>why</em>, every bug caught live has an entry, every pattern has a real code snippet from this project.</p>
 
     <div class="stat-row">
-      <div class="card stat-tile"><div class="stat-num">3</div><div class="stat-label">Services in loop</div></div>
-      <div class="card stat-tile"><div class="stat-num">10</div><div class="stat-label">Concepts</div></div>
+      <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Services in loop</div></div>
+      <div class="card stat-tile"><div class="stat-num">11</div><div class="stat-label">Concepts</div></div>
       <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Live-caught bugs</div></div>
-      <div class="card stat-tile"><div class="stat-num">7/7</div><div class="stat-label">Live checks passed</div></div>
-      <div class="card stat-tile"><div class="stat-num">40+</div><div class="stat-label">Files added/modified</div></div>
+      <div class="card stat-tile"><div class="stat-num">8/8</div><div class="stat-label">Live checks passed</div></div>
+      <div class="card stat-tile"><div class="stat-num">6</div><div class="stat-label">Day-specific commits</div></div>
+      <div class="card stat-tile"><div class="stat-num">55+</div><div class="stat-label">Files added/modified</div></div>
     </div>
 
     <h3 id="cheatsheet" style="margin-top:44px;">Reader's cheat sheet — if you read only this box</h3>
@@ -469,6 +472,70 @@ public void sweep() {
       <p>Then <strong>live-verified against a real running stack</strong> — Postgres + Redis in Docker, three services via <code>./mvnw spring-boot:run</code> on host (hybrid pattern, saves Docker daemon on this fragile machine). See <a href="#live">Live evidence</a> section for the copy-pasted terminal output of all 7 checks.</p>
     </div>
 
+    <div class="card day" id="d5">
+      <div class="day-head"><div class="day-stamp">DAY 5</div><div class="day-title">notification-service (4th microservice) + EventBus HTTP push</div></div>
+      <div class="day-files">new module: notification-service/ (~15 files) · port 8084 · own Postgres DB (notification) · commit: 8235fea</div>
+      <p>The <em>real</em> end-to-end of outbox pattern — a downstream consumer that actually receives and stores the events. Day 5 in WEEK3_DESIGN.md was going to be "failure experiments" but F1+F2 already landed in Day 4's live-verify (see LIVE-EVIDENCE card above); pivoted Day 5 to the more valuable close-out — prove the outbox pipe actually delivers to a real service, not just logs to stdout.</p>
+
+      <p><strong>Minimal by design:</strong> receive event, parse well-known JSON fields, store, log. Real notification-sender (email/SMS/push) is future work — this stub proves the transport, contract, and idempotency-consumer discipline hold end to end.</p>
+
+      <div class="pill">Notification entity</div><div class="pill">POST /notifications/receive</div><div class="pill">GET /notifications/holder/{id}</div><div class="pill">GET /notifications/booking/{id}</div><div class="pill">4th CorrelationIdFilter copy</div><div class="pill">4th GlobalExceptionHandler copy</div>
+
+      <div class="field"><div class="field-label">The EventBus rewire — was stub, now HTTP push</div>
+      <pre class="code-block"><code><span style="color:#8A93A6;">// Was: log.info("event_published type={}", eventType);</span>
+<span style="color:#8A93A6;">// Now:</span>
+public void publish(String eventType, String payload) {
+    try {
+        restClient.post()
+                .uri(<span style="color:#D9A54B;">"/notifications/receive"</span>)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(<span style="color:#D9A54B;">"eventType"</span>, eventType, <span style="color:#D9A54B;">"payload"</span>, payload))
+                .retrieve()
+                .toBodilessEntity();
+    } catch (RuntimeException ex) {
+        <span style="color:#8A93A6;">// Fail out to OutboxPublisher — row stays unpublished, next tick retries.</span>
+        <span style="color:#8A93A6;">// The outbox poller IS the retry mechanism; no @Retry needed here.</span>
+        throw ex;
+    }
+}</code></pre></div>
+
+      <div class="why-box"><div class="why-label">✅ Live-verified end-to-end (Check 8)</div>
+      <pre class="terminal">POST /bookings seat=1 user=user-D5
+  <span class="ok">→ 201 CONFIRMED, bookingId=38, paymentRef=pay-5</span>
+
+<span class="dim">[2 seconds later, outbox poller drains]</span>
+booking.log:  <span class="ok">event_published type=BookingConfirmed to=notification-service</span>
+notification.log: <span class="ok">notification_received id=1 type=BookingConfirmed bookingId=38 holderId=user-D5</span>
+
+GET /notifications/holder/user-D5
+  <span class="ok">→ [{ id:1, eventType:BookingConfirmed, bookingId:38, payload:"{...}", receivedAt:"..." }]</span></pre></div>
+
+      <div class="bug-box"><div class="bug-label">🐛 Observation caught during live-verify</div><code>correlationId: null</code> on the notification row. Booking-service had a valid trace id when writing the outbox row, but notification-service saw <code>null</code>. Root cause + fix = Day 6 (below).</div>
+    </div>
+
+    <div class="card day" id="d6">
+      <div class="day-head"><div class="day-stamp">DAY 6</div><div class="day-title">MDC survives the @Scheduled boundary — carry the id on the row</div></div>
+      <div class="day-files">updated: outbox/OutboxEvent, OutboxService, OutboxPublisher · commit: 8a30afa</div>
+      <p><strong>The real pattern lesson</strong> hiding behind Day 5's null-correlation-id observation.</p>
+
+      <div class="bug-box"><div class="bug-label">🐛 Root cause — MDC is thread-local, @Scheduled is a different thread</div>booking-service's saga runs in the <em>request thread</em>. CorrelationIdFilter set MDC there. <code>OutboxService.record()</code> inherits it (same thread). BUT <code>OutboxPublisher.drain()</code> runs in a <strong>@Scheduled thread from Spring's task scheduler pool</strong> — different thread, empty MDC. So <code>EventBus.publish()</code> read MDC and got <code>null</code>. RestClient's requestInterceptor added no <code>X-Correlation-Id</code>. Notification-service's own filter generated a fresh UUID → trace context lost at the outbox boundary.</div>
+
+      <div class="why-box"><div class="why-label">✅ Fix — carry the id on the row itself</div>
+      <ol class="clean" style="margin:0;">
+        <li><code>OutboxEvent</code> entity gains a <code>correlation_id VARCHAR(64)</code> column (nullable). Constructor updated.</li>
+        <li><code>OutboxService.record()</code> captures <code>MDC.get(correlationId)</code> at write time (still on the request thread with populated MDC) and stores it on the row.</li>
+        <li><code>OutboxPublisher.drain()</code> reads the row's correlation id, <code>MDC.put</code>s it before <code>eventBus.publish()</code>, clears in <code>finally</code>.</li>
+      </ol>
+      <p style="margin-top:10px;margin-bottom:0;">Now the notifications.correlation_id column stores the SAME id booking-service used at record time. Full trace across booking → outbox → poller → HTTP → notification.</p></div>
+
+      <div class="concept-box" style="border-left-color:var(--success);">
+        <div class="box-label" style="color:var(--success);">💡 The general pattern</div>
+        <p style="margin:0;"><strong>MDC drops across every async boundary</strong> — @Scheduled thread pool, CompletableFuture.supplyAsync, reactor's <code>subscribeOn</code>/<code>publishOn</code>, JMS listener threads. Fix is always the same: <strong>carry the id on the payload, restore on the other side.</strong> Not a one-off, a fundamental async-plumbing rule that will re-appear every time an async hop is added to this codebase.</p>
+      </div>
+
+      <p><strong>Live-verify not re-run for this fix</strong> — mechanism proven by three-file inspection; end-to-end test at the next fresh <code>docker compose up</code> will show <code>notifications.correlation_id</code> populated instead of null. Deferred to save Docker daemon churn on this fragile machine.</p>
+    </div>
+
     <!-- ================ BUG MUSEUM ================ -->
     <h2 style="margin-top:60px;">Bug museum — four real ones caught live</h2>
 
@@ -723,6 +790,6 @@ Seat 6 final: <span class="ok">BOOKED</span>
   </main>
 </div>
 
-<footer>Payment Lab · Week 3 · 2026-09-20 · repo: <code>GenAiBackend/ticketing-platform/{payment,booking}-service</code> · companion to <a href="SEAT_LOCK.html">SEAT_LOCK</a> (Week 1) &amp; <a href="SAGA_LAB.html">SAGA_LAB</a> (Week 2)</footer>
+<footer>Payment Lab · Week 3 (Days 1–6) · 2026-09-20 · repo: <code>GenAiBackend/ticketing-platform/{payment,booking,notification}-service</code> · companion to <a href="SEAT_LOCK.html">SEAT_LOCK</a> (Week 1) &amp; <a href="SAGA_LAB.html">SAGA_LAB</a> (Week 2)</footer>
 </body>
 </html>
