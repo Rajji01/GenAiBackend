@@ -10,7 +10,12 @@ Self-directed engineering-mentorship project by **Rajat Agrawal**. Three paralle
 
 ## 🤖 For AI assistants (Claude, Codex, etc.)
 
-**Start with [`AGENTS.md`](./AGENTS.md)** — the portable bootstrap that explains current state, working rules, teaching arc, and where the deep docs live. Machine-local memory doesn't survive a fresh clone; that file does.
+Two files, in this order:
+
+1. **[`FILE_GUIDE.md`](./FILE_GUIDE.md)** — directory index of every file in the repo, categories, reading order, HTML design systems, discovery patterns. **The map.**
+2. **[`AGENTS.md`](./AGENTS.md)** — rules, current state, teaching arc, environment quirks. **The rules.**
+
+Machine-local memory doesn't survive a fresh clone; these two files do.
 
 ## 📖 Roadmaps
 

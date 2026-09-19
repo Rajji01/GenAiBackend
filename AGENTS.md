@@ -3,6 +3,8 @@
 **If you're a Claude/Codex/other AI session opening this repo fresh — start here.** This file exists so a new session on any machine (or a fresh clone) can orient itself in 2 minutes and pick up work correctly. Machine-local memory (in `~/.claude/...`) is not portable; this file is.
 
 > **Rule zero:** read this file, then the pointed-to docs in **§8 Key files**, before writing any code or making any commit.
+>
+> **Companion:** `FILE_GUIDE.md` (repo root) is the directory index — every file's purpose, in what order to read, how they relate. AGENTS.md tells you the *rules*; FILE_GUIDE.md tells you *where everything is*. Read both.
 
 ---
 
@@ -117,8 +119,9 @@ When user says "section N chalu kr" — teach in chat first (rich, easy, code sn
 ## 8. Key files — the whole map
 
 ### Bootstrap (READ FIRST in a new session)
-- `AGENTS.md` (this file)
-- `README.md` — one-liner + pointer here
+- **`FILE_GUIDE.md`** — directory index for every file, categories, reading order, HTML design systems, discovery patterns
+- `AGENTS.md` (this file) — rules, current state, teaching arc, environment quirks
+- `README.md` — one-liner + pointer to the two above
 - `NEXT_PATH.md` — cross-track forward plan (weeks + days)
 
 ### Ticketing track (Java, microservices)
