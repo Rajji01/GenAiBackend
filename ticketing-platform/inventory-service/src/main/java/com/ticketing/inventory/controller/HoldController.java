@@ -2,6 +2,8 @@ package com.ticketing.inventory.controller;
 
 import com.ticketing.inventory.dto.HoldRequest;
 import com.ticketing.inventory.dto.HoldResponse;
+import com.ticketing.inventory.dto.ConfirmRequest;
+import com.ticketing.inventory.dto.ConfirmResponse;
 import com.ticketing.inventory.dto.ReleaseRequest;
 import com.ticketing.inventory.service.HoldService;
 import jakarta.validation.Valid;
@@ -26,6 +28,14 @@ public class HoldController {
             @PathVariable Long seatId,
             @Valid @RequestBody HoldRequest request) {
         return holdService.hold(showId, seatId, request.holderId());
+    }
+
+    @PostMapping("/confirm")
+    public ConfirmResponse confirm(
+            @PathVariable Long showId,
+            @PathVariable Long seatId,
+            @Valid @RequestBody ConfirmRequest request) {
+        return holdService.confirm(showId, seatId, request.holderId());
     }
 
     @PostMapping("/release")

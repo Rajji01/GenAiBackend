@@ -1,6 +1,7 @@
 package com.ticketing.inventory.service;
 
 import com.ticketing.inventory.dto.HoldResponse;
+import com.ticketing.inventory.dto.ConfirmResponse;
 import com.ticketing.inventory.entity.Seat;
 import com.ticketing.inventory.entity.SeatStatus;
 import com.ticketing.inventory.exception.ConflictException;
@@ -16,6 +17,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -61,6 +64,9 @@ class HoldServiceTest {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private PlatformTransactionManager txManager;
 
     private Long showId;
     private Long seatId;
@@ -171,5 +177,99 @@ class HoldServiceTest {
         holdService.release(showId, seatId, "user-1");
 
         assertThat(seatRepository.findById(seatId).orElseThrow().getStatus()).isEqualTo(SeatStatus.BOOKED);
+    }
+
+    @Test
+    void confirm_byHoldOwner_booksTheSeat_andRemovesTheTemporaryRedisKey() {
+        holdService.hold(showId, seatId, "user-1");
+
+        ConfirmResponse response = holdService.confirm(showId, seatId, "user-1");
+
+        assertThat(response.status()).isEqualTo("BOOKED");
+        Seat booked = seatRepository.findById(seatId).orElseThrow();
+        assertThat(booked.getStatus()).isEqualTo(SeatStatus.BOOKED);
+        assertThat(booked.getBookedByHolderId()).isEqualTo("user-1");
+        assertThat(redisTemplate.opsForValue().get("hold:" + seatId)).isNull();
+    }
+
+    @Test
+    void confirm_bySameHolderTwice_isIdempotent() {
+        holdService.hold(showId, seatId, "user-1");
+        holdService.confirm(showId, seatId, "user-1");
+
+        ConfirmResponse retry = holdService.confirm(showId, seatId, "user-1");
+
+        assertThat(retry.status()).isEqualTo("BOOKED");
+    }
+
+    @Test
+    void confirm_byAnotherHolder_isForbidden_andLeavesTheHoldIntact() {
+        holdService.hold(showId, seatId, "user-1");
+
+        assertThrows(ForbiddenException.class, () -> holdService.confirm(showId, seatId, "user-2"));
+
+        assertThat(seatRepository.findById(seatId).orElseThrow().getStatus()).isEqualTo(SeatStatus.HELD);
+        assertThat(redisTemplate.opsForValue().get("hold:" + seatId)).isEqualTo("user-1");
+    }
+
+    @Test
+    void confirm_withoutALiveHold_isAConflict() {
+        assertThrows(ConflictException.class, () -> holdService.confirm(showId, seatId, "user-1"));
+    }
+
+    // The window between a Redis TTL expiring and the next reconciliation
+    // sweep: Postgres still says HELD, but the hold is already gone. A late
+    // payment callback must not book a seat whose hold no longer exists.
+    @Test
+    void confirm_afterTheRedisHoldExpired_butBeforeReconciliation_isAConflict() {
+        holdService.hold(showId, seatId, "user-1");
+        redisTemplate.delete("hold:" + seatId); // simulate the TTL expiring
+
+        assertThrows(ConflictException.class, () -> holdService.confirm(showId, seatId, "user-1"));
+
+        Seat seat = seatRepository.findById(seatId).orElseThrow();
+        assertThat(seat.getStatus()).isEqualTo(SeatStatus.HELD);
+        assertThat(seat.getBookedByHolderId()).isNull();
+    }
+
+    @Test
+    void confirm_onASeatBookedBySomeoneElse_isAConflict_andKeepsTheOriginalOwner() {
+        holdService.hold(showId, seatId, "user-1");
+        holdService.confirm(showId, seatId, "user-1");
+
+        assertThrows(ConflictException.class, () -> holdService.confirm(showId, seatId, "user-2"));
+
+        assertThat(seatRepository.findById(seatId).orElseThrow().getBookedByHolderId()).isEqualTo("user-1");
+    }
+
+    // Proves the afterCommit fix in HoldService.confirm(): if the surrounding
+    // transaction ends up rolling back, the Redis hold key must survive so a
+    // retry by the same holder can still succeed. An eager pre-commit delete
+    // would leave the seat rolled back to HELD with the key already gone,
+    // letting reconciliation silently free a seat someone had paid for.
+    @Test
+    void confirm_whenTheOuterTransactionRollsBack_leavesTheRedisHoldIntact() {
+        holdService.hold(showId, seatId, "user-1");
+        String key = "hold:" + seatId;
+        assertThat(redisTemplate.opsForValue().get(key)).isEqualTo("user-1");
+
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.executeWithoutResult(status -> {
+            holdService.confirm(showId, seatId, "user-1"); // joins the outer tx
+            status.setRollbackOnly();                       // force a rollback
+        });
+
+        // Postgres rolled back → still HELD, no bookedByHolderId set.
+        Seat seat = seatRepository.findById(seatId).orElseThrow();
+        assertThat(seat.getStatus()).isEqualTo(SeatStatus.HELD);
+        assertThat(seat.getBookedByHolderId()).isNull();
+
+        // afterCommit never fired → key is still there, retry can succeed.
+        assertThat(redisTemplate.opsForValue().get(key)).isEqualTo("user-1");
+
+        ConfirmResponse retry = holdService.confirm(showId, seatId, "user-1");
+        assertThat(retry.status()).isEqualTo("BOOKED");
+        assertThat(seatRepository.findById(seatId).orElseThrow().getStatus()).isEqualTo(SeatStatus.BOOKED);
+        assertThat(redisTemplate.opsForValue().get(key)).isNull(); // this time it did commit
     }
 }

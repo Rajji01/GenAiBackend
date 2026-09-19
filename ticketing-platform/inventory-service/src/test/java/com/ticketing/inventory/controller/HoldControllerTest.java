@@ -2,6 +2,8 @@ package com.ticketing.inventory.controller;
 
 import com.ticketing.inventory.dto.HoldRequest;
 import com.ticketing.inventory.dto.HoldResponse;
+import com.ticketing.inventory.dto.ConfirmRequest;
+import com.ticketing.inventory.dto.ConfirmResponse;
 import com.ticketing.inventory.exception.ConflictException;
 import com.ticketing.inventory.exception.ForbiddenException;
 import com.ticketing.inventory.exception.ResourceNotFoundException;
@@ -79,6 +81,31 @@ class HoldControllerTest {
                         .contentType(APPLICATION_JSON)
                         .content("{\"holderId\": \"user-1\"}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void confirm_withAValidRequest_returns200AndBookedState() throws Exception {
+        when(holdService.confirm(1L, 10L, "user-1"))
+                .thenReturn(new ConfirmResponse(10L, "user-1", "BOOKED"));
+
+        mockMvc.perform(post("/shows/1/seats/10/confirm")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ConfirmRequest("user-1"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seatId").value(10))
+                .andExpect(jsonPath("$.holderId").value("user-1"))
+                .andExpect(jsonPath("$.status").value("BOOKED"));
+    }
+
+    @Test
+    void confirm_byTheWrongHolder_returns403() throws Exception {
+        when(holdService.confirm(eq(1L), eq(10L), any()))
+                .thenThrow(new ForbiddenException("holderId does not own the hold on seat 10"));
+
+        mockMvc.perform(post("/shows/1/seats/10/confirm")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"holderId\": \"user-2\"}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

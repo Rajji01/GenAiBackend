@@ -29,6 +29,11 @@ public class Seat {
     @Column(nullable = false)
     private SeatStatus status = SeatStatus.AVAILABLE;
 
+    // Redis owns only the temporary hold. This durable owner makes a repeated
+    // payment callback idempotent without letting another caller claim it.
+    @Column(name = "booked_by_holder_id")
+    private String bookedByHolderId;
+
     // The oversell-prevention mechanism for Day 3's hold/release. Hibernate
     // includes this in the WHERE clause of every UPDATE — a concurrent
     // writer that read the same row first will fail to update it, not
@@ -64,6 +69,14 @@ public class Seat {
 
     public void setStatus(SeatStatus status) {
         this.status = status;
+    }
+
+    public String getBookedByHolderId() {
+        return bookedByHolderId;
+    }
+
+    public void setBookedByHolderId(String bookedByHolderId) {
+        this.bookedByHolderId = bookedByHolderId;
     }
 
     public Long getVersion() {
