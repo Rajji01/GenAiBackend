@@ -6,6 +6,7 @@ import java.time.Instant;
 
 public record NotificationResponse(
         Long id,
+        String eventId,
         String eventType,
         Long bookingId,
         String holderId,
@@ -15,7 +16,7 @@ public record NotificationResponse(
 ) {
     public static NotificationResponse from(Notification n) {
         return new NotificationResponse(
-                n.getId(), n.getEventType(), n.getBookingId(), n.getHolderId(),
+                n.getId(), n.getEventId(), n.getEventType(), n.getBookingId(), n.getHolderId(),
                 n.getPayload(), n.getCorrelationId(), n.getReceivedAt());
     }
 }

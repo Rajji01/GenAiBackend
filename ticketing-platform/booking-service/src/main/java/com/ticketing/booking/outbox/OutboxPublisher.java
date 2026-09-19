@@ -46,7 +46,7 @@ public class OutboxPublisher {
                 MDC.put(CorrelationIdFilter.MDC_KEY, captured);
             }
             try {
-                eventBus.publish(event.getEventType(), event.getPayload());
+                eventBus.publish(event.getEventId(), event.getEventType(), event.getPayload());
                 markPublished(event.getId());
             } catch (RuntimeException ex) {
                 log.warn("outbox_publish_failed eventId={} type={} reason={}",

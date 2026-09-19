@@ -50,23 +50,24 @@ public class EventBus {
                 .build();
     }
 
-    public void publish(String eventType, String payload) {
+    public void publish(String eventId, String eventType, String payload) {
         try {
             restClient.post()
                     .uri("/notifications/receive")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of(
+                            "eventId", eventId,
                             "eventType", eventType,
                             "payload", payload
                     ))
                     .retrieve()
                     .toBodilessEntity();
-            log.info("event_published type={} to=notification-service", eventType);
+            log.info("event_published eventId={} type={} to=notification-service", eventId, eventType);
         } catch (RuntimeException ex) {
             // Fail-out to the caller (OutboxPublisher). Outbox row stays
             // unpublished; next poll retries. That's the at-least-once
             // guarantee's whole enforcement mechanism.
-            log.warn("event_publish_failed type={} reason={}", eventType, ex.getMessage());
+            log.warn("event_publish_failed eventId={} type={} reason={}", eventId, eventType, ex.getMessage());
             throw ex;
         }
     }

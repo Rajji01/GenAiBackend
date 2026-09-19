@@ -15,6 +15,7 @@ import java.time.Instant;
 @Entity
 @Table(
     name = "outbox_events",
+    uniqueConstraints = @UniqueConstraint(name = "uk_outbox_event_id", columnNames = "event_id"),
     indexes = {
         @Index(name = "idx_outbox_unpublished", columnList = "published_at")
     }
@@ -24,6 +25,17 @@ public class OutboxEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // Week 3 Day 7 — stable event UUID. Generated once at record time,
+    // travels through the payload to every consumer. Consumers dedupe on
+    // this (unique constraint on their own end) — that's how the
+    // "at-least-once outbox means consumers must be idempotent" contract
+    // gets ENFORCED, not just documented. Without an event id, a
+    // duplicated delivery (outbox publish succeeded but mark_published
+    // failed → next poll re-publishes) would silently create duplicate
+    // side-effects downstream.
+    @Column(name = "event_id", nullable = false, length = 36, updatable = false)
+    private String eventId;
 
     // The domain aggregate this event is about — booking id for
     // BookingConfirmed / BookingFailed etc. Useful for tracing.
@@ -60,6 +72,7 @@ public class OutboxEvent {
     protected OutboxEvent() {} // JPA
 
     public OutboxEvent(String aggregateId, String eventType, String payload, String correlationId) {
+        this.eventId = java.util.UUID.randomUUID().toString();
         this.aggregateId = aggregateId;
         this.eventType = eventType;
         this.payload = payload;
@@ -76,6 +89,7 @@ public class OutboxEvent {
     }
 
     public Long getId() { return id; }
+    public String getEventId() { return eventId; }
     public String getAggregateId() { return aggregateId; }
     public String getEventType() { return eventType; }
     public String getPayload() { return payload; }
