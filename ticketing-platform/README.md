@@ -252,6 +252,97 @@ easily hide the exact race condition this project exists to prevent.
   booking, so this is a lost booking, not an oversell. The clean fix is
   to delete the key in an `afterCommit` callback.
 
+## Week 3 — `payment-service` + outbox + saga rollback + recovery (in progress, uncommitted)
+
+Week 3 introduces the third microservice (`payment-service`) and three
+new patterns in `booking-service`: outbox for reliable event publishing,
+refund path for captured-but-confirm-failed bookings, and a dangling-saga
+recovery sweep. **Day 1 done — full design paper (`WEEK3_DESIGN.md`).
+Days 2-3 code done — compile-clean but not live-verified or committed
+yet.** Junits deferred per user directive.
+
+**payment-service (`payment-service/` — new module, port 8083):**
+
+- `Payment` entity with 6-state machine (`INITIATED → AUTHORIZED →
+  CAPTURED / FAILED / REFUND_PENDING → REFUNDED`), named transition
+  methods, `@Version`. Own Postgres DB (`payment`) via
+  `db-init/create-payment-db.sh` on the shared server.
+- **Adapter + Factory + Strategy** — `PaymentGateway` interface with
+  three stubs (`UPIAdapter`, `CardAdapter`, `NetBankingAdapter`).
+  `PaymentGatewayFactory` indexes them by `PaymentMethod` enum. Adding
+  a fourth method = new adapter + enum value + factory picks it up via
+  Spring DI.
+- **Two-step auth + capture** — makes the compensating path cleaner
+  than Week 2's collapsed `charge()`. Only the `captured-but-confirm-
+  fails` branch actually needs a refund.
+- Endpoints: `POST /payments` (idempotent on `paymentSessionKey`),
+  `/capture`, `/void`, `/refund`, `GET /payments/{id}`.
+- `AuthExpirySweepService` — `@Scheduled` void-sweep for expired
+  authorizations, self-healing without ops.
+- Same cross-cutting as the other services: RFC 7807 `ProblemDetail`,
+  `CorrelationIdFilter`, typed `PaymentProperties`.
+
+**booking-service Week 3 changes:**
+
+- **PaymentStub removed** — replaced by real `PaymentClient` (Spring
+  `RestClient` + `@Retry` + `@CircuitBreaker`, all Week 2 bug 5+6
+  lessons applied from day one: whitelist-only exception config, base-
+  type fallbacks). Separate Resilience4j instances for `inventory` and
+  `payment` — one being unhealthy doesn't open the other's circuit.
+- **Outbox pattern** — `OutboxEvent` entity + `OutboxRepository` +
+  `OutboxService` (write event atomic with state change) +
+  `OutboxPublisher` (`@Scheduled` drain to `EventBus` stub, which logs
+  for now; Phase 3 swaps for SNS with zero code change on the outbox
+  side). `BookingConfirmed` fires on happy path.
+- **Refund path** — when `/confirm` fails after payment capture, saga
+  attempts `paymentClient.refund(...)`. Success → `FAILED`; failure →
+  `FAILED_REFUND_PENDING` flag for ops queue.
+- **`BookingRecoveryService`** — `@Scheduled` sweep with a 2-minute
+  age filter that never races an in-flight saga. Handles PENDING (mark
+  FAILED, no side-effects were fired), SEATS_HELD (release + FAILED),
+  PAYMENT_INITIATED (query payment-service by paymentId; drive forward
+  from AUTHORIZED/CAPTURED, roll back cleanly from FAILED). Every
+  driven step relies on downstream idempotency (release, confirm,
+  capture, refund all idempotent).
+- **Booking entity** gains `payment_id` (Long) and `refund_pending`
+  (boolean) columns; `markPaymentInitiated` signature changed to
+  `(paymentId, paymentRef)`; `markFailedRefundPending()` added.
+
+**docker-compose.yml** — payment-service added on port 8083; booking-
+service `depends_on: payment-service: condition: service_started` (same
+rule as inventory: startup coupling defeats runtime resilience).
+
+**Design paper:** `ticketing-platform/WEEK3_DESIGN.md` (~24KB, same
+structure as WEEK2_DESIGN.md: state machine, adapters, outbox pattern
+mechanics, saga rollback failure matrix, dangling-recovery sweep,
+sequence diagrams, 7 more interview Qs pending).
+
+**Week 3 LIVE-VERIFIED 2026-09-20** against a real 3-service stack:
+- Full booking saga through inventory + payment (2-step auth + capture)
+  → CONFIRMED end-to-end, ₹1000 INR captured via UPI adapter
+- **Outbox event verified fired** — `BookingConfirmed` written atomic
+  with state change, poller drained it, EventBus logged
+  `event_published`, DB shows `published=t` on the outbox row
+- Idempotent retry — same key + same body → 200 same booking; different
+  body → 422
+- **Oversell prevention holds through 3 services** — 2 parallel
+  bookings on seat 6 → 1 CONFIRMED + 1 clean 502 (`inventory hold
+  returned HTTP 409`), seat exactly BOOKED
+- Bug 5's rule verified across the payment path too: a 409 is
+  non-transient, retry does not fire, saga fails fast
+- Correlation-ID propagated across all three services (single greppable
+  trace per booking through booking + payment logs)
+
+**Bug 7 caught live during the verify:** Hibernate's `ddl-auto: update`
+silently skipped adding the `refund_pending` NOT NULL column because it
+had no DEFAULT clause. Postgres would reject the ALTER, and Hibernate
+swallows the DDL rather than failing startup. First booking after
+startup crashed with `column b1_0.refund_pending does not exist`. Fix:
+add `columnDefinition = "BOOLEAN DEFAULT FALSE"` to the `@Column`
+annotation so Hibernate emits a valid ALTER. Live fix during verify:
+manual `ALTER TABLE ...` via `docker exec psql`. Prod-safe answer:
+Flyway migrations, which write explicit `DEFAULT` clauses.
+
 ## Week 2 — `booking-service` (in progress)
 
 Week 2 introduces the second service on this track: `booking-service`, the

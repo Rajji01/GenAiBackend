@@ -57,11 +57,13 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 |---|---|---|
 | **`README.md`** | 📖 Build log | Full week-by-week + day-by-day daily entries. "What has been completed" |
 | **`ROADMAP.md`** | 🗺️ Master plan | 10 phases (Weeks 2 → 15+). "What is next." SUPERSEDES `codes Practice/Jarvis_Architect_Path.md` |
-| **`WEEK1_REVIEW.md`** | 📝 Interview Qs | 7 interview questions for Week 1 close-out. Rajat's own answers pending. Phase 1 blocked until these are answered |
+| **`WEEK1_REVIEW.md`** | 📝 Interview Qs | 7 interview questions for Week 1 close-out. Rajat's own answers pending. |
 | **`WEEK2_DESIGN.md`** | 📝 Design + Qs | Day 1 design deliverable (state machine, orchestration case, saga design, API contract, sequence diagrams) + 7 more interview questions |
+| **`WEEK3_DESIGN.md`** | 📝 Design + Qs | Day 1 deliverable for Week 3 (payment-service state machine, Adapter/Factory/Strategy, outbox pattern, saga rollback failure matrix, dangling recovery, sequence diagrams) + 7 more interview questions |
 | **`LEARNING_NOTES.md`** | 📖 Prose revision | Prose deep notes with self-check questions at end of each section. **No answers by design** — revision tool |
 | **`SEAT_LOCK.html`** | 🔨 Showcase HTML | Week 1 (`inventory-service`) deep concept + build log. Corner Notes design (cream/amber) |
 | **`SAGA_LAB.html`** | 🔨 Showcase HTML | Week 2 (`booking-service`) deep concept + build log. Same Corner Notes design. Includes Day 4 LIVE EVIDENCE card with real terminal output + 6-entry bug museum |
+| **`PAYMENT_LAB.html`** | 🔨 Showcase HTML | Week 3 (`payment-service` + outbox + refund + recovery) deep concept + build log. 10 concepts, 4 days, 4-entry bug museum (Bugs 7-10), LIVE EVIDENCE card, task ledger, decision log, tech glossary. Corner Notes design. |
 | **`TICKET_STUDY.html`** | 📘 Personal learning | Rajat's Q&A journal. Sections + questions + answers captured from live teaching. **Distinct from showcase HTMLs** — this is study/revision, not portfolio |
 
 **Config / deployment:**
@@ -74,20 +76,25 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 
 **Services:**
 
-- **`inventory-service/`** — Week 1's Spring Boot service (seats, holds, availability, confirm). Complete + tested.
-- **`booking-service/`** — Week 2's Spring Boot service (saga orchestrator, POST /bookings, Resilience4j). Complete Days 1–4 + live-verified.
+- **`inventory-service/`** — Week 1's Spring Boot service (seats, holds, availability, confirm). Complete + tested + committed.
+- **`booking-service/`** — Week 2's saga orchestrator + Week 3 additions (PaymentClient, Outbox, BookingRecoveryService, refund path).
+- **`payment-service/`** — Week 3's service (Adapter+Factory+Strategy for payment methods, 2-step auth+capture, refund lifecycle). Compile-clean, not live-verified/committed yet.
 
 Each service directory has the standard Maven layout:
 - `pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/` — build
 - `Dockerfile`, `.dockerignore` — containerize
 - `README.md` — dev-facing service doc (API surface, config keys, run instructions, package layout)
-- `src/main/java/com/ticketing/{inventory,booking}/**` — source
+- `src/main/java/com/ticketing/{inventory,booking,payment}/**` — source
 - `src/main/resources/application.yml` — config
-- `src/test/java/**` — tests (real Postgres/Redis via Testcontainers, no fakes)
+- `src/test/java/**` — tests (Weeks 1+2 have them; Week 3 tests deferred per user directive)
 
-**Test count check (as of last commit `b9e507e`):**
+**Booking-service Week 3 packages:**
+- `outbox/` — `OutboxEvent`, `OutboxRepository`, `OutboxService` (write within tx), `OutboxPublisher` (`@Scheduled` drain), `EventBus` (stub, will become SNS in Phase 3)
+
+**Test count check (as of last commit `8d255fe`):**
 - `inventory-service`: 40 tests green
-- `booking-service`: 26 tests green
+- `booking-service`: 26 tests green (old `BookingSagaServiceTest` deleted with Week 3's saga rewrite; tests get rebuilt at end-pass per user directive)
+- `payment-service`: 0 tests (Week 3, deferred)
 
 ### 🐍 Narration track (`narration-enrichment/`)
 

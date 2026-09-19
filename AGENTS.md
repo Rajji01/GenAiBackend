@@ -44,15 +44,18 @@ These have been established across many sessions. Break them and the user will c
 4. **Every new project track goes INSIDE this repo as a subdirectory** — never a separate git repo, never a submodule. If a plan doc says "separate repo," override it and use a subdirectory (`GenAiBackend/<track-name>/`).
 
 5. **Companion "easy notes" HTML artifacts** are kept per track, in sync with the code:
-   - Java track uses "Corner Notes" styling (cream/amber palette) — files: `backend/CORNER_NOTES.html`, `ticketing-platform/SEAT_LOCK.html`, `ticketing-platform/SAGA_LAB.html`.
+   - Java track uses "Corner Notes" styling (cream/amber palette) — files: `backend/CORNER_NOTES.html`, `ticketing-platform/SEAT_LOCK.html`, `ticketing-platform/SAGA_LAB.html`, `ticketing-platform/PAYMENT_LAB.html`.
    - Python track uses "Narration Lab" styling (mint/teal) — file: `narration-enrichment/NARRATION_LAB.html`.
    - Learning-companion (Rajat's Q&A) — `ticketing-platform/TICKET_STUDY.html` (added 2026-09-18).
+   - **One showcase HTML per Week** (confirmed 2026-09-20). Don't grow SAGA_LAB to cover Week 3; spawn PAYMENT_LAB. Rule: `<Week-N>_<theme>.html` for each week's headline focus. Prevents any one file from overloading, keeps concerns cleanly separated per week's arc.
 
 6. **Live verification, no cherry-picking.** Real API calls, real Docker containers, real DB. When a live result is "boring" or null, report it honestly rather than swapping for a flattering example.
 
 7. **Don't overengineer.** Explicitly avoided: vector DB where SQLite serves (P1 RAG), numpy for one cosine function. Smallest infrastructure that satisfies the current requirement. Flag deliberate compromises in comments/docs.
 
-8. **JUnit strategy (Week 2 update):** For learning-first sessions, **defer JUnit-writing to end-of-week clean pass**. Implement + mentally verify + document reasoning first; write proper tests over the finished shape.
+8. **JUnit strategy (Week 2 update, reconfirmed Week 3):** For learning-first sessions, **defer JUnit-writing to end-of-week clean pass**. Implement + mentally verify + document reasoning first; write proper tests over the finished shape. Manual/live verification is fine and encouraged where feasible.
+
+9. **Track continuously; never leave state stale (added 2026-09-20).** After every meaningful chunk of work, update: (a) local memory (`~/.claude/projects/.../memory/`), (b) `AGENTS.md` §4/§5 if state changed, (c) `FILE_GUIDE.md` if a new file class was added, (d) track README (build log). Rule: every user-facing directive I'm told to follow ("do X from now on", "don't do Y again", "the pattern is Z") gets captured in this file's §3 or the appropriate memory. Future sessions must not have to re-learn what this one already learned.
 
 ---
 
@@ -60,15 +63,26 @@ These have been established across many sessions. Break them and the user will c
 
 ### Ticketing (Track C) — WHERE MOST OF THE ACTION IS
 
-- **Week 1** — inventory-service ✅ **DONE** including `POST /confirm` endpoint + `afterCommit` fix. **40 tests green** (real Postgres + Redis via Testcontainers).
-- **Week 2** — booking-service — Days 1–4 code done + **Day 4 LIVE-verified 2026-09-18** with 6 experiments all passing. **26 tests green**. **3 real Resilience4j bugs caught live and fixed in-session** (see `ticketing-platform/SAGA_LAB.html` Bug Museum §B4–B6).
+- **Week 1** — inventory-service ✅ **DONE + committed + pushed** (`0b97be5`).
+- **Week 2** — booking-service ✅ **DONE + committed + pushed** (`1abd8ec` code, `b9e507e` notes). 6 live-verified failure experiments, 3 real bugs caught+fixed live.
+- **Week 3 (in flight, 2026-09-20)** — payment-service + outbox pattern + refund path + dangling-saga recovery. **Day 1 done + Days 2-3 code compile-clean. NOT live-verified yet. NOT committed yet** (user directive: keep working, no commit).
+  - New module `payment-service/` — Java 17 Spring Boot, Adapter+Factory+Strategy for UPI/Card/NetBanking stubs, 6-state Payment machine, 2-step auth+capture. Own Postgres DB (`payment`).
+  - booking-service updates: `PaymentClient` (Resilience4j with fresh `payment` instance, all Bug 5+6 lessons pre-applied), Outbox (entity + repo + service + poller + `EventBus` stub), `BookingRecoveryService` (2-min age filter, drives forward or rolls back), refund path on captured-but-confirm-fail, `Booking.payment_id` + `refund_pending` columns.
+  - docker-compose: payment-service added on 8083, `create-payment-db.sh` init script.
+  - `WEEK3_DESIGN.md` full design paper + 7 more interview Qs.
 
-**NOTHING is committed for Week 1 close-out or any of Week 2.** All local. User will approve commits when ready — probably 3 clean commits (Week 1 close-out, Week 2 build, Week 2 live-verify+bugfixes).
+**Uncommitted since last push (`8d255fe`)**:
+- Week 3 additions above (~45 new/modified files across payment-service, booking-service, ticketing-platform root)
+- `AGENTS.md` §5 flip to implementation-mode (this file)
+- `README.md` (ticketing) Week 3 build log entry
 
-**Pending for Week 2 completion:**
-- User answers 7 interview questions in `ticketing-platform/WEEK2_DESIGN.md §9` (user's own task)
-- JUnit sweep for Resilience4j + docker-compose paths (deferred to end-of-week)
-- User approval for commits + push
+User instruction 2026-09-20: **do not commit, keep implementing to 2M token budget.** Also: no junit tests (manual verify where feasible).
+
+**Pending for Week 3 completion:**
+- Live-verify against a running 3-service stack (Day 4 equivalent)
+- Update SAGA_LAB.html (or new PAYMENT_LAB.html?) with Week 3 concepts + bug museum entries if live finds any
+- User answers 7 more interview questions in `WEEK3_DESIGN.md §9`
+- Eventual commit + push (needs user OK)
 
 ### Narration (Track B)
 
@@ -80,18 +94,23 @@ These have been established across many sessions. Break them and the user will c
 
 ---
 
-## 5. The teaching arc (active as of 2026-09-18)
+## 5. The teaching arc (PAUSED as of 2026-09-20 — implementation mode active)
 
-User pivoted to **learning mode** and asked to be taught what has been built, section by section, in "easy way" with code + analogies. Active study companion is `ticketing-platform/TICKET_STUDY.html`. Progress:
+**Current mode: implementation.** Teaching arc paused; will resume ONLY when user explicitly says "Section N chalu kr" or equivalent. Do NOT proactively teach — user is now driving implementation.
+
+Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so far:
 
 - ✅ **Section 1** — Problem statement (Seat entity, enum, unique constraint)
 - ✅ **Q1** — Enum vs String (compile-time safety, EnumType.STRING vs ORDINAL)
 - ✅ **Q2** — `@Version` alone enough for concurrency? (optimistic vs pessimistic, 4 cases where not enough)
 - ✅ **Section 2** — Do stores, do lifetimes (Redis no-volume as feature, 2-store coord, alternatives)
-- 📖 **Section 3 (next)** — Concurrency 2-tier defense (Redis SETNX + Postgres @Version deep)
+- ✅ **Q3** — Redis fast kyun/kaise? (4 sub-parts: SETNX mechanism, Postgres cache overhead, single-thread atomicity, 100-client mechanics)
+- ✅ **Q4** — Context switching + cache invalidation + lock contention — easy way with 4 analogies
+- ⏸️ **Section 3 (queued)** — Concurrency 2-tier defense (Redis SETNX + Postgres @Version deep). **Do NOT start until user says so.**
 - 📖 Sections 4–8 remaining (compensating actions, reconciliation, confirm+afterCommit, endpoint contract, cross-cutting)
+- ⏳ **S2's 3 self-check Qs** — user answers still pending. Q5 will land here when they arrive.
 
-When user says "section N chalu kr" — teach in chat first (rich, easy, code snippets), then batch-update `TICKET_STUDY.html` with the new section and any resulting Q&A.
+**Signal to resume teaching:** user says "section N chalu kr" / "start section" / "teaching mode wapas" / equivalent. Any user question about a concept without teaching signal → answer in-place, do NOT expand into a full section.
 
 ---
 

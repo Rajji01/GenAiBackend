@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F2EFE6;
+    --surface:#FFFFFF;
+    --surface-alt:#EAE3D2;
+    --ink:#1B1F2A;
+    --ink-soft:#565D6D;
+    --border:#D9D0BA;
+    --accent:#A9761F;
+    --accent-soft:#EFE0BC;
+    --danger:#A34430;
+    --danger-soft:#F2DCD3;
+    --success:#2E7D5B;
+    --success-soft:#DBEBE1;
+    --code-bg:#1B1F2A;
+    --code-ink:#E9E4D6;
+    --shadow: 0 1px 2px rgba(27,31,42,.06), 0 8px 24px rgba(27,31,42,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161C;--surface:#1C1F28;--surface-alt:#242833;
+      --ink:#EDE9DC;--ink-soft:#A9AFC0;--border:#343947;
+      --accent:#D9A54B;--accent-soft:#3A311D;
+      --danger:#E08370;--danger-soft:#3C2420;
+      --success:#7BC7A3;--success-soft:#1E332A;
+      --code-bg:#0F1116;--code-ink:#E9E4D6;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161C;--surface:#1C1F28;--surface-alt:#242833;
+    --ink:#EDE9DC;--ink-soft:#A9AFC0;--border:#343947;
+    --accent:#D9A54B;--accent-soft:#3A311D;
+    --danger:#E08370;--danger-soft:#3C2420;
+    --success:#7BC7A3;--success-soft:#1E332A;
+    --code-bg:#0F1116;--code-ink:#E9E4D6;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:"Public Sans",-apple-system,sans-serif;line-height:1.55;margin:0;}
+  h1,h2,h3,h4{font-family:"Fraunces",Georgia,serif;text-wrap:balance;color:var(--ink);margin:0 0 .4em;}
+  h2{font-size:30px;font-weight:600;} h3{font-size:20px;font-weight:600;} h4{font-size:15px;font-weight:600;}
+  p{margin:0 0 1em;color:var(--ink);}
+  code,.mono{font-family:"IBM Plex Mono",monospace;font-size:.92em;}
+  code{background:var(--surface-alt);padding:1px 6px;border-radius:4px;}
+  a{color:var(--accent);}
+  .eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11.5px;color:var(--accent);font-weight:600;margin:0 0 8px;}
+  .lede{font-size:17px;color:var(--ink-soft);max-width:70ch;}
+  .layout{display:flex;min-height:100%;}
+  .sidebar{width:260px;flex:none;padding:26px 18px 40px;border-right:1px solid var(--border);position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;background:var(--surface);}
+  .brand-eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:10.5px;color:var(--accent);font-weight:700;}
+  .brand-name{font-family:"Fraunces",serif;font-size:24px;font-weight:700;margin:2px 0 22px;}
+  .nav-group{margin-bottom:20px;}
+  .nav-group-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);font-weight:600;margin:0 0 6px 8px;}
+  .nav-link{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;color:var(--ink);text-decoration:none;font-size:13.5px;}
+  .nav-link:hover{background:var(--surface-alt);}
+  .nav-tag{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;min-width:22px;text-align:center;}
+  main{flex:1;min-width:0;padding:40px 44px 100px;max-width:940px;}
+  .stat-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);}
+  .stat-tile{padding:14px 20px;min-width:120px;}
+  .stat-num{font-family:"Fraunces",serif;font-size:26px;font-weight:700;}
+  .stat-label{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .concept,.day{padding:26px 28px;margin-top:26px;}
+  .concept-head,.day-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;}
+  .day-stamp,.concept-stamp{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:5px;}
+  .day-title,.concept-title{font-family:"Fraunces",serif;font-size:22px;font-weight:600;}
+  .day-files{display:block;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft);margin-bottom:14px;}
+  .field{margin-top:16px;}
+  .field-label{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600;margin-bottom:6px;}
+  .terminal{background:var(--code-bg);color:var(--code-ink);font-family:"IBM Plex Mono",monospace;font-size:12.8px;line-height:1.6;padding:14px 16px;border-radius:9px;overflow-x:auto;white-space:pre;}
+  .terminal .ok{color:#7BC7A3;} .terminal .bad{color:#E08370;} .terminal .dim{color:#8A93A6;}
+  .bug-box{border:1px solid var(--danger);background:var(--danger-soft);border-radius:10px;padding:14px 16px;margin-top:16px;}
+  .bug-label{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--danger);margin-bottom:6px;}
+  .why-box{border:1px solid var(--success);background:var(--success-soft);border-radius:10px;padding:14px 16px;margin-top:16px;}
+  .why-label{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--success);margin-bottom:6px;}
+  pre{margin:0;} pre code{background:none;padding:0;}
+  .code-block{background:var(--code-bg);color:var(--code-ink);border-radius:9px;padding:14px 16px;overflow-x:auto;font-size:12.8px;line-height:1.6;}
+  .code-block code{background:none;color:inherit;padding:0;}
+  .table-wrap{overflow-x:auto;margin-top:8px;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);}
+  tr:last-child td{border-bottom:none;}
+  .pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:4px 10px;border-radius:999px;background:var(--surface-alt);border:1px solid var(--border);margin:2px 4px 2px 0;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;}
+  @media (max-width:800px){.two-col{grid-template-columns:1fr;}}
+  .mini-card{background:var(--surface-alt);border-radius:10px;padding:14px 16px;}
+  .mini-card h4{margin:0 0 6px;font-size:13.5px;font-family:"Fraunces",serif;font-weight:600;}
+  .mini-card p{margin:0;font-size:13px;color:var(--ink-soft);}
+  ul.clean{margin:8px 0;padding-left:22px;}
+  ul.clean li{margin-bottom:6px;}
+  ol.clean{margin:8px 0;padding-left:22px;}
+  ol.clean li{margin-bottom:6px;}
+  footer{color:var(--ink-soft);font-size:12.5px;padding:30px 44px;}
+  @media (max-width:820px){
+    .sidebar{position:static;height:auto;width:auto;border-right:none;border-bottom:1px solid var(--border);}
+    .layout{flex-direction:column;} main{padding:28px 18px 80px;} footer{padding-left:18px;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-eyebrow">Ticketing Platform · Week 3</div>
+    <div class="brand-name">Payment Lab</div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Overview</div>
+      <a class="nav-link" href="#cheatsheet">· Reader's cheat sheet</a>
+      <a class="nav-link" href="#problem">· The problem</a>
+      <a class="nav-link" href="#shape">· Why this shape</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Concepts</div>
+      <a class="nav-link" href="#c1"><span class="nav-tag">C1</span> Adapter+Factory+Strategy</a>
+      <a class="nav-link" href="#c2"><span class="nav-tag">C2</span> Auth vs capture (2-step)</a>
+      <a class="nav-link" href="#c3"><span class="nav-tag">C3</span> The dual-write problem</a>
+      <a class="nav-link" href="#c4"><span class="nav-tag">C4</span> Outbox — mechanics</a>
+      <a class="nav-link" href="#c5"><span class="nav-tag">C5</span> At-least-once + idempotent consumers</a>
+      <a class="nav-link" href="#c6"><span class="nav-tag">C6</span> Publish OUTSIDE the DB tx</a>
+      <a class="nav-link" href="#c7"><span class="nav-tag">C7</span> Propagation.MANDATORY</a>
+      <a class="nav-link" href="#c8"><span class="nav-tag">C8</span> Refund path — the hard case</a>
+      <a class="nav-link" href="#c9"><span class="nav-tag">C9</span> Dangling recovery — age filter</a>
+      <a class="nav-link" href="#c10"><span class="nav-tag">C10</span> Deterministic session key</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Build log</div>
+      <a class="nav-link" href="#d1"><span class="nav-tag">D1</span> Design (WEEK3_DESIGN)</a>
+      <a class="nav-link" href="#d2"><span class="nav-tag">D2</span> payment-service skeleton</a>
+      <a class="nav-link" href="#d3"><span class="nav-tag">D3</span> booking-side wiring</a>
+      <a class="nav-link" href="#d4"><span class="nav-tag">D4</span> Docker + live-verify</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Bug museum</div>
+      <a class="nav-link" href="#b7"><span class="nav-tag">B7</span> ddl-auto silent skip (Bug 7)</a>
+      <a class="nav-link" href="#b8"><span class="nav-tag">B8</span> Init script re-strike (Bug 4)</a>
+      <a class="nav-link" href="#b9"><span class="nav-tag">B9</span> Public-class-in-file rule</a>
+      <a class="nav-link" href="#b10"><span class="nav-tag">B10</span> YAML duplicate-key trap</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Reference</div>
+      <a class="nav-link" href="#live">· LIVE EVIDENCE</a>
+      <a class="nav-link" href="#tasks">· Task ledger</a>
+      <a class="nav-link" href="#decisions">· Decision log</a>
+      <a class="nav-link" href="#tech">· Tech glossary</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">Companions</div>
+      <a class="nav-link" href="SEAT_LOCK.html">📄 Week 1 · SEAT_LOCK</a>
+      <a class="nav-link" href="SAGA_LAB.html">📄 Week 2 · SAGA_LAB</a>
+      <a class="nav-link" href="TICKET_STUDY.html">📘 Study companion</a>
+    </div>
+  </aside>
+
+  <main>
+    <div class="eyebrow">Java · Spring Boot · Postgres · Adapter · Outbox · Resilience4j</div>
+    <h2>Money and messages — the third service and the atomic-event pattern</h2>
+    <p class="lede">A deep build log for Week 3 of the ticketing-platform: a real <code>payment-service</code> extracted from Week 2's <code>PaymentStub</code>, plus the two invisible plumbing patterns that make it trustworthy — <strong>outbox for atomic event publishing</strong> and a <strong>dangling-saga recovery sweep</strong> for crash mid-flight. Every design decision has a <em>why</em>, every bug caught live has an entry, every pattern has a real code snippet from this project.</p>
+
+    <div class="stat-row">
+      <div class="card stat-tile"><div class="stat-num">3</div><div class="stat-label">Services in loop</div></div>
+      <div class="card stat-tile"><div class="stat-num">10</div><div class="stat-label">Concepts</div></div>
+      <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Live-caught bugs</div></div>
+      <div class="card stat-tile"><div class="stat-num">7/7</div><div class="stat-label">Live checks passed</div></div>
+      <div class="card stat-tile"><div class="stat-num">40+</div><div class="stat-label">Files added/modified</div></div>
+    </div>
+
+    <h3 id="cheatsheet" style="margin-top:44px;">Reader's cheat sheet — if you read only this box</h3>
+    <div class="card concept">
+      <ol class="clean" style="margin:0;">
+        <li>Week 3 = third microservice (<code>payment-service</code>, port 8083) + the <strong>outbox pattern</strong> in booking-service + <strong>refund path</strong> when captured-but-confirm-fails + <strong>dangling-saga recovery sweep</strong>.</li>
+        <li>payment-service uses <strong>Adapter + Factory + Strategy</strong> for the 3 stubbed gateway methods (UPI, Card, NetBanking). Adding a new method = new adapter + enum value; Factory picks it up automatically.</li>
+        <li><strong>2-step payment</strong> (authorize then capture) makes the compensating path clean: capture-fail → void (no refund); confirm-fail-after-capture → refund. Week 2's collapsed <code>charge()</code> couldn't do this cleanly.</li>
+        <li><strong>Outbox</strong> defeats the dual-write problem: state change + event row commit atomically in one DB transaction; separate poller drains + publishes. Guarantee is <strong>at-least-once</strong>, so consumers MUST be idempotent.</li>
+        <li><strong>OutboxService uses <code>Propagation.MANDATORY</code></strong> — refuses to run outside a transaction. That's what enforces "event row is atomic with state change." A naked call would throw.</li>
+        <li><strong>OutboxPublisher's publish runs OUTSIDE the DB transaction</strong> so a slow EventBus doesn't hold DB locks.</li>
+        <li>Booking's <strong>saga recovery sweep</strong> has a 2-minute age filter — never touches a booking younger than that, so it can't race an in-flight saga. Every operation it re-drives (release, confirm, capture, refund) is idempotent by design.</li>
+        <li><strong>Payment session key = <code>booking.idempotencyKey + "-pay"</code></strong> — deterministic. Recovery can look up the payment by this key OR by <code>payment_id</code> stored on Booking after authorize.</li>
+        <li><strong>Bug 7 caught live:</strong> Hibernate's <code>ddl-auto: update</code> silently skips <code>NOT NULL</code> columns without a <code>DEFAULT</code>. First booking after startup crashed with "column refund_pending does not exist." Fix in code: <code>columnDefinition = "BOOLEAN DEFAULT FALSE"</code>. Prod-safe answer: Flyway.</li>
+      </ol>
+    </div>
+
+    <h3 id="problem" style="margin-top:44px;">The problem this week fixes</h3>
+    <div class="card concept">
+      Week 2 shipped a booking saga that <em>worked</em>, but with two invisible cheats:
+      <ul class="clean">
+        <li><strong>PaymentStub inside booking-service.</strong> Real payment is a separate concern with its own lifecycle (auth, capture, refund), separate failure modes (gateway 5xx, chargebacks), separate scaling profile. Bundling it into booking-service was the last "temporary" convenience.</li>
+        <li><strong>No reliable event publishing.</strong> Week 2's saga marked <code>CONFIRMED</code> but nothing downstream could know — no notification service exists yet, but the mechanism for telling one didn't either. The naive "publish after commit" has a well-known dual-write failure mode.</li>
+      </ul>
+      <p style="margin-top:12px;margin-bottom:0;">Week 3 fixes both. Payment moves to its own container with proper lifecycle + Adapter pattern for method stubs; outbox pattern arrives to make event publishing atomic with state changes. Plus the refund path opens up (only possible with real capture semantics), and a recovery sweep closes the crash-mid-saga gap.</p>
+    </div>
+
+    <h3 id="shape" style="margin-top:44px;">Why this shape — HLD</h3>
+    <div class="card concept">
+      Three genuine design choices frame the whole week:
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Payment as its own service</h4>
+          <p>Different actors (gateway, refund ops), different failure modes (PCI-scoped, chargebacks), different scaling. Same discipline as booking-service was split from inventory.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Outbox for reliable events</h4>
+          <p>Dual-write problem is real. Once booking has any downstream that cares about its state, "publish after commit" is a data-loss bug waiting to happen.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Recovery sweep, not event sourcing</h4>
+          <p>Event-sourced sagas are elegant; overkill for Week 3's scale. A polling sweep with a 2-min age filter + idempotent operations gets the same crash-safety at a fraction of the machinery.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Same-process outbox poller (for now)</h4>
+          <p>Debezium/CDC to Kafka is the prod-grade answer. In-process @Scheduled poller is fine for Week 3; Phase 3 swaps it for SNS with zero code change to the outbox side.</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Post-Week-3 service graph</div>
+        <pre class="code-block"><code>          ┌──────────────────────────────┐
+Client ─►│  booking-service (:8082)      │
+          │  • saga orchestrator          │
+          │  • idempotency + outbox       │
+          │  • recovery sweep             │
+          └───────┬─────────────┬─────────┘
+                  │             │
+     REST /hold   │             │ REST /payments/*
+     /confirm     ▼             ▼
+        ┌──────────────┐  ┌──────────────┐
+        │  inventory   │  │  payment     │
+        │  service     │  │  service     │
+        │  (:8081)     │  │  (:8083)     │
+        │  Wk 1 done   │  │  Wk 3 new    │
+        └──────────────┘  └──────────────┘
+              │                 │
+              ▼                 ▼
+       Postgres+Redis    Postgres (payment DB)
+
+  outbox_events → OutboxPublisher (@Scheduled)
+                    → EventBus (stub → SNS in Phase 3)</code></pre>
+      </div>
+    </div>
+
+    <!-- ================ CONCEPTS ================ -->
+    <h2 style="margin-top:60px;">Concepts</h2>
+    <p class="lede">Ten mechanisms that make Week 3 actually correct. Each = the theory + how this project uses it + a code snippet from the tree.</p>
+
+    <div class="card concept" id="c1">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 1</div></div>
+      <div class="concept-title">Adapter + Factory + Strategy — the three-part LLD triad</div>
+      <p>Three GoF patterns applied to one problem (payment gateway integration). Each pattern earns its cost for a different concern.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Pattern</th><th>Solves</th><th>Where in code</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Adapter</strong></td>
+            <td>Every real gateway (Razorpay, Stripe, PhonePe) has a different wire shape. Adapter isolates payment-service's own domain from that noise.</td>
+            <td><code>PaymentGateway</code> interface + 3 stubs (UPIAdapter, CardAdapter, NetBankingAdapter). Each maps its native calls to <code>authorize/capture/void/refund</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>Factory</strong></td>
+            <td>Given a <code>PaymentMethod</code> enum from the request, resolve the right adapter without <code>new UPIAdapter()</code> at every call site.</td>
+            <td><code>PaymentGatewayFactory</code> — Spring injects every <code>PaymentGateway</code> bean, factory indexes them by their <code>supports()</code> enum.</td>
+          </tr>
+          <tr>
+            <td><strong>Strategy</strong></td>
+            <td>Payment <em>method</em> is the caller's choice (client passes <code>method: "UPI"</code>). Internally, retry cadence + fallback rules can differ per gateway.</td>
+            <td>Method choice = caller's Strategy. Internal per-adapter strategies (retry per gateway, fallback rules) earn a class when the second real case appears — not on day one.</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <div class="field"><div class="field-label">The Factory bean, in real code</div>
+      <pre class="code-block"><code><span style="color:#8A93A6;">// PaymentGatewayFactory — indexes injected adapters by their supports() enum</span>
+private final List&lt;PaymentGateway&gt; gateways;   <span style="color:#8A93A6;">// Spring injects all three</span>
+private Map&lt;PaymentMethod, PaymentGateway&gt; byMethod;
+
+private void ensureIndex() {
+    if (byMethod == null) {
+        byMethod = new EnumMap&lt;&gt;(PaymentMethod.class);
+        for (PaymentGateway gw : gateways) {
+            byMethod.put(gw.supports(), gw);
+        }
+    }
+}
+public PaymentGateway forMethod(PaymentMethod method) {
+    ensureIndex();
+    return byMethod.get(method);
+}</code></pre></div>
+      <div class="why-box"><div class="why-label">The compiler is your ally</div>Add a new payment method = add enum value + write one adapter. The <code>switch (method)</code> anywhere in the code (if you have one) becomes a compile warning for the missing case. Factory picks up the new bean without any code change. <strong>You cannot forget to wire it up.</strong></div>
+    </div>
+
+    <div class="card concept" id="c2">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 2</div></div>
+      <div class="concept-title">Auth vs capture — why 2 steps beats 1</div>
+      <p>Real payment gateways separate <strong>authorize</strong> (reserve money, reversible) from <strong>capture</strong> (actually take money, harder to reverse). Modeling this in the stub too, because it makes the compensating path <em>clean</em>.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Failure branch</th><th>1-step charge (Week 2)</th><th>2-step auth+capture (Week 3)</th></tr></thead>
+        <tbody>
+          <tr><td>Auth fails</td><td>N/A (single call)</td><td>No money moved → just release seats → clean rollback</td></tr>
+          <tr><td>Capture fails after auth</td><td>Charge failed = clean</td><td>Void the auth (no refund needed, funds never moved) + release seats</td></tr>
+          <tr><td>Confirm fails after capture/charge</td><td>Charge already happened → <strong>refund</strong> needed (the hard case)</td><td>Capture already happened → <strong>refund</strong> needed (same hard case)</td></tr>
+        </tbody>
+      </table></div>
+      <div class="why-box"><div class="why-label">The win</div>Only ONE branch actually needs a refund — the same one in both models. But 2-step lets the auth-succeed-capture-fail case use a cheap <em>void</em> instead of a full refund pipeline. Refunds settle in days; voids clear instantly.</div>
+    </div>
+
+    <div class="card concept" id="c3">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 3</div></div>
+      <div class="concept-title">The dual-write problem — why "publish after commit" is a trap</div>
+      <p>booking-service marks a booking <code>CONFIRMED</code> and wants to notify downstreams. The naive approach:</p>
+      <pre class="code-block"><code><span style="color:#7FB8B8;">@Transactional</span>
+public void confirm(...) {
+    booking.markConfirmed();
+    bookingRepository.save(booking);
+    eventPublisher.publish(new BookingConfirmed(...));   <span style="color:#E08370;">// ← the trap</span>
+}</code></pre>
+      <div class="bug-box"><div class="bug-label">Two failure modes, both invisible</div><strong>1.</strong> <code>eventPublisher.publish(...)</code> succeeds but the surrounding transaction then rolls back → event fired for a booking that doesn't exist. Downstream reacts to a phantom.<br><strong>2.</strong> Transaction commits successfully but <code>publish(...)</code> throws (network drop, broker down) → booking CONFIRMED but no one knows. Notification never sent, analytics never updated.</div>
+      <p>This is the <strong>dual-write problem</strong>: you can't atomically commit to a DB AND publish to an external message broker. Ordering doesn't fix it; neither does try/catch. The bug is the shape of the code.</p>
+    </div>
+
+    <div class="card concept" id="c4">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 4</div></div>
+      <div class="concept-title">Outbox — mechanics that actually defeat the dual-write</div>
+      <p>Write the event as a row in a table (<code>outbox_events</code>) inside the SAME transaction as the state change:</p>
+      <pre class="code-block"><code><span style="color:#7FB8B8;">BEGIN;</span>
+  UPDATE bookings SET status = 'CONFIRMED' WHERE id = 5;
+  INSERT INTO outbox_events (aggregate_id, event_type, payload, created_at)
+    VALUES ('5', 'BookingConfirmed', '{...json...}', NOW());
+<span style="color:#7FB8B8;">COMMIT;</span></code></pre>
+      <p>Both writes are atomic — either both commit or neither does. A separate <strong>publisher process</strong> polls the <code>outbox_events</code> table, publishes each unpublished row to the broker, then marks it published:</p>
+      <pre class="code-block"><code>loop every 2 seconds:
+    rows = SELECT * FROM outbox_events WHERE published_at IS NULL LIMIT 100
+    for each row:
+        broker.publish(row.event_type, row.payload)
+        UPDATE outbox_events SET published_at = NOW() WHERE id = row.id</code></pre>
+      <div class="why-box"><div class="why-label">Why it survives failures</div>
+        <ul class="clean" style="margin:0;">
+          <li>DB commit fails → outbox row not inserted → nothing to publish → correct</li>
+          <li>Broker publish fails → outbox row not marked → picked up next poll → correct</li>
+          <li>Publisher crashes mid-publish → some events may publish twice → consumer contract handles it (see C5)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card concept" id="c5">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 5</div></div>
+      <div class="concept-title">At-least-once delivery + the idempotent-consumer contract</div>
+      <p>Outbox gives <strong>at-least-once</strong> delivery. Not exactly-once (that's philosophically impossible in a distributed system without consumer cooperation), not at-most-once (that would mean losing events).</p>
+      <p>The contract this forces on every event <em>consumer</em>:</p>
+      <div class="why-box"><div class="why-label">🚨 Consumers MUST be idempotent</div>Processing the same event twice must produce the same effect as processing it once. If your notification consumer sends an email on <code>BookingConfirmed</code> and the event is delivered twice, you send two emails. If your analytics consumer increments a counter, you count twice.<br><br><strong>Deduplication belongs to the consumer</strong> — typically by tracking the event id (or aggregate id + version) and skipping duplicates.</div>
+      <p>Real prod brokers (SNS, Kafka) still give at-least-once. Consumers there face the same contract. Building consumers now that assume "exactly-once" is a future-you-hates-past-you decision.</p>
+    </div>
+
+    <div class="card concept" id="c6">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 6</div></div>
+      <div class="concept-title">Why <code>EventBus.publish(...)</code> runs OUTSIDE the DB transaction</div>
+      <p>The <code>OutboxPublisher.drain()</code> method does two things per row: <strong>(1) call <code>eventBus.publish(...)</code></strong>, then <strong>(2) update the row's <code>published_at</code></strong>. Only step 2 is inside a transaction.</p>
+      <pre class="code-block"><code>for (OutboxEvent event : batch) {
+    try {
+        eventBus.publish(event.getEventType(), event.getPayload());   <span style="color:#8A93A6;">// OUTSIDE tx</span>
+        markPublished(event.getId());                                  <span style="color:#8A93A6;">// inside tx</span>
+    } catch (RuntimeException ex) {
+        log.warn(...);                                                 <span style="color:#8A93A6;">// leave unpublished, next tick retries</span>
+    }
+}</code></pre>
+      <div class="why-box"><div class="why-label">Why not one tx around both</div>If <code>publish()</code> takes 5 seconds (broker slow, retry backoff), holding a DB row lock for 5 seconds serializes the whole outbox. <strong>Publish is external, must never hold a DB lock.</strong> The mark-published step is fast, gets its own quick tx.</div>
+    </div>
+
+    <div class="card concept" id="c7">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 7</div></div>
+      <div class="concept-title"><code>Propagation.MANDATORY</code> — enforcing "atomic with your business tx"</div>
+      <p><code>OutboxService.record(...)</code> writes the outbox row. If called outside a transaction, it should REFUSE — because then the outbox row would commit in a separate tx, defeating the whole atomicity guarantee.</p>
+      <pre class="code-block"><code><span style="color:#7FB8B8;">@Transactional</span>(propagation = <span style="color:#7FB8B8;">Propagation.MANDATORY</span>)
+public void record(String aggregateId, String eventType, Object payload) {
+    ...
+    repo.save(new OutboxEvent(...));
+}</code></pre>
+      <div class="why-box"><div class="why-label">MANDATORY vs REQUIRED</div><code>REQUIRED</code> would start a new transaction if none exists — silently defeating the atomicity guarantee. <code>MANDATORY</code> throws an <code>IllegalTransactionStateException</code> if there is no active transaction. <strong>The failure is loud and immediate.</strong> Anyone who calls this without wrapping in <code>@Transactional</code> or a <code>TransactionTemplate</code> finds out on the first call, not in production.</div>
+    </div>
+
+    <div class="card concept" id="c8">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 8</div></div>
+      <div class="concept-title">Refund path — the hard case in every distributed saga</div>
+      <p>Money captured (<code>CAPTURED</code>), but inventory <code>/confirm</code> then failed. Booking-service must:</p>
+      <ol class="clean">
+        <li>Call <code>paymentClient.refund(paymentId, ...)</code> — try to unwind the capture</li>
+        <li>If refund succeeds → mark booking <code>FAILED</code> (money returned, cycle complete)</li>
+        <li>If refund fails (Resilience4j retries exhaust) → mark <code>FAILED_REFUND_PENDING</code> (ops queue picks it up)</li>
+      </ol>
+      <pre class="code-block"><code>private boolean tryRefund(Long paymentId, Long bookingId) {
+    try {
+        paymentClient.refund(paymentId, "booking " + bookingId + " confirm failed after capture");
+        return true;
+    } catch (RuntimeException ex) {
+        log.warn("saga_refund_failed paymentId={} bookingId={} reason={}", paymentId, bookingId, ex.getMessage());
+        return false;
+    }
+}</code></pre>
+      <div class="why-box"><div class="why-label">The distinction that matters</div><code>FAILED</code> and <code>FAILED_REFUND_PENDING</code> are both terminal. But the ops team's queue query is <code>WHERE refund_pending = true</code>. Without the distinct flag, a plain FAILED with money still held wouldn't surface — a lost booking, a customer waiting for refund, no ticket in your issue tracker.</div>
+    </div>
+
+    <div class="card concept" id="c9">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 9</div></div>
+      <div class="concept-title">Dangling-saga recovery — the age filter that prevents self-races</div>
+      <p>booking-service crashes mid-saga. Some booking is stuck in PENDING / SEATS_HELD / PAYMENT_INITIATED. Nobody drives it forward. The <code>BookingRecoveryService</code> <code>@Scheduled</code> sweep picks it up.</p>
+      <pre class="code-block"><code><span style="color:#7FB8B8;">@Scheduled</span>(fixedDelayString = <span style="color:#D9A54B;">"${booking.recovery.sweep-interval-ms:60000}"</span>)
+public void sweep() {
+    Instant olderThan = Instant.now().minus(<span style="color:#D9A54B;">Duration.ofMinutes(2)</span>);   <span style="color:#8A93A6;">// AGE FILTER</span>
+    List&lt;Booking&gt; dangling = bookingRepository.findDangling(
+            List.of(PENDING, SEATS_HELD, PAYMENT_INITIATED),
+            olderThan);
+    for (Booking b : dangling) {
+        recover(b);
+    }
+}</code></pre>
+      <div class="bug-box"><div class="bug-label">Without the 2-minute age filter</div>A booking created 10 seconds ago is probably still executing right now in some request handler's saga. The sweep would race it — both trying to <code>/confirm</code> or <code>/capture</code>, both trying to write the same state change. Interleaved failures, undefined outcomes. The sweep must NEVER touch a booking younger than the saga could plausibly still be running.</div>
+      <div class="why-box"><div class="why-label">Idempotency of every re-driven operation</div>Every op the sweep calls is idempotent by design: <code>/release</code> is a no-op if already released, <code>/confirm</code> returns the same response for a retry, payment <code>/capture</code> returns CAPTURED either way, <code>/refund</code> returns REFUND_PENDING either way. <strong>Safe to re-drive from any state.</strong></div>
+    </div>
+
+    <div class="card concept" id="c10">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 10</div></div>
+      <div class="concept-title">Deterministic session key — the recovery bridge</div>
+      <p>When booking-service calls <code>POST /payments</code>, it passes <code>paymentSessionKey = booking.idempotencyKey + "-pay"</code>. Deterministic per booking. That means:</p>
+      <ul class="clean">
+        <li>A retry of the same booking sends the SAME session key → payment-service returns the SAME payment (idempotency)</li>
+        <li>The recovery sweep can look up the payment by <code>sessionKey</code> if <code>payment_id</code> wasn't stored yet (e.g. crash between insert and payment_id write)</li>
+        <li>The two services share no state directly — the key is the only bridge, and it's mathematically derivable from data both already hold</li>
+      </ul>
+      <div class="why-box"><div class="why-label">Why not a UUID</div>A random UUID would work for idempotency but not for recovery — if the booking service loses the payment_id (crash before markPaymentInitiated), it also lost the UUID → payment now orphaned. Deterministic keys are recoverable from booking's own data.</div>
+    </div>
+
+    <!-- ================ BUILD LOG ================ -->
+    <h2 style="margin-top:60px;">Week 3 build log</h2>
+
+    <div class="card day" id="d1">
+      <div class="day-head"><div class="day-stamp">DAY 1</div><div class="day-title">Design — zero code</div></div>
+      <div class="day-files">deliverable: WEEK3_DESIGN.md (~24 KB)</div>
+      <p>Same discipline as Week 2 Day 1. Wrote the full design paper before the first line of code. Covered: 6-state payment machine + transition table, Adapter/Factory/Strategy triad, 2-step auth+capture rationale, outbox pattern mechanics + guarantee (at-least-once), saga rollback failure matrix (5 rows including the in-doubt-payment case), dangling-recovery sweep design with age filter, three sequence diagrams (happy, refund, crash-recovery), 4 open questions committed on paper, 7 more interview questions for the Weekend.</p>
+      <div class="pill">state machine</div><div class="pill">Adapter/Factory/Strategy</div><div class="pill">outbox mechanics</div><div class="pill">refund path</div><div class="pill">recovery sweep</div><div class="pill">7 interview Qs</div>
+    </div>
+
+    <div class="card day" id="d2">
+      <div class="day-head"><div class="day-stamp">DAY 2</div><div class="day-title">payment-service skeleton + adapters + state machine</div></div>
+      <div class="day-files">new module: payment-service/ (~20 files) · port 8083 · own Postgres DB (payment)</div>
+      <p>Full Maven module set up (pom, mvnw wrapper copied from booking-service, Dockerfile, .dockerignore, application.yml). Payment entity with 6-state machine + named transitions + @Version + unique index on payment_session_key. Three adapter stubs (UPI, Card, NetBanking) implementing PaymentGateway interface. PaymentGatewayFactory indexes them via injected list. PaymentService drives the state machine idempotently (same TransactionTemplate REQUIRES_NEW pattern as Week 2's bug 3 taught us). AuthExpirySweepService for scheduled void of expired auths.</p>
+      <p><strong>Endpoints:</strong> <code>POST /payments</code> (idempotent on session key), <code>/capture</code>, <code>/void</code>, <code>/refund</code>, <code>GET /payments/{id}</code>. Same cross-cutting as the other services: RFC 7807 ProblemDetail, CorrelationIdFilter, typed PaymentProperties.</p>
+      <div class="pill">Payment entity</div><div class="pill">3 adapter stubs</div><div class="pill">PaymentGatewayFactory</div><div class="pill">PaymentService (state driver)</div><div class="pill">AuthExpirySweepService</div><div class="pill">CorrelationIdFilter</div>
+    </div>
+
+    <div class="card day" id="d3">
+      <div class="day-head"><div class="day-stamp">DAY 3</div><div class="day-title">booking-side wiring — PaymentClient + Outbox + Recovery</div></div>
+      <div class="day-files">updated: BookingSagaService, Booking entity, BookingProperties, application.yml, BookingServiceApplication · new: PaymentClient+Exceptions, PaymentRestClientConfig, outbox/* package (5 classes), BookingRecoveryService</div>
+      <p>Removed the old <code>PaymentStub</code> and its test (deleted per user's no-junits directive; will be re-created at end-pass). Added a real <code>PaymentClient</code> — Spring RestClient + <code>@Retry</code> + <code>@CircuitBreaker</code>, with all Week 2 Bug 5 + Bug 6 lessons pre-applied from day one (whitelist-only exception config, base-type fallbacks that don't get re-retried).</p>
+      <p>Two independent Resilience4j instances — <code>inventory</code> and <code>payment</code> — deliberately separate so payment being unhealthy doesn't open inventory's circuit and vice versa. Different timeouts (payment 5s, inventory 3s — auth is slower than hold).</p>
+      <p>Outbox pattern built end-to-end: <code>OutboxEvent</code> entity, <code>OutboxRepository</code>, <code>OutboxService</code> (with <code>Propagation.MANDATORY</code>), <code>OutboxPublisher</code> (<code>@Scheduled</code>, batched drain, publish outside the DB tx), <code>EventBus</code> stub that logs (Phase 3 swaps for SNS).</p>
+      <p>Rewrote <code>BookingSagaService</code>: 2-step auth+capture, refund path on capture-succeeded-confirm-failed (auto-refund; if refund fails, mark <code>FAILED_REFUND_PENDING</code>). <code>Booking</code> entity gained <code>payment_id</code> + <code>refund_pending</code> columns (the latter caught Bug 7 live). New <code>BookingRecoveryService</code> — <code>@Scheduled</code> sweep with 2-minute age filter, queries payment-service by <code>paymentId</code>, drives forward or rolls back based on payment state.</p>
+      <div class="pill">PaymentClient + Resilience4j</div><div class="pill">Outbox 5-class package</div><div class="pill">Saga rewrite (2-step + refund)</div><div class="pill">BookingRecoveryService</div><div class="pill">Booking entity: +payment_id +refund_pending</div>
+    </div>
+
+    <div class="card day" id="d4">
+      <div class="day-head"><div class="day-stamp">DAY 4</div><div class="day-title">Docker Compose + LIVE-verify the whole 3-service loop</div></div>
+      <div class="day-files">docker-compose.yml (payment-service added), db-init/create-payment-db.sh (new), .env.example (updated) · READMEs + AGENTS.md + FILE_GUIDE.md synced</div>
+      <p>docker-compose.yml gets payment-service alongside inventory + booking on the same Postgres server (three databases — <code>inventory</code>, <code>booking</code>, <code>payment</code>, third one via <code>db-init/create-payment-db.sh</code>). <code>condition: service_started</code> not <code>service_healthy</code> for booking→payment (same startup-coupling rule that inventory→booking follows).</p>
+      <p>Then <strong>live-verified against a real running stack</strong> — Postgres + Redis in Docker, three services via <code>./mvnw spring-boot:run</code> on host (hybrid pattern, saves Docker daemon on this fragile machine). See <a href="#live">Live evidence</a> section for the copy-pasted terminal output of all 7 checks.</p>
+    </div>
+
+    <!-- ================ BUG MUSEUM ================ -->
+    <h2 style="margin-top:60px;">Bug museum — four real ones caught live</h2>
+
+    <div class="card day" id="b7">
+      <div class="day-head"><div class="day-stamp">BUG 7</div><div class="day-title">Hibernate <code>ddl-auto: update</code> silently skips <code>NOT NULL</code> column with no <code>DEFAULT</code></div></div>
+      <div class="bug-box"><div class="bug-label">Symptom (live-verify moment)</div>Services all started, health checks green. First <code>POST /bookings</code> after startup: <code>HTTP 500 — An unexpected error occurred</code>. Logs showed: <code>ERROR: column b1_0.refund_pending does not exist</code>. <code>\d bookings</code> in psql confirmed: <code>payment_id</code> (nullable Long) was added, but <code>refund_pending</code> (NOT NULL boolean) was NOT.</div>
+      <div class="why-box"><div class="why-label">Root cause</div>Hibernate's <code>ddl-auto: update</code> tries to <code>ALTER TABLE bookings ADD COLUMN refund_pending BOOLEAN NOT NULL</code>. Postgres refuses that DDL — you cannot add a <code>NOT NULL</code> column to a populated table without a <code>DEFAULT</code> value (existing rows would have NULL). Hibernate <strong>swallows the DDL error and starts anyway</strong>. The entity mapping still references the column, so at first SELECT, Hibernate looks for a column Postgres doesn't have. Boom.</div>
+      <div class="why-box"><div class="why-label">Fix — <code>columnDefinition</code> for the default</div>
+      <pre class="code-block"><code><span style="color:#7FB8B8;">@Column</span>(name = <span style="color:#D9A54B;">"refund_pending"</span>, nullable = <span style="color:#7FB8B8;">false</span>,
+        columnDefinition = <span style="color:#D9A54B;">"BOOLEAN DEFAULT FALSE"</span>)
+private boolean refundPending = false;</code></pre>
+      Hibernate now emits <code>ALTER TABLE ... ADD COLUMN refund_pending BOOLEAN NOT NULL DEFAULT FALSE</code> which Postgres accepts. Live fix during the verify session: manual <code>ALTER TABLE ... ADD COLUMN ... DEFAULT FALSE</code> via <code>docker exec psql</code>. Immediate; retry succeeded.</div>
+      <p><strong>The lesson worth keeping:</strong> <code>ddl-auto: update</code> is not production-safe. <em>Flyway/Liquibase writes explicit ALTER statements with proper DEFAULT clauses that work on populated tables.</em> Yet another reason to migrate to migrations for real deployments.</p>
+    </div>
+
+    <div class="card day" id="b8">
+      <div class="day-head"><div class="day-stamp">BUG 8</div><div class="day-title">Bug 4 re-strikes — Postgres init script skipped again</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom</div>Started Postgres for live-verify. <code>\l</code> showed <code>booking</code> + <code>inventory</code> databases but NO <code>payment</code>. The <code>db-init/create-payment-db.sh</code> script I'd just added never ran.</div>
+      <div class="why-box"><div class="why-label">Root cause + fix (SAME as Bug 4 from Week 2)</div>Postgres image runs init scripts <strong>only on first container start against an empty volume</strong>. The pgdata volume was created back in Week 2's live-verify; adding a new init script two weeks later doesn't retro-run against the populated volume. Live fix: manual <code>CREATE USER payment_user; CREATE DATABASE payment OWNER payment_user;</code> via <code>docker exec psql</code>. Same workaround as Bug 4 documented; same prod-safe answer (Flyway).</div>
+      <p><strong>The re-strike is worth noting:</strong> the fix isn't in the compose file — it's in switching off <code>ddl-auto</code> + init scripts entirely and using Flyway. That work is deferred, so this bug will re-strike every time a new service DB is added. Documenting so a fresh session doesn't spend an hour debugging why the DB is missing.</p>
+    </div>
+
+    <div class="card day" id="b9">
+      <div class="day-head"><div class="day-stamp">BUG 9</div><div class="day-title">Java's public-class-in-matching-filename rule</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom</div>First compile of payment-service failed: <code>class AuthResult is public, should be declared in a file named AuthResult.java</code>. I'd put the <code>AuthResult</code> record inside a file called <code>GatewayResponse.java</code>.</div>
+      <div class="why-box"><div class="why-label">Root cause + fix</div>Java rule: a <code>public</code> top-level class or record MUST be in a file matching its name. Non-public (package-private) can live anywhere. Fix: renamed the file to <code>AuthResult.java</code>, deleted the GatewayResponse.java stub. Trivial fix, easy to overlook when scaffolding fast.</div>
+    </div>
+
+    <div class="card day" id="b10">
+      <div class="day-head"><div class="day-stamp">BUG 10</div><div class="day-title">YAML duplicate-key trap (application.yml)</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom (near-miss, caught during editing)</div>Editing <code>application.yml</code> to add a second Resilience4j instance for <code>payment</code>, I accidentally nested a new <code>retry:</code> / <code>circuitbreaker:</code> hierarchy at the wrong indent. Result: two <code>circuitbreaker:</code> keys under <code>resilience4j:</code>. YAML parsers handle this differently — some silently take the last one; others throw. Spring's would have silently dropped the <code>inventory</code> CB config.</div>
+      <div class="why-box"><div class="why-label">Fix — rewrote the whole block clean</div>Rather than patching the nested mess, I rewrote the <code>resilience4j:</code> section from scratch with proper structure: one <code>retry.instances</code> block with both <code>inventory</code> + <code>payment</code> children, one <code>circuitbreaker.instances</code> block with both. Caught before running (compile would not have caught this — only actual runtime behavior would).</div>
+      <p><strong>Lesson:</strong> multi-level YAML edits benefit from a full-file view. In-place patches into deeply nested config are one of the few places <code>Edit</code> is more error-prone than <code>Write</code>. Same trap for anyone editing <code>application.yml</code> to add a second Resilience4j / logging appender / Spring Data source.</p>
+    </div>
+
+    <!-- ================ LIVE EVIDENCE ================ -->
+    <h2 style="margin-top:60px;" id="live">Live evidence — the actual verify run</h2>
+
+    <div class="card day">
+      <div class="day-head"><div class="day-stamp">RUN</div><div class="day-title">Real 3-service stack, 2026-09-20</div></div>
+      <p>Postgres + Redis in Docker, three services via <code>./mvnw spring-boot:run</code> on host. Hybrid pattern (see local memory <code>docker-local-dev-patterns.md</code>). All output below copy-pasted from the terminal, not idealized.</p>
+
+      <div class="field"><div class="field-label">Check 1 — Happy path (2 seats, 2-step payment)</div>
+      <pre class="terminal">$ curl -X POST http://localhost:8082/bookings \
+      -H <span class="dim">"Idempotency-Key: 46680b78-5273-4731-bd7d-f095cf307345"</span> \
+      -H <span class="dim">"Content-Type: application/json"</span> \
+      -d <span class="dim">'{"showId":1,"seatIds":[4,5],"holderId":"user-week3"}'</span>
+
+<span class="ok">{"bookingId":33,"status":"CONFIRMED","showId":1,
+ "seatIds":[4,5],"holderId":"user-week3",
+ "paymentRef":"pay-1",
+ "createdAt":"2026-09-19T21:07:15.770990600Z",
+ "confirmedAt":"2026-09-19T21:07:17.220855100Z"}
+HTTP 201</span>
+<span class="dim"># booking → inventory /hold (×2) → payment /authorize → payment /capture</span>
+<span class="dim">#   → inventory /confirm (×2) → mark CONFIRMED + outbox event, all in ~1.5 seconds</span></pre></div>
+
+      <div class="field"><div class="field-label">Check 2 — Cross-service correlation ID traced through booking + payment logs</div>
+      <pre class="terminal">booking.log:
+  <span class="dim">02:37:15 INFO [3b7277e2-b8d7-486a-9681-4224bba4ffa1] booking_created bookingId=33 status=PENDING</span>
+
+payment.log:
+  <span class="dim">02:37:16 INFO [3b7277e2-b8d7-486a-9681-4224bba4ffa1] upi_authorize_ok holder=user-week3 amount=1000 INR</span>
+  <span class="dim">02:37:17 INFO [3b7277e2-b8d7-486a-9681-4224bba4ffa1] payment_authorized paymentId=1 method=UPI</span>
+  <span class="dim">02:37:17 INFO [3b7277e2-b8d7-486a-9681-4224bba4ffa1] upi_capture_ok ref=upi-7dd17b78-...</span>
+  <span class="dim">02:37:17 INFO [3b7277e2-b8d7-486a-9681-4224bba4ffa1] payment_captured paymentId=1</span>
+
+<span class="ok"># SAME correlation ID (3b7277e2) across both services — one grep, whole story</span></pre></div>
+
+      <div class="field"><div class="field-label">Check 3 — Outbox event fired (poller drained, EventBus logged, DB updated)</div>
+      <pre class="terminal">booking.log:
+  <span class="ok">02:37:18 INFO EventBus - event_published type=BookingConfirmed payload={
+    "confirmedAt":"2026-09-19T21:07:17.221852400Z",
+    "showId":1, "seatIds":[4,5], "bookingId":33,
+    "paymentId":1, "holderId":"user-week3"
+  }</span>
+
+$ psql -U booking_user -d booking -c <span class="dim">"SELECT id, event_type, published_at IS NOT NULL as published FROM outbox_events ORDER BY id DESC LIMIT 5;"</span>
+ id | event_type       | published
+----+------------------+-----------
+  <span class="ok">1  | BookingConfirmed | t</span>
+(1 row)</pre></div>
+
+      <div class="field"><div class="field-label">Check 4 — Idempotent retry (same key, same body)</div>
+      <pre class="terminal">$ curl -X POST http://localhost:8082/bookings -H <span class="dim">"Idempotency-Key: 46680b78-..."</span> \
+      -d <span class="dim">'{"showId":1,"seatIds":[4,5],"holderId":"user-week3"}'</span>
+
+<span class="ok">HTTP 200 { "bookingId": 33, "status": "CONFIRMED", "paymentRef": "pay-1", ... }</span>
+<span class="dim"># same bookingId, same paymentRef, no new payment row in payment DB</span></pre></div>
+
+      <div class="field"><div class="field-label">Check 5 — 422 for key reuse with different body</div>
+      <pre class="terminal">$ curl -X POST http://localhost:8082/bookings -H <span class="dim">"Idempotency-Key: 46680b78-..."</span> \
+      -d <span class="dim">'{"showId":1,"seatIds":[7],"holderId":"user-different"}'</span>
+
+<span class="bad">HTTP 422
+{"title":"Unprocessable Entity","status":422,
+ "detail":"Idempotency-Key '46680b78-...' was already used with a different request body"}</span></pre></div>
+
+      <div class="field"><div class="field-label">Check 6 &amp; 7 — Parallel oversell test, 3-service loop</div>
+      <pre class="terminal"><span class="dim"># Two curls fired in parallel for seat 6 with different Idempotency-Keys</span>
+
+USER-A: <span class="ok">HTTP 201  bookingId=34, CONFIRMED, paymentRef=pay-2 (₹500 UPI capture)</span>
+USER-B: <span class="bad">HTTP 502  {"title":"Saga Failed",
+              "detail":"inventory failure: inventory hold returned HTTP 409",
+              "bookingId":35}</span>
+
+Seat 6 final: <span class="ok">BOOKED</span>
+
+<span class="dim"># Bug 5's rule (409 non-transient, don't retry) held through the 3-service loop.</span>
+<span class="dim"># Payment for USER-B never even called — the 409 killed the saga before payment authorize.</span></pre></div>
+
+      <div class="field"><div class="field-label">Payment DB state after all checks</div>
+      <pre class="terminal">$ psql -U payment_user -d payment -c <span class="dim">"SELECT id, booking_id, holder_id, amount, currency, method, status, gateway_ref FROM payments;"</span>
+ id | booking_id | holder_id  | amount | currency | method | status   | gateway_ref
+----+------------+------------+--------+----------+--------+----------+-----------------------
+  <span class="ok">1  | 33         | user-week3 | 1000   | INR      | UPI    | CAPTURED | upi-7dd17b78-...</span>
+  <span class="ok">2  | 34         | user-A     | 500    | INR      | UPI    | CAPTURED | upi-a3b4c5d6-...</span>
+<span class="dim"># USER-B has no payment row — saga died at inventory /hold, payment was never called.</span>
+<span class="dim"># The 409 killed it BEFORE any state was committed downstream — correct compensating behavior.</span></pre></div>
+
+      <div class="why-box"><div class="why-label">The one paragraph summary</div>Seven live checks against a real 3-service stack. All passed. In the process, four bugs caught + fixed live (three of them documented above, one was the YAML near-miss caught during editing). Cross-service correlation IDs traced through logs, outbox event fired atomically with state change and drained by the poller, idempotent retry returned same booking with no new payment, parallel oversell resolved to exactly one winner. Bug 5's non-retry rule from Week 2 held for the payment path too because it was applied preemptively. This is what "distributed system that actually works" looks like on paper vs. the same thing after 20 minutes of live curl.</div>
+    </div>
+
+    <!-- ================ TASK LEDGER ================ -->
+    <h2 style="margin-top:60px;" id="tasks">Task ledger</h2>
+    <p class="lede">Every meaningful task in Week 3 with <em>why</em> and <em>payoff</em>. If a task doesn't earn its cost after the fact, that's a signal to remove it.</p>
+    <div class="card concept" style="padding:16px 20px;">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Task</th><th>Why</th><th>Payoff</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Design paper first</strong> (WEEK3_DESIGN.md)</td><td>Same discipline as Week 2. Distributed workflows have too many ways to be almost-right.</td><td>Zero "what should we do here" moments during Days 2-4. State machine + failure matrix + sequence diagrams already committed on paper.</td></tr>
+          <tr><td>New Maven module <code>payment-service/</code></td><td>Payment lifecycle is genuinely different from booking (actors, failure modes, scaling). Isolation earns its cost.</td><td>Own container, own DB, own scaling profile. Can fail without taking booking down; can be extended (real Razorpay adapter) without touching booking's code.</td></tr>
+          <tr><td>Adapter+Factory+Strategy triad</td><td>Three concerns, three patterns. Bundling into one would over-abstract; using none would tightly couple payment logic to one gateway shape.</td><td>Each pattern earns its keep. Adding a 4th method (say PayPal) = 1 adapter + 1 enum value + Factory picks it up.</td></tr>
+          <tr><td>2-step auth+capture (not 1-step charge)</td><td>Real payment lifecycle has this distinction; modeling it stub-only would leak wrong assumptions into the saga.</td><td>Capture-fail branch uses cheap void (no refund needed). Only the truly hard case (confirm-fail-after-capture) needs refund pipeline.</td></tr>
+          <tr><td>Outbox pattern (5 classes)</td><td>Once booking has ANY downstream care about its state, dual-write becomes a real bug. Free at implementation time; painful to add later.</td><td>Atomic event publishing. Notifications, analytics, ai-service future — all consume the same event stream without booking-service knowing.</td></tr>
+          <tr><td><code>Propagation.MANDATORY</code> on OutboxService.record</td><td>Naked call outside a tx would silently defeat the atomicity guarantee.</td><td>Loud immediate failure ("no active transaction") instead of a silent correctness bug in production.</td></tr>
+          <tr><td>OutboxPublisher publish OUTSIDE the DB tx</td><td>Slow broker holding a DB lock = throughput cliff. External calls must never own DB locks.</td><td>DB tx duration = few ms. Broker latency doesn't feed back into the DB.</td></tr>
+          <tr><td>Refund path with FAILED_REFUND_PENDING flag</td><td>Money moved + seat not confirmed = ops must know. A plain FAILED wouldn't surface for ops queue.</td><td>Distinct flag = queryable ops queue. Lost booking never becomes an invisible customer complaint.</td></tr>
+          <tr><td>BookingRecoveryService with 2-min age filter</td><td>Sweep racing an in-flight saga = interleaved state writes = undefined behavior.</td><td>Sweep is safe to run at any interval; can't corrupt an in-progress saga. Every re-driven op is idempotent, so sweep can re-drive freely.</td></tr>
+          <tr><td>Deterministic payment session key</td><td>Random UUID means recovery can't look up payment without stored ID. If ID write failed, orphaned payment.</td><td>Derivable from booking's own data — recovery always has the key even if payment_id write was lost.</td></tr>
+          <tr><td>Fresh Resilience4j <code>payment</code> instance separate from <code>inventory</code></td><td>Shared instance = payment being unhealthy opens inventory's CB and vice versa. Cross-dependency false coupling.</td><td>Two independent health signals. Payment can be down without affecting inventory availability perception.</td></tr>
+          <tr><td>All Bug 5 + Bug 6 lessons applied preemptively to payment client</td><td>Same class of code, same class of trap. Learning that stays in one place is wasted.</td><td>Whitelist-only exception config, base-type fallbacks. Live-verified: 409 from inventory correctly fast-failed without retry storm.</td></tr>
+          <tr><td>Payment auth expiry sweep</td><td>Stale AUTHORIZED rows waste gateway capacity + confuse recovery.</td><td>Self-healing without ops. AUTHORIZED older than window → auto-voided.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- ================ DECISION LOG ================ -->
+    <h2 style="margin-top:60px;" id="decisions">Decision log — A over B</h2>
+    <p class="lede">Every real decision has an obvious-looking B. Here's why we didn't pick it.</p>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Payment as separate service, not <code>@Service PaymentService</code> in booking</div></div>
+      <p><strong>Why not keep as an internal service class:</strong> genuine ownership boundary. Different actors touch it (payment ops, gateway integration, compliance), different scaling profile, different failure modes. Bundling means every one of those concerns pulls in booking-service's whole context.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Outbox pattern, not "publish after commit in same method"</div></div>
+      <p><strong>Why not just call <code>publisher.publish(...)</code> after <code>@Transactional</code> commits:</strong> classic dual-write problem. Publish before commit = phantom events for rolled-back state. Publish after commit = lost events on network failure. Outbox is the only pattern that gets both cases right, and the DB is the atomicity boundary that makes it work.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Same-process poller, not Debezium/CDC to Kafka</div></div>
+      <p><strong>Why not the prod-grade answer now:</strong> Kafka + Debezium is a big infra bet. In-process poller works fine at Week 3 scale (~seconds of latency, single-service outbox). Phase 3 introduces real messaging (SNS/SQS); at that point the poller becomes an SNS publisher — same outbox side, different sink.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Recovery sweep, not event-sourced saga</div></div>
+      <p><strong>Why not store each saga step as an event and replay:</strong> event-sourcing is the beautiful answer but 5× the code and requires operational buy-in (event store, snapshotting, projection versioning). Polling sweep + idempotent operations gets the same crash-safety with tools we already have (Postgres + @Scheduled).</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Two independent Resilience4j instances (inventory, payment), not one shared</div></div>
+      <p><strong>Why not one "outbound" instance:</strong> payment being unhealthy would open inventory's circuit too. Cross-dependency false coupling. Independent instances = independent health signals; each dependency's problems stay contained.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Copy PaymentClient's fallback + retry config from InventoryClient, not extract</div></div>
+      <p><strong>Why not a shared "ExternalClient" superclass:</strong> the two clients have different endpoints, different exception types, different Resilience4j instance names. What's shared is the pattern, and patterns don't belong in inheritance — they belong in documentation. Duplication is cheap; wrong inheritance forces both to change together.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Hardcoded price stub (₹500/seat), not a Pricing service</div></div>
+      <p><strong>Why not a real pricing service now:</strong> pricing is a Phase 2 concern per ROADMAP. Week 3 is about payment lifecycle, not price discovery. Stub with a comment pointing to the deferral. Real pricing service replaces the constant when it arrives; the saga's shape doesn't change.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Delete BookingSagaServiceTest (junits deferred), not update it</div></div>
+      <p><strong>Why not port the old test to the new saga shape:</strong> user's explicit no-junits-during-implementation directive. The saga's behavior changed enough (PaymentStub gone, 2-step payment, refund path, outbox event) that the old test would be a full rewrite anyway. End-of-week clean-pass will build proper tests over the finished shape.</p>
+    </div>
+
+    <!-- ================ TECH GLOSSARY ================ -->
+    <h2 style="margin-top:60px;" id="tech">Tech glossary — new things this week</h2>
+    <p class="lede">Two sentences per item: what it is + the specific problem it solves in this project.</p>
+    <div class="two-col" style="margin-top:24px;">
+      <div class="card mini-card">
+        <h4>Adapter pattern</h4>
+        <p>Interface that hides gateway-specific wire shapes. <strong>Solves:</strong> payment-service's own domain stays clean; adding a new real gateway = one new class.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Factory (with Spring DI)</h4>
+        <p>Resolves the right adapter for a given <code>PaymentMethod</code> from injected beans. <strong>Solves:</strong> no <code>new UPIAdapter()</code> at call sites; adding a method never touches the factory's logic.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Two-step auth + capture</h4>
+        <p>Separate <code>authorize</code> (reserve, reversible) from <code>capture</code> (take, harder to reverse). <strong>Solves:</strong> cheap void for auth-succeeded-capture-failed; only true refund for confirm-failed-after-capture.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Outbox pattern</h4>
+        <p>Table that stores events written atomically with state changes; separate poller drains. <strong>Solves:</strong> the dual-write problem — DB commit + event publish can't be one atomic op, but DB commit + outbox row insert CAN.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>At-least-once delivery</h4>
+        <p>The realistic guarantee any distributed message system can offer. <strong>Solves:</strong> loss avoidance; forces consumer contract to be idempotent by design.</p>
+      </div>
+      <div class="card mini-card">
+        <h4><code>Propagation.MANDATORY</code></h4>
+        <p>Spring transactional propagation that refuses to run outside a tx. <strong>Solves:</strong> enforces "outbox row commits with your business tx" at Spring level, not by hopeful convention.</p>
+      </div>
+      <div class="card mini-card">
+        <h4><code>@Scheduled</code> + <code>@EnableScheduling</code></h4>
+        <p>Spring's built-in cron/interval scheduler. <strong>Solves:</strong> the outbox poller + recovery sweep + auth-expiry sweep all run without a separate scheduler infrastructure.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Saga recovery sweep</h4>
+        <p>Polling job that finds crashed sagas and drives them forward or rolls them back. <strong>Solves:</strong> the "process crashed mid-flight" gap that idempotency alone can't close.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Age filter (2-minute rule)</h4>
+        <p>Sweep only touches records older than N minutes. <strong>Solves:</strong> sweep-vs-in-flight-saga race — a saga started 10 seconds ago is probably still executing; leave it alone.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Deterministic session key</h4>
+        <p>Key derived from stable data (booking's idempotency key + suffix) instead of random UUID. <strong>Solves:</strong> recovery can look up payment even if the payment_id was never written back to booking (crash between insert and update).</p>
+      </div>
+      <div class="card mini-card">
+        <h4>ProblemDetail (RFC 7807)</h4>
+        <p>Machine-parseable error envelope with title + status + detail + custom fields. <strong>Solves:</strong> consistent error contract across all three services now.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Correlation ID propagation over REST</h4>
+        <p>Client passes / server generates + echoes / outgoing calls forward via <code>X-Correlation-Id</code>. <strong>Solves:</strong> one grep across three services' logs reads as one story for a single booking.</p>
+      </div>
+    </div>
+
+    <h2 style="margin-top:60px;">What's next</h2>
+    <div class="card concept">
+      <p><strong>Week 3 close-out</strong> — user answers the 7 interview questions in <code>WEEK3_DESIGN.md §9</code>; then a clean-pass writes proper JUnit tests over the finished shape (deferred per user directive during implementation).</p>
+      <p><strong>Failure experiments beyond the parallel-oversell test</strong> — flip <code>PAYMENT_SIMULATE_AUTH_FAILURE=true</code> and <code>PAYMENT_SIMULATE_CAPTURE_FAILURE=true</code>, verify the compensating paths (auth-fail → immediate FAILED, capture-fail → void + FAILED, confirm-fail-after-capture → refund path + FAILED_REFUND_PENDING).</p>
+      <p><strong>ROADMAP §4 Week 4</strong> — AWS foundation begins (IAM, VPC, RDS, ECR, ECS Fargate, ALB). Per the standing rule, that's user-driven work — Claude pairs on Terraform + verification but the real AWS resource creation is the user's own hands.</p>
+    </div>
+  </main>
+</div>
+
+<footer>Payment Lab · Week 3 · 2026-09-20 · repo: <code>GenAiBackend/ticketing-platform/{payment,booking}-service</code> · companion to <a href="SEAT_LOCK.html">SEAT_LOCK</a> (Week 1) &amp; <a href="SAGA_LAB.html">SAGA_LAB</a> (Week 2)</footer>
+</body>
+</html>
