@@ -63,6 +63,13 @@ cleanup job needed for the common case. (What happens to the Postgres
 version would need a reconciliation path so a seat doesn't stay `HELD`
 forever just because Redis alone expired.)
 
+`POST /shows/{showId}/seats/{seatId}/confirm` represents the already-successful
+payment callback for this phase. Only the current hold owner can confirm; it
+durably transitions `HELD` to `BOOKED`, records that owner for safe duplicate
+callbacks, and removes the temporary Redis key. Payment processing itself is
+deliberately not invented inside inventory-service yet: that becomes a separate
+boundary when a payment service is introduced.
+
 ## Run locally
 
 Everything, one command (Day 4 — Postgres, Redis, and the service itself):
@@ -224,6 +231,114 @@ easily hide the exact race condition this project exists to prevent.
   attempt, `c164c84a...` for the granted one. `GET /shows/1/seats/availability`
   afterward confirms seat 1 as `HELD` — not a crash, not a double-hold,
   exactly one winner.
+- **Weekend — `confirm`, closing the hold lifecycle.** `POST .../confirm`
+  moves a seat from `HELD` to `BOOKED`, standing in for the future
+  booking-service saga's "payment succeeded" step. Only the live Redis
+  hold owner can confirm (`403` for anyone else, `409` if the hold already
+  expired). The owner is written to Postgres (`booked_by_holder_id`)
+  because the Redis key is deleted at confirmation — so a retried
+  callback (response lost after commit) is recognized from the durable
+  row and gets the same `200`, while anyone else gets `409`. A failed
+  Redis cleanup after the Postgres write is only logged: the stale key
+  expires on its own, reconciliation only frees `HELD` seats, and release
+  never un-books. 40 tests total — 8 new: 6 in `HoldServiceTest` (happy
+  path, idempotent retry, wrong holder, no hold, hold expired before the
+  reconciliation sweep, seat already booked by someone else) and 2 in
+  `HoldControllerTest`.
+  **Known trade-off, not fixed yet:** the Redis key is deleted after
+  `saveAndFlush` but *before* the transaction commits. If the commit
+  itself failed after that, the seat would stay `HELD` with no key and
+  reconciliation would free it. `@Version` still prevents a double
+  booking, so this is a lost booking, not an oversell. The clean fix is
+  to delete the key in an `afterCommit` callback.
+
+## Week 2 — `booking-service` (in progress)
+
+Week 2 introduces the second service on this track: `booking-service`, the
+saga orchestrator. Full daily plan lives in `ROADMAP.md` §6; day-by-day
+state so far:
+
+- **Day 1 — Design (no code).** `WEEK2_DESIGN.md`: booking state machine
+  (6 states, invalid transitions blocked at 3 layers), service
+  boundaries (booking never touches `seats` directly), orchestration-vs-
+  choreography decision with the trigger to revisit pre-committed,
+  compensating actions named for every forward step (including the hard
+  "payment OK but confirm fails" refund case), idempotency-key end-to-
+  end, `POST /bookings` + `GET /bookings/{id}` API contract, 3 sequence
+  diagrams (happy, rollback, idempotent retry), and 7 interview
+  questions for the Weekend review.
+- **Day 3 — Saga wiring, in-process happy + rollback paths.** New:
+  `InventoryClient` (Spring `RestClient`, wraps `/hold` + `/confirm` +
+  `/release`, forwards `X-Correlation-Id` on every outgoing call),
+  `PaymentStub` (always-success unless `booking.payment.simulate-failure`
+  is set), `BookingSagaService` (state machine driver:
+  `PENDING → SEATS_HELD → PAYMENT_INITIATED → CONFIRMED` on success;
+  compensating `/release` + `FAILED` on any downstream failure). State
+  transitions on `Booking` are named methods that validate the current
+  state — a raw `setStatus()` is unreachable, matching the three-layer
+  enforcement in `WEEK2_DESIGN.md §1`. `SagaFailedException` → 502 Bad
+  Gateway with `bookingId` in the ProblemDetail. **Every state transition
+  runs in its own `TransactionTemplate` (`PROPAGATION_REQUIRES_NEW`)**
+  rather than `@Transactional` on same-bean methods (silent proxy bypass
+  is the exact class of foot-gun Day 2's bug #3 caught) — the whole saga
+  is a sequence of small independently-committed steps, which is exactly
+  what a saga is supposed to be. 26 tests total (5 new
+  `BookingSagaServiceTest` cases: happy path, hold-conflict on 1st seat
+  vs 2nd seat, payment-fail rollback, release-during-compensation-itself-
+  fails). Inventory + payment mocked; DB is real Postgres via
+  Testcontainers. **Deferred to a follow-up pass:** Resilience4j on the
+  outgoing calls (timeout/retry/circuit breaker); real cross-service
+  HTTP is Day 4's docker-compose integration.
+
+- **Day 2 — Skeleton + persistence + idempotency.** New Maven module
+  `booking-service/` (Spring Boot 3.4.3, Java 17, own Postgres database
+  on the same server as inventory's). `Booking` + `BookingSeat`
+  entities, `BookingStatus` enum, `@Version`, unique index on
+  `idempotency_key`. Reused `GlobalExceptionHandler` (RFC 7807) and
+  `CorrelationIdFilter` — **deliberately copied, not extracted into a
+  shared library** (shared libs across services couple deploy cycles
+  for a class of change that should stay independent). 21 tests, all
+  against real Postgres via Testcontainers. Every booking created on
+  Day 2 stops at `PENDING` on purpose — the saga arrives Day 3.
+  **Three real bugs caught live** during Day 2, all documented in
+  `SAGA_LAB.html` §Bug museum: (1) `@Override` on
+  `handleMissingRequestHeader` broke against Spring 6.2.x's shifted
+  signature — fixed by using a top-level `@ExceptionHandler` instead;
+  (2) `@MockBean` import path typo (`.mock.mockito.`, not
+  `.mockito.`); (3) **the day-2 bug** — the concurrent-insert race
+  test failed with a confusing `AssertionFailure: null id` because
+  Hibernate poisons the session the moment a constraint violation
+  lands, so catching `DataIntegrityViolationException` in the same
+  transaction and continuing (re-read the winning row) is a runtime
+  error. Fixed by running the insert in `PROPAGATION_REQUIRES_NEW` via
+  `TransactionTemplate`, so the failed insert's transaction rolls back
+  in isolation and the outer flow re-reads on a healthy session.
+
+Companion notes artifact for this week: **Saga Lab** at
+`ticketing-platform/SAGA_LAB.html` — deep concepts + build log + bug
+museum + file-by-file revision, same design system as `SEAT_LOCK.html`.
+
+**Day 4 live-verified (2026-09-18).** Real docker-compose stack up
+(postgres + redis + both services via `./mvnw spring-boot:run`).
+Six failure experiments run against it, all outcomes match the paper
+design in `WEEK2_DESIGN.md`. In the process, **three real bugs caught
+live and fixed in-session** (documented in `SAGA_LAB.html` Bug Museum
+§B4–B6): (4) Postgres init script silently skipped on a non-fresh
+volume — manual DB create was the workaround, prod would need Flyway;
+(5) `ignore-exceptions: [InventoryClientException]` matched the retry
+subclass `InventoryTransientException` too (Resilience4j uses
+`isInstance` matching) — ignore silently beat retry, so retry never
+fired despite passing every unit test. Fix: drop `ignore-exceptions`
+entirely, whitelist alone suffices. (6) CircuitBreaker fallback threw
+`InventoryTransientException` — but Retry's outer aspect matched that
+as retryable, so CB-open fast-fail was defeated by 3× wasted retry
+rounds per request. Fix: fallback throws the non-transient base
+`InventoryClientException`. Both fixes verified live: retry now fires 3×
+in ~1500ms; CB opens after threshold and fast-fails in ~200ms
+consistent; recovery via half-open probe worked when inventory came
+back. All six experiments and all three bug-fix cycles in the
+`SAGA_LAB.html` §"Day 4 · LIVE EVIDENCE" card with copy-pasted terminal
+output.
 
 ## Week 1 Definition of Done
 

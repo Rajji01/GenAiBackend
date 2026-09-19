@@ -1,0 +1,91 @@
+server:
+  # 8082, not 8081 — a different port for a different service. Sharing a
+  # port on the same host is not "microservices," it's a collision.
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: booking-service
+
+  datasource:
+    # Own database — database-per-service. Same Postgres server as
+    # inventory in local dev (one container is cheaper than two on this
+    # machine, and inventory + booking never JOIN across schemas by
+    # design), different database name. In real AWS this becomes its own
+    # RDS instance.
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:booking}
+    username: ${DB_USERNAME:booking_user}
+    password: ${DB_PASSWORD:booking_pass}
+
+  jpa:
+    hibernate:
+      # Same reasoning as inventory-service's application.yml: fine for
+      # bootstrap, revisit with Flyway once there's real data to protect.
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+booking:
+  inventory:
+    # Day 3: base URL + timeout of the outgoing inventory-service calls.
+    # In docker-compose this becomes http://inventory-service:8081 (Day 4).
+    base-url: ${INVENTORY_BASE_URL:http://localhost:8081}
+    timeout: ${INVENTORY_TIMEOUT:3s}
+
+# Day 3 follow-up: retry + circuit breaker on the outgoing inventory calls.
+# One shared "inventory" instance across hold/confirm/release — they're all
+# one dependency's health signal; opening the circuit on hold's failure
+# rightly stops subsequent confirm/release attempts from stampeding a
+# service that's already struggling.
+resilience4j:
+  retry:
+    instances:
+      inventory:
+        # 3 attempts total (1 original + 2 retries) — enough to ride out a
+        # brief blip, few enough that the caller isn't kept waiting for
+        # ~10s worth of network calls before hearing the truth.
+        max-attempts: 3
+        wait-duration: 200ms
+        exponential-backoff-multiplier: 2
+        # WHITELIST ONLY — do NOT also set ignore-exceptions to the
+        # parent class here. Bug caught live 2026-09-18: the parent
+        # InventoryClientException in ignore-exceptions matches the
+        # subclass InventoryTransientException too (isInstance semantics),
+        # so ignore wins and retry silently never fires. When retry-
+        # exceptions is set explicitly, anything NOT listed is
+        # automatically not retried — ignore-exceptions is redundant and
+        # (with a parent class) actively harmful.
+        retry-exceptions:
+          - com.ticketing.booking.client.InventoryTransientException
+  circuitbreaker:
+    instances:
+      inventory:
+        # Opens when 50% of the last 10 calls have failed. A short
+        # 5-second open window means the CB checks health quickly rather
+        # than punishing a recovered inventory-service for a full minute.
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        # Whitelist only, same reason as retry above. Anything not listed
+        # is NOT counted as a failure against the health signal — a 4xx
+        # conflict is not "inventory is unhealthy," it's "the caller
+        # asked for something inventory correctly refused."
+        record-exceptions:
+          - com.ticketing.booking.client.InventoryTransientException
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    # Filled by CorrelationIdFilter — same shape as inventory-service so a
+    # single grep across both services' logs reads consistently.
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{correlationId:-none}] %logger{36} - %msg%n"
