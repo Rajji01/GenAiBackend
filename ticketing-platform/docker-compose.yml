@@ -67,22 +67,49 @@ services:
       DB_NAME: booking
       DB_USERNAME: booking_user
       DB_PASSWORD: booking_pass
-      # The one link that ties the two services together: booking's
-      # outgoing REST calls go here. Container hostname, not localhost —
-      # localhost inside booking's own container would loop back to itself.
+      # The links that tie booking to its two downstreams. Container
+      # hostnames, not localhost — localhost inside booking's own
+      # container would loop back to itself.
       INVENTORY_BASE_URL: http://inventory-service:8081
+      PAYMENT_BASE_URL: http://payment-service:8083
     depends_on:
       postgres:
         condition: service_healthy
-      # Not service_healthy on inventory-service on purpose: making
-      # booking wait for inventory to be healthy would couple their
-      # startup ordering, and one of the whole POINTS of Resilience4j
-      # here is that booking gracefully handles inventory being
-      # temporarily unavailable — including during its own boot.
+      # Not service_healthy on inventory-service or payment-service:
+      # startup ordering coupling defeats microservices. Resilience4j on
+      # the outgoing calls handles temporary unavailability at runtime.
       inventory-service:
+        condition: service_started
+      payment-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  payment-service:
+    # Week 3 addition — payment authorize + capture + refund with Adapter
+    # + Factory + Strategy for the three stubbed payment methods
+    # (UPI/Card/NetBanking). See WEEK3_DESIGN.md.
+    build: ./payment-service
+    ports:
+      - "${PAYMENT_SERVER_PORT:-8083}:8083"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payment
+      DB_USERNAME: payment_user
+      DB_PASSWORD: payment_pass
+      # Failure-injection knobs for Day 5 experiments, off by default.
+      PAYMENT_SIMULATE_AUTH_FAILURE: ${PAYMENT_SIMULATE_AUTH_FAILURE:-false}
+      PAYMENT_SIMULATE_CAPTURE_FAILURE: ${PAYMENT_SIMULATE_CAPTURE_FAILURE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health"]
       interval: 10s
       timeout: 3s
       retries: 5

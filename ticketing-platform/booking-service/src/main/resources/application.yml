@@ -30,53 +30,70 @@ spring:
 booking:
   inventory:
     # Day 3: base URL + timeout of the outgoing inventory-service calls.
-    # In docker-compose this becomes http://inventory-service:8081 (Day 4).
+    # In docker-compose this becomes http://inventory-service:8081.
     base-url: ${INVENTORY_BASE_URL:http://localhost:8081}
     timeout: ${INVENTORY_TIMEOUT:3s}
+  payment:
+    # Week 3: outgoing payment-service calls. Payment can be slower than
+    # inventory (real gateways add auth latency), so 5s timeout instead
+    # of 3s. In docker-compose this becomes http://payment-service:8083.
+    base-url: ${PAYMENT_BASE_URL:http://localhost:8083}
+    timeout: ${PAYMENT_TIMEOUT:5s}
+  outbox:
+    # Week 3: how often the same-process poller drains the outbox table.
+    # Fast enough that publish latency stays under a second in the common
+    # case; slow enough that it doesn't hammer the DB with empty polls.
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:2000}
+    # Retention for already-published rows. Nightly job could prune;
+    # not implemented in Week 3.
+    retention-days: 30
+  recovery:
+    # Week 3: dangling-saga sweep interval. Age filter (not property) is
+    # 2 minutes — the sweep never touches a booking younger than that,
+    # so it can't race an in-flight saga.
+    sweep-interval-ms: ${RECOVERY_SWEEP_INTERVAL_MS:60000}
 
-# Day 3 follow-up: retry + circuit breaker on the outgoing inventory calls.
-# One shared "inventory" instance across hold/confirm/release — they're all
-# one dependency's health signal; opening the circuit on hold's failure
-# rightly stops subsequent confirm/release attempts from stampeding a
-# service that's already struggling.
+# Retry + circuit breaker on outgoing HTTP calls. TWO independent
+# instances so payment being unhealthy doesn't open inventory's CB and
+# vice versa. Every lesson from Bugs 5+6 applied: whitelist-only, no
+# ignore-exceptions block naming any parent class (that's the trap that
+# silently killed retry). Fallback methods throw the NON-transient base
+# type (bug 6 fix) so Retry doesn't retry the CB-open case.
 resilience4j:
   retry:
     instances:
       inventory:
-        # 3 attempts total (1 original + 2 retries) — enough to ride out a
-        # brief blip, few enough that the caller isn't kept waiting for
-        # ~10s worth of network calls before hearing the truth.
         max-attempts: 3
         wait-duration: 200ms
         exponential-backoff-multiplier: 2
-        # WHITELIST ONLY — do NOT also set ignore-exceptions to the
-        # parent class here. Bug caught live 2026-09-18: the parent
-        # InventoryClientException in ignore-exceptions matches the
-        # subclass InventoryTransientException too (isInstance semantics),
-        # so ignore wins and retry silently never fires. When retry-
-        # exceptions is set explicitly, anything NOT listed is
-        # automatically not retried — ignore-exceptions is redundant and
-        # (with a parent class) actively harmful.
         retry-exceptions:
           - com.ticketing.booking.client.InventoryTransientException
+      payment:
+        max-attempts: 3
+        wait-duration: 300ms
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - com.ticketing.booking.client.PaymentTransientException
   circuitbreaker:
     instances:
       inventory:
-        # Opens when 50% of the last 10 calls have failed. A short
-        # 5-second open window means the CB checks health quickly rather
-        # than punishing a recovered inventory-service for a full minute.
         sliding-window-size: 10
         minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 5s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
-        # Whitelist only, same reason as retry above. Anything not listed
-        # is NOT counted as a failure against the health signal — a 4xx
-        # conflict is not "inventory is unhealthy," it's "the caller
-        # asked for something inventory correctly refused."
         record-exceptions:
           - com.ticketing.booking.client.InventoryTransientException
+      payment:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - com.ticketing.booking.client.PaymentTransientException
 
 management:
   endpoints:
@@ -86,6 +103,6 @@ management:
 
 logging:
   pattern:
-    # Filled by CorrelationIdFilter — same shape as inventory-service so a
-    # single grep across both services' logs reads consistently.
+    # Filled by CorrelationIdFilter — same shape as inventory + payment so
+    # a single grep across three services' logs reads consistently.
     console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{correlationId:-none}] %logger{36} - %msg%n"

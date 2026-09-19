@@ -44,10 +44,31 @@ public class Booking {
     @Column(nullable = false)
     private BookingStatus status = BookingStatus.PENDING;
 
-    // Populated in Day 3 when payment stub returns. Nullable on purpose:
-    // PENDING/SEATS_HELD/EXPIRED bookings genuinely have no payment ref.
+    // Populated when payment-service authorize returns. Nullable on
+    // purpose: PENDING/SEATS_HELD/EXPIRED bookings genuinely have no
+    // payment ref. Week 3: this now stores payment-service's paymentId
+    // (formatted "pay-<id>"), and payment_id below stores the raw id for
+    // recovery lookups.
     @Column(name = "payment_ref")
     private String paymentRef;
+
+    // Week 3: paymentId from payment-service. Recovery sweep uses this
+    // to GET /payments/{id} and resume mid-saga after a crash.
+    @Column(name = "payment_id")
+    private Long paymentId;
+
+    // Week 3: captured-but-confirm-failed booking = refund needed. Auto-
+    // refund is attempted immediately; if that fails (Resilience4j exhaust
+    // on the refund call), booking stays FAILED with this flag true — ops
+    // queue picks it up. See WEEK3_DESIGN.md §4 refund case.
+    //
+    // columnDefinition needed so Hibernate's ddl-auto: update can add
+    // this column to an already-populated table (bug caught live
+    // 2026-09-20: without the DEFAULT, Postgres refuses "NOT NULL column
+    // with no default value" and the ALTER silently isn't emitted, then
+    // Hibernate's own SELECT tries to read a column that doesn't exist).
+    @Column(name = "refund_pending", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean refundPending = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -88,9 +109,10 @@ public class Booking {
         this.status = BookingStatus.SEATS_HELD;
     }
 
-    public void markPaymentInitiated(String paymentRef) {
+    public void markPaymentInitiated(Long paymentId, String paymentRef) {
         expect(BookingStatus.SEATS_HELD, "markPaymentInitiated");
         this.status = BookingStatus.PAYMENT_INITIATED;
+        this.paymentId = paymentId;
         this.paymentRef = paymentRef;
     }
 
@@ -106,6 +128,19 @@ public class Booking {
                     "Cannot fail a booking that is already " + status + " (id=" + id + ")");
         }
         this.status = BookingStatus.FAILED;
+    }
+
+    // Week 3: FAILED but a refund is still owed. Distinct from plain
+    // FAILED so ops queue can find it.
+    public void markFailedRefundPending() {
+        markFailed();
+        this.refundPending = true;
+    }
+
+    // Called after ops (or the recovery sweep, once it re-drives a refund
+    // successfully) processes the refund.
+    public void clearRefundPending() {
+        this.refundPending = false;
     }
 
     public void markExpired() {
@@ -149,6 +184,14 @@ public class Booking {
 
     public String getPaymentRef() {
         return paymentRef;
+    }
+
+    public Long getPaymentId() {
+        return paymentId;
+    }
+
+    public boolean isRefundPending() {
+        return refundPending;
     }
 
     public Instant getCreatedAt() {
