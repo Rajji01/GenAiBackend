@@ -609,6 +609,7 @@ Database check: SELECT COUNT(*) FROM notifications WHERE event_id='c831525b-...'
 private boolean refundPending = false;</code></pre>
       Hibernate now emits <code>ALTER TABLE ... ADD COLUMN refund_pending BOOLEAN NOT NULL DEFAULT FALSE</code> which Postgres accepts. Live fix during the verify session: manual <code>ALTER TABLE ... ADD COLUMN ... DEFAULT FALSE</code> via <code>docker exec psql</code>. Immediate; retry succeeded.</div>
       <p><strong>The lesson worth keeping:</strong> <code>ddl-auto: update</code> is not production-safe. <em>Flyway/Liquibase writes explicit ALTER statements with proper DEFAULT clauses that work on populated tables.</em> Yet another reason to migrate to migrations for real deployments.</p>
+      <p><strong>FIXED PERMANENTLY 2026-09-20 →</strong> see "Post-Week-3 hardening" card below.</p>
     </div>
 
     <div class="card day" id="b8">
@@ -616,6 +617,7 @@ private boolean refundPending = false;</code></pre>
       <div class="bug-box"><div class="bug-label">Symptom</div>Started Postgres for live-verify. <code>\l</code> showed <code>booking</code> + <code>inventory</code> databases but NO <code>payment</code>. The <code>db-init/create-payment-db.sh</code> script I'd just added never ran.</div>
       <div class="why-box"><div class="why-label">Root cause + fix (SAME as Bug 4 from Week 2)</div>Postgres image runs init scripts <strong>only on first container start against an empty volume</strong>. The pgdata volume was created back in Week 2's live-verify; adding a new init script two weeks later doesn't retro-run against the populated volume. Live fix: manual <code>CREATE USER payment_user; CREATE DATABASE payment OWNER payment_user;</code> via <code>docker exec psql</code>. Same workaround as Bug 4 documented; same prod-safe answer (Flyway).</div>
       <p><strong>The re-strike is worth noting:</strong> the fix isn't in the compose file — it's in switching off <code>ddl-auto</code> + init scripts entirely and using Flyway. That work is deferred, so this bug will re-strike every time a new service DB is added. Documenting so a fresh session doesn't spend an hour debugging why the DB is missing.</p>
+      <p><strong>FIXED PERMANENTLY 2026-09-20 →</strong> Flyway now owns schema evolution. The init script still creates the empty <em>database</em> (fresh-volume only, unchanged), but within each database, Flyway's <code>V1__initial_*_schema.sql</code> now creates every table — deterministically, on every fresh boot. See "Post-Week-3 hardening" card below.</p>
     </div>
 
     <div class="card day" id="b9">
@@ -629,6 +631,39 @@ private boolean refundPending = false;</code></pre>
       <div class="bug-box"><div class="bug-label">Symptom (near-miss, caught during editing)</div>Editing <code>application.yml</code> to add a second Resilience4j instance for <code>payment</code>, I accidentally nested a new <code>retry:</code> / <code>circuitbreaker:</code> hierarchy at the wrong indent. Result: two <code>circuitbreaker:</code> keys under <code>resilience4j:</code>. YAML parsers handle this differently — some silently take the last one; others throw. Spring's would have silently dropped the <code>inventory</code> CB config.</div>
       <div class="why-box"><div class="why-label">Fix — rewrote the whole block clean</div>Rather than patching the nested mess, I rewrote the <code>resilience4j:</code> section from scratch with proper structure: one <code>retry.instances</code> block with both <code>inventory</code> + <code>payment</code> children, one <code>circuitbreaker.instances</code> block with both. Caught before running (compile would not have caught this — only actual runtime behavior would).</div>
       <p><strong>Lesson:</strong> multi-level YAML edits benefit from a full-file view. In-place patches into deeply nested config are one of the few places <code>Edit</code> is more error-prone than <code>Write</code>. Same trap for anyone editing <code>application.yml</code> to add a second Resilience4j / logging appender / Spring Data source.</p>
+    </div>
+
+    <!-- ================ POST-WEEK-3 HARDENING ================ -->
+    <h2 style="margin-top:60px;">Post-Week-3 hardening — Flyway across all 4 services</h2>
+
+    <div class="card day" id="hardening-flyway">
+      <div class="day-head"><div class="day-stamp">HARDENING · 2026-09-20</div><div class="day-title">Kill <code>ddl-auto: update</code> forever — Flyway V1 in every service</div></div>
+      <div class="day-files">added: 4× <code>src/main/resources/db/migration/V1__initial_*_schema.sql</code>, 4× flyway deps in pom, 4× <code>ddl-auto: update → validate</code></div>
+
+      <p>Bugs 7 + 8 both trace to the same root cause: <em>Hibernate's <code>ddl-auto</code> is a bootstrap shortcut, not a schema management tool.</em> On a populated table it silently skips half its own DDL; on a fresh volume it competes with the init scripts. The correct answer — same one used in the Java baseline (<code>backend/</code>) — is Flyway.</p>
+
+      <div class="why-box"><div class="why-label">What "hardening" actually means here</div>
+        <p style="margin:0;">Every service now has:</p>
+        <ul style="margin-top:6px;">
+          <li><code>flyway-core</code> + <code>flyway-database-postgresql</code> in <code>pom.xml</code> (Spring Boot 3 needs the DB-specific dep as a separate module).</li>
+          <li><code>src/main/resources/db/migration/V1__initial_&lt;service&gt;_schema.sql</code> — the current entity shape as an explicit <code>CREATE TABLE</code>, including check constraints and unique indexes.</li>
+          <li><code>spring.jpa.hibernate.ddl-auto: validate</code> — Hibernate now only <em>checks</em> the entity ↔ schema shape at startup; it never modifies the DB.</li>
+          <li><code>spring.flyway.baseline-on-migrate: true</code> + <code>baseline-version: 0</code> — existing (pre-Flyway) volumes get baselined; V1 is skipped as "already applied." Fresh volumes run V1 normally. Both paths converge on the same schema.</li>
+        </ul>
+      </div>
+
+      <div class="why-box"><div class="why-label">Bug 7 and Bug 8 are now structurally impossible</div>
+        <p style="margin:0;"><strong>Bug 7</strong> (silent skip of NOT NULL column without DEFAULT): Flyway writes explicit <code>ALTER TABLE ... ADD COLUMN ... NOT NULL DEFAULT ...</code>. If the migration is malformed Flyway <em>fails startup loudly</em> — no more "swallowed DDL error, service half-broken" mode.</p>
+        <p style="margin-top:8px;margin-bottom:0;"><strong>Bug 8</strong> (init script doesn't retro-run on populated volume): the init script still creates the empty database (that part still requires a fresh volume), but everything <em>inside</em> the database is now Flyway's job, and Flyway runs on every service startup. Adding a new column to an existing service = write <code>V2__add_&lt;col&gt;.sql</code>, restart. No more manual <code>ALTER TABLE</code> in <code>docker exec psql</code>.</p>
+      </div>
+
+      <div class="field"><div class="field-label">The rule going forward (also captured in AGENTS.md §3-10)</div>
+        <pre class="terminal">Add a new migration:      V&lt;N+1&gt;__&lt;snake_desc&gt;.sql
+Never edit V1 after shipping. Never touch ddl-auto again.
+Spring Boot 3: needs flyway-database-postgresql as a SEPARATE dep.</pre>
+      </div>
+
+      <p><strong>Why now, not Week 4:</strong> Week 4 is AWS RDS. RDS has no <code>ddl-auto</code> option — every deployment starts from an empty DB and needs deterministic schema. Flyway was going to be required anyway; better to land it under a working local stack than debug schema drift on RDS from cold.</p>
     </div>
 
     <!-- ================ LIVE EVIDENCE ================ -->

@@ -18,13 +18,24 @@ spring:
 
   jpa:
     hibernate:
-      # Same reasoning as the other services: fine for bootstrap, real
-      # deployments need Flyway/Liquibase (deferred).
-      ddl-auto: update
+      # Flyway now owns schema evolution (see src/main/resources/db/migration/).
+      # ddl-auto: validate means JPA checks the entity ↔ schema shape at
+      # startup but never modifies the DB itself. Explicit fail-loud
+      # posture — if the entity drifts from the migration, startup crashes
+      # with a clear error rather than silently trying to auto-repair.
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         format_sql: true
+
+  flyway:
+    # baseline-on-migrate=true = existing (pre-Flyway) volumes are marked
+    # as baseline; V1 migration skipped as "already there." Fresh volumes
+    # run V1 normally. Both paths converge on the same state — critical
+    # for adopting Flyway mid-project without a "docker compose down -v".
+    baseline-on-migrate: true
+    baseline-version: 0
 
 payment:
   auth:

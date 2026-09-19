@@ -12,11 +12,10 @@ spring:
 
   jpa:
     hibernate:
-      # validate, not update/create — schema changes are deliberate, not
-      # auto-guessed by Hibernate. Flyway/manual DDL comes if this grows
-      # past Week 1; for now the entity IS the schema (ddl-auto: update
-      # is fine to bootstrap, revisit once there's real data to protect).
-      ddl-auto: update
+      # Flyway now owns schema evolution (see src/main/resources/db/migration/).
+      # ddl-auto: validate checks the entity ↔ schema shape at startup
+      # but never modifies the DB. Prod-safe posture.
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:

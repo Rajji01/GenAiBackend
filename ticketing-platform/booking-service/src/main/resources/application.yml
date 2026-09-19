@@ -19,13 +19,22 @@ spring:
 
   jpa:
     hibernate:
-      # Same reasoning as inventory-service's application.yml: fine for
-      # bootstrap, revisit with Flyway once there's real data to protect.
-      ddl-auto: update
+      # Flyway now owns schema evolution (see src/main/resources/db/migration/).
+      # ddl-auto: validate = JPA checks entity ↔ schema at startup but never
+      # modifies. Prod-safe. Bug 7 (silent skip of NOT NULL column without
+      # default) is now structurally impossible on this service.
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         format_sql: true
+
+  flyway:
+    # Existing volumes carry pre-Flyway schema — baseline-on-migrate=true
+    # marks them at V0 and skips V1 as "already applied." Fresh volumes
+    # run V1 normally. Both paths converge.
+    baseline-on-migrate: true
+    baseline-version: 0
 
 booking:
   inventory:

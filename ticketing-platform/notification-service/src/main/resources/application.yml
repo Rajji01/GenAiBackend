@@ -14,8 +14,14 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # Flyway now owns schema evolution (see src/main/resources/db/migration/).
+      # ddl-auto: validate = fail-loud on entity ↔ schema drift, no auto edits.
+      ddl-auto: validate
     show-sql: false
+
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
 
 management:
   endpoints:

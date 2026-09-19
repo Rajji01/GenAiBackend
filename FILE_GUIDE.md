@@ -72,7 +72,8 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 |---|---|
 | `docker-compose.yml` | Local stack: Postgres + Redis + inventory-service + booking-service. One command up |
 | `.env.example` | Template for `.env`. DB credentials, port overrides, inventory base URL |
-| `db-init/create-booking-db.sh` | Init script that creates the second Postgres database (`booking`) on the same server. **Only runs on fresh volume** — see AGENTS.md §7 for the trap |
+| `db-init/create-*-db.sh` | Init scripts that create the per-service Postgres databases on the shared server. **Only runs on fresh volume** — see AGENTS.md §7 for the trap. Post-Week-3: schema-within-a-database is now owned by Flyway, but these scripts still create the empty databases themselves |
+| `<service>/src/main/resources/db/migration/V*__*.sql` | **Flyway migrations** (2026-09-20 hardening). Every service uses `ddl-auto: validate` + Flyway. Add new migrations as `V<N+1>__<snake_desc>.sql`; never edit a shipped V1. See AGENTS.md §3 rule 10 |
 
 **Services:**
 

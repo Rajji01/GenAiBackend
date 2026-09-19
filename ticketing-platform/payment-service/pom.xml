@@ -43,6 +43,21 @@
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Flyway — Bug 7 pattern (ddl-auto silently skips NOT NULL
+		     columns without DEFAULT) drove this. Flyway writes explicit
+		     ALTER statements that always work on populated tables.
+		     Prod-safe schema management; ddl-auto now set to 'validate'
+		     so JPA still checks the entity ↔ schema shape matches but
+		     doesn't try to modify anything itself. Spring Boot 3.x
+		     needs flyway-database-postgresql as a separate dep. -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>

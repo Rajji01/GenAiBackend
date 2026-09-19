@@ -252,14 +252,49 @@ easily hide the exact race condition this project exists to prevent.
   booking, so this is a lost booking, not an oversell. The clean fix is
   to delete the key in an `afterCommit` callback.
 
-## Week 3 — `payment-service` + outbox + saga rollback + recovery (in progress, uncommitted)
+## Post-Week-3 hardening (2026-09-20) — Flyway across all 4 services
 
-Week 3 introduces the third microservice (`payment-service`) and three
-new patterns in `booking-service`: outbox for reliable event publishing,
-refund path for captured-but-confirm-failed bookings, and a dangling-saga
-recovery sweep. **Day 1 done — full design paper (`WEEK3_DESIGN.md`).
-Days 2-3 code done — compile-clean but not live-verified or committed
-yet.** Junits deferred per user directive.
+Bugs 7 (Hibernate silent skip of NOT-NULL column without DEFAULT on
+populated table) and 8 (Postgres init script doesn't retro-run against
+existing volume) both traced to the same root: **`ddl-auto: update` is
+a bootstrap shortcut, not a schema management tool.** Fixed by putting
+every service on Flyway:
+
+- `flyway-core` + `flyway-database-postgresql` added to `pom.xml` in
+  all four services (Spring Boot 3 needs the DB-specific dep as a
+  separate module).
+- `src/main/resources/db/migration/V1__initial_<service>_schema.sql`
+  in each service — the current entity shape as explicit `CREATE
+  TABLE`, including all check constraints and unique indexes.
+- `spring.jpa.hibernate.ddl-auto: update` → `validate`. Hibernate now
+  only checks the entity ↔ schema shape at startup; it never modifies
+  the DB itself.
+- `spring.flyway.baseline-on-migrate: true` + `baseline-version: 0`
+  — existing (pre-Flyway) populated volumes get baselined and V1
+  skipped as "already applied." Fresh volumes run V1 normally. Both
+  paths converge on the same schema without a `compose down -v`.
+- Bug 7 and Bug 8 are now structurally impossible on any of the four
+  services. Adding a column = `V<N+1>__add_<col>.sql`, restart. No
+  more manual `ALTER TABLE` in `docker exec psql`.
+
+**Rule locked in:** never edit a shipped V1; new migration goes in
+`V<N+1>__<snake_desc>.sql`. Standing rule §3-10 in `AGENTS.md`. Every
+service compile-checked clean after the change.
+
+Reason for landing this now, not at Week 4: Week 4 is AWS RDS, which
+has no `ddl-auto` option at all. Flyway was going to be required
+anyway; better to land it under a working local stack than to debug
+schema drift on RDS from cold.
+
+## Week 3 — `payment-service` + outbox + saga rollback + recovery + notification consumer
+
+Week 3 introduces the third microservice (`payment-service`), a fourth
+(`notification-service`) as a downstream consumer, and four new patterns
+in `booking-service`: outbox for reliable event publishing, refund path
+for captured-but-confirm-failed bookings, a dangling-saga recovery
+sweep, and correlation-id-across-`@Scheduled`-boundary. **DONE
+2026-09-20** through Day 7 (consumer dedup by `event_id`). Junits
+deferred per user directive.
 
 **payment-service (`payment-service/` — new module, port 8083):**
 
