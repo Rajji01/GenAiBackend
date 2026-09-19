@@ -72,6 +72,7 @@ services:
       # container would loop back to itself.
       INVENTORY_BASE_URL: http://inventory-service:8081
       PAYMENT_BASE_URL: http://payment-service:8083
+      NOTIFICATION_BASE_URL: http://notification-service:8084
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,6 +82,8 @@ services:
       inventory-service:
         condition: service_started
       payment-service:
+        condition: service_started
+      notification-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8082/actuator/health"]
@@ -110,6 +113,31 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  notification-service:
+    # Week 3 Day 5 addition — downstream consumer of booking events.
+    # Receives via HTTP webhook from booking-service's EventBus. Phase 3
+    # replaces the HTTP transport with SNS/SQS; this service becomes an
+    # SQS subscriber with zero code change on the receive side (only the
+    # transport layer swaps).
+    build: ./notification-service
+    ports:
+      - "${NOTIFICATION_SERVER_PORT:-8084}:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: notification
+      DB_USERNAME: notification_user
+      DB_PASSWORD: notification_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/actuator/health"]
       interval: 10s
       timeout: 3s
       retries: 5

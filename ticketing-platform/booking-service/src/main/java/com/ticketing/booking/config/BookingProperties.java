@@ -5,12 +5,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.time.Duration;
 
 // Typed config for booking-service's outgoing HTTP + async concerns.
-// Week 3 additions: payment (client base URL + timeout), outbox (poller
-// interval + retention), recovery (dangling-saga sweep interval).
+// Additions: Week 3 = payment + outbox + recovery; Week 3 Day 5 =
+// notification (the new HTTP-push EventBus target).
 @ConfigurationProperties(prefix = "booking")
 public record BookingProperties(
         Inventory inventory,
         Payment payment,
+        Notification notification,
         Outbox outbox,
         Recovery recovery
 ) {
@@ -26,6 +27,15 @@ public record BookingProperties(
         public Payment {
             if (baseUrl == null || baseUrl.isBlank()) baseUrl = "http://localhost:8083";
             if (timeout == null) timeout = Duration.ofSeconds(5);
+        }
+    }
+
+    // Week 3 Day 5 — EventBus HTTP push target. Short timeout: if
+    // notification is slow the outbox poller will just retry next tick.
+    public record Notification(String baseUrl, Duration timeout) {
+        public Notification {
+            if (baseUrl == null || baseUrl.isBlank()) baseUrl = "http://localhost:8084";
+            if (timeout == null) timeout = Duration.ofSeconds(2);
         }
     }
 

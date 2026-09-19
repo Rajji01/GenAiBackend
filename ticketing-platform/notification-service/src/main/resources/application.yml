@@ -1,0 +1,30 @@
+server:
+  # 8084 — inventory=8081, booking=8082, payment=8083, notification=8084.
+  # Four services, four distinct ports.
+  port: ${SERVER_PORT:8084}
+
+spring:
+  application:
+    name: notification-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:notification}
+    username: ${DB_USERNAME:notification_user}
+    password: ${DB_PASSWORD:notification_pass}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    # Same shape as the other three services — one grep across four
+    # services' logs reads consistently for a single booking's trace.
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{correlationId:-none}] %logger{36} - %msg%n"

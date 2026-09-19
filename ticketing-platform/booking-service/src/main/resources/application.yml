@@ -39,6 +39,12 @@ booking:
     # of 3s. In docker-compose this becomes http://payment-service:8083.
     base-url: ${PAYMENT_BASE_URL:http://localhost:8083}
     timeout: ${PAYMENT_TIMEOUT:5s}
+  notification:
+    # Week 3 Day 5: EventBus's HTTP push target. Short timeout — if
+    # notification is slow the outbox poller retries next tick. In
+    # docker-compose this becomes http://notification-service:8084.
+    base-url: ${NOTIFICATION_BASE_URL:http://localhost:8084}
+    timeout: ${NOTIFICATION_TIMEOUT:2s}
   outbox:
     # Week 3: how often the same-process poller drains the outbox table.
     # Fast enough that publish latency stays under a second in the common
