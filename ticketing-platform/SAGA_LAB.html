@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saga Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F2EFE6;
+    --surface:#FFFFFF;
+    --surface-alt:#EAE3D2;
+    --ink:#1B1F2A;
+    --ink-soft:#565D6D;
+    --border:#D9D0BA;
+    --accent:#A9761F;
+    --accent-soft:#EFE0BC;
+    --danger:#A34430;
+    --danger-soft:#F2DCD3;
+    --success:#2E7D5B;
+    --success-soft:#DBEBE1;
+    --code-bg:#1B1F2A;
+    --code-ink:#E9E4D6;
+    --shadow: 0 1px 2px rgba(27,31,42,.06), 0 8px 24px rgba(27,31,42,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161C; --surface:#1C1F28; --surface-alt:#242833;
+      --ink:#EDE9DC; --ink-soft:#A9AFC0; --border:#343947;
+      --accent:#D9A54B; --accent-soft:#3A311D;
+      --danger:#E08370; --danger-soft:#3C2420;
+      --success:#7BC7A3; --success-soft:#1E332A;
+      --code-bg:#0F1116; --code-ink:#E9E4D6;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161C; --surface:#1C1F28; --surface-alt:#242833;
+    --ink:#EDE9DC; --ink-soft:#A9AFC0; --border:#343947;
+    --accent:#D9A54B; --accent-soft:#3A311D;
+    --danger:#E08370; --danger-soft:#3C2420;
+    --success:#7BC7A3; --success-soft:#1E332A;
+    --code-bg:#0F1116; --code-ink:#E9E4D6;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:"Public Sans",-apple-system,sans-serif;line-height:1.55;margin:0;}
+  h1,h2,h3,h4{font-family:"Fraunces",Georgia,serif;text-wrap:balance;color:var(--ink);margin:0 0 .4em;}
+  h2{font-size:30px;font-weight:600;} h3{font-size:20px;font-weight:600;} h4{font-size:15px;font-weight:600;}
+  p{margin:0 0 1em;color:var(--ink);}
+  code,.mono{font-family:"IBM Plex Mono",monospace;font-size:.92em;}
+  code{background:var(--surface-alt);padding:1px 6px;border-radius:4px;}
+  a{color:var(--accent);}
+  .eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11.5px;color:var(--accent);font-weight:600;margin:0 0 8px;}
+  .lede{font-size:17px;color:var(--ink-soft);max-width:70ch;}
+  .layout{display:flex;min-height:100%;}
+  .sidebar{width:250px;flex:none;padding:26px 18px 40px;border-right:1px solid var(--border);position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;}
+  .brand-eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:10.5px;color:var(--accent);font-weight:700;}
+  .brand-name{font-family:"Fraunces",serif;font-size:24px;font-weight:700;margin:2px 0 22px;}
+  .nav-group{margin-bottom:20px;}
+  .nav-group-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);font-weight:600;margin:0 0 6px 8px;}
+  .nav-link{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;color:var(--ink);text-decoration:none;font-size:13.5px;}
+  .nav-link:hover{background:var(--surface-alt);}
+  .nav-tag{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;min-width:20px;text-align:center;}
+  main{flex:1;min-width:0;padding:40px 44px 100px;max-width:920px;}
+  .stat-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);}
+  .stat-tile{padding:14px 20px;min-width:118px;}
+  .stat-num{font-family:"Fraunces",serif;font-size:26px;font-weight:700;}
+  .stat-label{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .concept,.day{padding:26px 28px;margin-top:26px;}
+  .concept-head,.day-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px;}
+  .day-stamp,.concept-stamp{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:5px;}
+  .day-title,.concept-title{font-family:"Fraunces",serif;font-size:22px;font-weight:600;}
+  .day-files{display:block;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft);margin-bottom:14px;}
+  .field{margin-top:16px;}
+  .field-label{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);font-weight:600;margin-bottom:6px;}
+  .terminal{background:var(--code-bg);color:var(--code-ink);font-family:"IBM Plex Mono",monospace;font-size:12.8px;line-height:1.6;padding:14px 16px;border-radius:9px;overflow-x:auto;white-space:pre;}
+  .terminal .ok{color:#7BC7A3;} .terminal .bad{color:#E08370;} .terminal .dim{color:#8A93A6;}
+  .bug-box{border:1px solid var(--danger);background:var(--danger-soft);border-radius:10px;padding:14px 16px;margin-top:16px;}
+  .bug-label{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--danger);margin-bottom:6px;}
+  .why-box{border:1px solid var(--success);background:var(--success-soft);border-radius:10px;padding:14px 16px;margin-top:16px;}
+  .why-label{font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--success);margin-bottom:6px;}
+  pre{margin:0;} pre code{background:none;padding:0;}
+  .code-block{background:var(--code-bg);color:var(--code-ink);border-radius:9px;padding:14px 16px;overflow-x:auto;font-size:12.8px;line-height:1.6;}
+  .code-block code{background:none;color:inherit;padding:0;}
+  .table-wrap{overflow-x:auto;margin-top:8px;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);}
+  tr:last-child td{border-bottom:none;}
+  .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .pill{font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:4px 10px;border-radius:999px;background:var(--surface-alt);border:1px solid var(--border);}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;}
+  @media (max-width:700px){.two-col{grid-template-columns:1fr;}}
+  .mini-card{background:var(--surface-alt);border-radius:10px;padding:14px 16px;}
+  .mini-card h4{margin:0 0 6px;font-size:13.5px;font-family:"Fraunces",serif;font-weight:600;}
+  .mini-card p{margin:0;font-size:13px;color:var(--ink-soft);}
+  .flow-card{padding:20px 22px;margin-top:16px;}
+  footer{color:var(--ink-soft);font-size:12.5px;padding:30px 44px;}
+  @media (max-width:820px){
+    .sidebar{position:static;height:auto;width:auto;border-right:none;border-bottom:1px solid var(--border);}
+    .layout{flex-direction:column;} main{padding:28px 18px 80px;} footer{padding-left:18px;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-eyebrow">Ticketing Platform · Week 2</div>
+    <div class="brand-name">Saga Lab</div>
+    <nav>
+      <div class="nav-group">
+        <div class="nav-group-title">Overview</div>
+        <a class="nav-link" href="#problem">· The problem</a>
+        <a class="nav-link" href="#shape">· Why this shape</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Concepts</div>
+        <a class="nav-link" href="#c1"><span class="nav-tag">C1</span> 2PC vs saga</a>
+        <a class="nav-link" href="#c2"><span class="nav-tag">C2</span> Orchestration vs choreography</a>
+        <a class="nav-link" href="#c3"><span class="nav-tag">C3</span> Idempotency-Key</a>
+        <a class="nav-link" href="#c4"><span class="nav-tag">C4</span> Canonical hash</a>
+        <a class="nav-link" href="#c5"><span class="nav-tag">C5</span> REQUIRES_NEW insert</a>
+        <a class="nav-link" href="#c6"><span class="nav-tag">C6</span> State machine three-layer</a>
+        <a class="nav-link" href="#c7"><span class="nav-tag">C7</span> Compensating actions</a>
+        <a class="nav-link" href="#c8"><span class="nav-tag">C8</span> Retry + CB + timeout</a>
+        <a class="nav-link" href="#c9"><span class="nav-tag">C9</span> Compose networking</a>
+        <a class="nav-link" href="#c10"><span class="nav-tag">C10</span> Startup coupling trap</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Week 2 build log</div>
+        <a class="nav-link" href="#d1"><span class="nav-tag">D1</span> Design (no code)</a>
+        <a class="nav-link" href="#d2"><span class="nav-tag">D2</span> Skeleton + idempotency</a>
+        <a class="nav-link" href="#d3"><span class="nav-tag">D3</span> Saga wiring</a>
+        <a class="nav-link" href="#d35"><span class="nav-tag">D3.5</span> Resilience4j</a>
+        <a class="nav-link" href="#d4"><span class="nav-tag">D4</span> Docker compose</a>
+        <a class="nav-link" href="#d5plan"><span class="nav-tag">D5</span> Failure experiments (plan)</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Reference</div>
+        <a class="nav-link" href="#cheatsheet">· Reader's cheat sheet</a>
+        <a class="nav-link" href="#tasks">· Task ledger</a>
+        <a class="nav-link" href="#tech">· Tech glossary</a>
+        <a class="nav-link" href="#decisions">· Decision log</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Bug museum</div>
+        <a class="nav-link" href="#b1"><span class="nav-tag">B1</span> @Override signature drift</a>
+        <a class="nav-link" href="#b2"><span class="nav-tag">B2</span> MockBean import path</a>
+        <a class="nav-link" href="#b3"><span class="nav-tag">B3</span> Flush-after-exception</a>
+        <a class="nav-link" href="#b4"><span class="nav-tag">B4</span> Init script skipped</a>
+        <a class="nav-link" href="#b5"><span class="nav-tag">B5</span> ignore-exceptions parent trap</a>
+        <a class="nav-link" href="#b6"><span class="nav-tag">B6</span> CB fallback retry storm</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Live evidence</div>
+        <a class="nav-link" href="#d4live">· Day 4 experiments (RAN)</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">Quick revision</div>
+        <a class="nav-link" href="#f1"><span class="nav-tag">1</span> Booking.java</a>
+        <a class="nav-link" href="#f2"><span class="nav-tag">2</span> BookingSeat.java</a>
+        <a class="nav-link" href="#f3"><span class="nav-tag">3</span> BookingService.java</a>
+        <a class="nav-link" href="#f4"><span class="nav-tag">4</span> BookingController.java</a>
+        <a class="nav-link" href="#f5"><span class="nav-tag">5</span> GlobalExceptionHandler</a>
+        <a class="nav-link" href="#f6"><span class="nav-tag">6</span> CorrelationIdFilter</a>
+      </div>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="eyebrow">Java · Spring Boot · Postgres · Testcontainers · Idempotency</div>
+    <h2>Turning a click into an atomic booking, across services</h2>
+    <p class="lede">A build log for <code>booking-service</code>, the second service on the ticketing-platform track. Week 2 = the moment "one service correctly" becomes "several services that stay correct <em>together</em>." Today (Day 1–2) is the design + the idempotent shell; Day 3 wires the actual saga call.</p>
+
+    <div class="stat-row">
+      <div class="card stat-tile"><div class="stat-num">4</div><div class="stat-label">Days logged</div></div>
+      <div class="card stat-tile"><div class="stat-num">10</div><div class="stat-label">Concepts explained</div></div>
+      <div class="card stat-tile"><div class="stat-num">26</div><div class="stat-label">Tests, real Postgres</div></div>
+      <div class="card stat-tile"><div class="stat-num">6</div><div class="stat-label">Real bugs caught live</div></div>
+      <div class="card stat-tile"><div class="stat-num">6/6</div><div class="stat-label">Live experiments verified</div></div>
+    </div>
+
+    <h3 id="cheatsheet" style="margin-top:44px;">Reader's cheat sheet — if you read only this box</h3>
+    <div class="card concept">
+      <ol style="margin:0;padding-left:22px;">
+        <li><code>booking-service</code> is a saga orchestrator: given a booking request, it holds seats in inventory-service, charges (stubbed), then confirms. Any step fails → it compensates and marks the booking <code>FAILED</code>. Never oversells, never hangs.</li>
+        <li><strong>Idempotency-Key header</strong> is mandatory on <code>POST /bookings</code>. Same key + same body = same booking returned. Same key + different body = <code>422</code>. Missing key = <code>400</code>. The endpoint refuses to be non-idempotent.</li>
+        <li><strong>State machine:</strong> <code>PENDING → SEATS_HELD → PAYMENT_INITIATED → CONFIRMED</code>. Three terminals: <code>CONFIRMED</code>, <code>FAILED</code>, <code>EXPIRED</code>. Invalid transitions blocked in three places (entity method, DB check, <code>@Version</code>).</li>
+        <li>Booking talks to inventory via <strong>Spring RestClient</strong>, wrapped in <strong>Resilience4j</strong>: retry only for transient failures (5xx, timeout), circuit breaker opens when 50% of last 10 calls fail, timeout hard-capped per attempt. Fallback throws, never fakes success.</li>
+        <li>Every write inside the saga runs in its own <strong><code>TransactionTemplate(REQUIRES_NEW)</code></strong>. Same-bean <code>@Transactional</code> would silently bypass the Spring proxy — same trap that produced Day 2's bug #3.</li>
+        <li>Two Postgres databases (<code>inventory</code>, <code>booking</code>) on ONE Postgres server in local dev — deliberate compromise for this machine. In real AWS these become two separate RDS instances; only env vars change.</li>
+        <li><strong>Booking does NOT depend on inventory at startup</strong> (<code>service_started</code>, not <code>service_healthy</code>). Runtime resilience — not startup ordering — is how microservices stay decoupled.</li>
+        <li>Every booking retry is idempotent by design: the saga is NEVER re-run for an existing key. Whatever state that booking is in (CONFIRMED, FAILED, in-flight) is authoritative.</li>
+      </ol>
+    </div>
+
+    <h3 id="problem" style="margin-top:44px;">The one scenario every section below refers back to</h3>
+    <div class="card concept">
+      Client taps <em>Book</em>. Network hiccups. They tap again. Meanwhile, <code>booking-service</code> already called <code>inventory-service /hold</code>, and payment is halfway through. Two things must be true no matter which combination of dropped packets and retries happens: <strong>exactly one booking exists</strong>, and <strong>no seat is ever charged for without being confirmed</strong> (and vice versa). Every mechanism below exists to make one of those two true.
+    </div>
+
+    <h3 id="shape" style="margin-top:44px;">Why this shape — HLD</h3>
+    <div class="card concept">
+      Two decisions frame the whole week:
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Why a separate <code>booking-service</code></h4>
+          <p>The booking flow spans <em>three</em> owners (seats, money, notifications) and holds a state machine that lives longer than any single request. Bundling it into <code>inventory-service</code> would tangle two lifetimes — the seat row (permanent) and a booking row (a workflow) — inside one service's transactional boundary. Splitting them lets each fail, scale, and evolve on its own axis.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Why <em>booking</em> owns the coordinator</h4>
+          <p>Someone has to know "we tried to hold, we charged, we're waiting to confirm." That state naturally belongs to the aggregate that <em>started</em> the flow. Making inventory or payment coordinate would push booking-shaped concerns into services that shouldn't care.</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Service graph after Day 2</div>
+        <pre class="code-block"><code>┌──────────────────┐  REST (Day 3)   ┌────────────────────┐
+│ booking-service  │────────────────►│ inventory-service  │
+│  bookings        │                 │   seats + Redis    │
+│  booking_seats   │                 │   holds            │
+└──────────────────┘                 └────────────────────┘
+    ▲   │
+    │   ▼ (Day 3 stub, Week 3 real)
+    │  payment stub</code></pre>
+      </div>
+    </div>
+
+    <!-- ===================== CONCEPTS ===================== -->
+    <h2 style="margin-top:60px;">Concepts</h2>
+    <p class="lede">The theory behind every "why" below.</p>
+
+    <div class="card concept" id="c1">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 1</div></div>
+      <div class="concept-title">Two-phase commit is dead — enter the saga</div>
+      <p>The classic answer to "two databases must agree" is <strong>two-phase commit</strong>: a coordinator asks every participant "can you commit?", and only when everyone answers yes does it tell them all "then do it." It <em>works</em>. It's also cursed for microservices: every participant blocks its own resources through the whole coordination window, and if the coordinator itself dies mid-round, participants sit locked with no way to safely proceed. In a flash-sale, this is the entire system freezing on one flaky node.</p>
+      <p>The <strong>saga pattern</strong> throws away atomicity and buys back <em>eventual consistency</em>: split the transaction into a sequence of local ones, and give every forward step a <strong>compensating action</strong> that undoes it. A step fails → you don't roll back the world, you run the compensations for what already happened. Nothing is ever locked across a network hop.</p>
+      <div class="why-box"><div class="why-label">Ticketing consequence</div>Hold seat → charge card → confirm seat. Payment fails? Don't try to un-charge (you never charged the DB — you charged Stripe). Just run <code>/release</code> on the seat. The seat becomes AVAILABLE, the booking becomes FAILED, no user sits blocked on a distributed lock.</div>
+    </div>
+
+    <div class="card concept" id="c2">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 2</div></div>
+      <div class="concept-title">Orchestration vs choreography — the branch we picked</div>
+      <p>Given you've picked a saga, there are exactly two ways to run one.</p>
+      <div class="two-col">
+        <div class="mini-card"><h4>Orchestration</h4><p>A central coordinator (here: booking-service) calls each participant in turn and tracks the state. One row on one table knows the whole flow. Debug = read one row + one service's logs.</p></div>
+        <div class="mini-card"><h4>Choreography</h4><p>No coordinator. Each service publishes events, other services react. Loose coupling, but the "current state" is an inference across an event stream — great when true, brittle when reasoning at 2am about why a booking is stuck.</p></div>
+      </div>
+      <div class="why-box"><div class="why-label">We chose orchestration</div>Three services, complex conditionals (payment OK but confirm fails → refund flow), and a hard requirement that a support agent can <em>read one row</em> and know a booking's fate. Choreography wins later when a fan-out step feeds 4+ independent consumers — the trigger to switch is pre-committed in <code>WEEK2_DESIGN.md §3</code>.</div>
+    </div>
+
+    <div class="card concept" id="c3">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 3</div></div>
+      <div class="concept-title">Idempotency-Key — client-supplied, DB-enforced</div>
+      <p>Every network call can be retried by the client (or a browser, or a mobile carrier). Without protection, a retry of <code>POST /bookings</code> could book the same seat twice — same user, same intent, two bookings, one refund battle.</p>
+      <p>The pattern: <strong>client generates a UUID per attempt</strong> and sends it as <code>Idempotency-Key: &lt;uuid&gt;</code>. Server:</p>
+      <ul>
+        <li>Same key + same body → return the existing booking (200, not 201).</li>
+        <li>Same key + <em>different</em> body → 422 Unprocessable Entity ("this key already means a different thing").</li>
+        <li>No key → 400 Bad Request. The endpoint <em>refuses to be non-idempotent.</em></li>
+      </ul>
+      <div class="field"><div class="field-label">How this project stores it</div>
+        <pre class="code-block"><code>@Column(name = "idempotency_key", nullable = false, length = 64)
+private String idempotencyKey;
+
+// unique index — the DB is the real guarantee
+uniqueConstraints = @UniqueConstraint(
+    name = "uk_bookings_idempotency_key",
+    columnNames = "idempotency_key")</code></pre></div>
+      <p>The key lives on the <code>bookings</code> row itself, not a separate <code>idempotency_keys</code> table — the key <em>is</em> the booking's identity from the client's view, so one write does both jobs (record the booking, dedup future retries).</p>
+    </div>
+
+    <div class="card concept" id="c4">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 4</div></div>
+      <div class="concept-title">Canonical hash — order-independent request identity</div>
+      <p>The 422 branch above needs to compare "is this the same body as last time?" But bodies aren't strings — a JSON body with <code>[5,6,7]</code> and one with <code>[7,5,6]</code> mean the same request. Comparing raw bytes would trip a spurious 422 on every legitimate retry that happens to reorder the array.</p>
+      <div class="field"><div class="field-label">Solution: canonicalize before hashing</div>
+        <pre class="code-block"><code>static String canonicalHash(BookingRequest r) {
+    List&lt;Long&gt; sortedSeats = r.seatIds().stream().sorted().toList();
+    String canonical = r.showId() + "|" + sortedSeats + "|" + r.holderId();
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    return HexFormat.of().formatHex(digest.digest(canonical.getBytes()));
+}</code></pre></div>
+      <p>Sorted seats + a fixed field order = one canonical string per <em>logical</em> request. SHA-256 because it's already in every JVM (no new dep) and the collision math is comfortable at billions of bookings.</p>
+    </div>
+
+    <div class="card concept" id="c5">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 5</div></div>
+      <div class="concept-title">Why the insert lives in <code>REQUIRES_NEW</code></div>
+      <p>Two parallel <code>POST</code> requests with the same fresh key both pass the initial "does this key exist?" lookup, both try to insert. One wins the unique index, the other's insert throws <code>DataIntegrityViolationException</code>. Now — <em>which transaction</em> caught that exception matters.</p>
+      <div class="bug-box"><div class="bug-label">If both inserts share the caller's transaction</div>Hibernate marks the session poisoned the moment the constraint violation lands ("don't flush the Session after an exception occurs"). Any follow-up operation in the same tx — even the "re-read the winning row" call — throws with an unrelated-looking <code>AssertionFailure: null id</code>. This is exactly the bug the first version of the race test caught. See <a href="#b3">B3</a>.</div>
+      <div class="why-box"><div class="why-label">Fix: the insert runs in its own transaction</div>
+        <pre class="code-block"><code>private TransactionTemplate insertTx() {
+    TransactionTemplate tx = new TransactionTemplate(txManager);
+    tx.setPropagationBehavior(
+        TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    return tx;
+}
+
+// caller:
+try {
+    Booking saved = insertTx().execute(
+        status -&gt; insertNew(key, hash, req));
+    // ...
+} catch (DataIntegrityViolationException race) {
+    // insert's tx already rolled back cleanly — safe to re-read
+    Booking winner = bookingRepository.findByIdempotencyKey(key)
+        .orElseThrow(() -&gt; race);
+    // ...
+}</code></pre>
+      </div>
+      <p>The insert's failure is self-contained. The outer method's session was never poisoned. The re-read succeeds. This is the entire mechanism the concurrent-insert test proves — 21st green.</p>
+    </div>
+
+    <div class="card concept" id="c6">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 6</div></div>
+      <div class="concept-title">The state machine, enforced at three layers</div>
+      <p>Six states, one clear happy path, three terminals. The <em>real</em> engineering is that "no <code>EXPIRED → CONFIRMED</code>" isn't a comment in the code — it's enforced three times so no single layer being wrong loses the guarantee.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Layer</th><th>What enforces</th><th>Breaks when…</th></tr></thead>
+        <tbody>
+          <tr><td>Entity method</td><td><code>markConfirmed()</code> reads current status, refuses on a terminal one</td><td>App bug tries the wrong transition</td></tr>
+          <tr><td>DB check + trigger</td><td>A raw <code>UPDATE bookings SET status=...</code> on a terminal row is refused by SQL</td><td>Admin fix, another service, or a bug in the entity layer</td></tr>
+          <tr><td><code>@Version</code></td><td>Concurrent status writes: only the first commits; the second sees <code>OptimisticLockingFailure</code></td><td>Two flows race on the same booking</td></tr>
+        </tbody>
+      </table></div>
+      <p>Day 2 has the entity+<code>@Version</code> layers; the DB trigger arrives with Day 3's state-transition methods.</p>
+    </div>
+
+    <div class="card concept" id="c7">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 7</div></div>
+      <div class="concept-title">Compensating actions — every forward step named</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Forward step</th><th>Compensation</th><th>If compensation itself fails</th></tr></thead>
+        <tbody>
+          <tr><td>Hold succeeds on some seats, next one 409s</td><td><code>/release</code> the successful ones</td><td>Hold TTL is the ultimate safety net (Week 1 already built)</td></tr>
+          <tr><td>Payment fails after all held</td><td><code>/release</code> every held seat</td><td>Same — TTL + reconciliation sweep</td></tr>
+          <tr><td>Payment OK but confirm fails</td><td>Refund (Week 3 wires it) + flag booking for op review</td><td>Op queue — this is a lost booking, not an oversell</td></tr>
+          <tr><td>Client abandons after held</td><td>Sweep detects TTL expiry → <code>/release</code></td><td>Nothing to compensate for a no-op</td></tr>
+        </tbody>
+      </table></div>
+      <div class="why-box"><div class="why-label">Design rule</div>Every compensation is idempotent. <code>/release</code> already is (Week 1 guarantee). Retrying a compensation must never make things worse.</div>
+    </div>
+
+    <div class="card concept" id="c8">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 8</div></div>
+      <div class="concept-title">Retry + Circuit Breaker + Timeout — three tools, three concerns</div>
+      <p>One HTTP call to inventory can fail in three genuinely different ways, and each has its own right answer. Bundling them as "just retry harder" is exactly how a small blip becomes a full outage.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Failure</th><th>Without protection</th><th>Right tool</th></tr></thead>
+        <tbody>
+          <tr><td>Brief blip (2s downtime, GC pause)</td><td>User sees a 502 for a survivable hiccup</td><td><strong>Retry</strong> — a small backoff outlasts it</td></tr>
+          <tr><td>Persistent outage (5 minutes)</td><td>Every call blocks a thread; thread pool exhausts; caller crashes too</td><td><strong>Circuit Breaker</strong> — fail fast, keep threads alive</td></tr>
+          <tr><td>Slow response (network lag)</td><td>Caller waits indefinitely; users see hangs</td><td><strong>Timeout</strong> — hard per-attempt bound</td></tr>
+        </tbody>
+      </table></div>
+      <div class="field"><div class="field-label">Exception hierarchy IS the retry policy</div>
+        <pre class="code-block"><code>InventoryClientException                 ← IGNORE (never retry — 4xx conflicts)
+    └── InventoryTransientException      ← RETRY (5xx, timeout, transport)
+
+retry-exceptions:  [InventoryTransientException]   # explicit whitelist
+ignore-exceptions: [InventoryClientException]      # default-safe skip</code></pre></div>
+      <div class="why-box"><div class="why-label">Why whitelist beats blacklist</div>Kal a new exception type appears — with a whitelist, its default is "don't retry." With a blacklist, its default would be "do retry," which for a non-idempotent call is the exact accidental-double-charge bug you can't apologize your way out of.</div>
+      <div class="field"><div class="field-label">Circuit breaker state machine</div>
+        <pre class="code-block"><code>       ┌─────────┐   50%+ fails    ┌─────────┐
+       │ CLOSED  │────────────────►│  OPEN   │  5s: every call fail-fast
+       │(normal) │                 │         │
+       └─────────┘                 └────┬────┘
+            ▲                           │ 5s elapsed
+            │ 3 probes                  ▼
+            │ succeed              ┌──────────┐
+            │                      │HALF_OPEN │  3 probe calls
+            └──────────────────────│          │
+             any probe fail →      └──────────┘
+             back to OPEN</code></pre></div>
+      <div class="why-box"><div class="why-label">Fallback must NOT fake success</div><code>holdFallback</code> throws <code>InventoryTransientException</code> — booking cannot invent a seat hold. The circuit breaker's job is to <em>fail fast when inventory is genuinely down</em>, not to synthesize a happy path that leads to a silent oversell. The saga's existing FAILED-plus-compensate branch is where the failure lands cleanly.</div>
+    </div>
+
+    <div class="card concept" id="c9">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 9</div></div>
+      <div class="concept-title">Compose networking — hostnames are service names, not localhost</div>
+      <p>Inside a docker-compose network, each service has its own DNS name equal to its <code>services:</code> key. Booking calls inventory as <code>http://inventory-service:8081</code>, not <code>http://localhost:8081</code>.</p>
+      <div class="bug-box"><div class="bug-label">The predictable trap</div><code>localhost</code> inside booking's container loops back to booking's own container. Nothing there listens on 8081 → connection refused. Symptom: mysterious "inventory always down" only inside compose, works fine from the host.</div>
+      <div class="field"><div class="field-label">One-Postgres-two-databases — a deliberate local-dev compromise</div>
+        <pre class="code-block"><code>postgres/
+  ├── inventory   (owned by inventory_user)
+  └── booking     (owned by booking_user)</code></pre>
+      "Database-per-service" 's real invariant is <em>no cross-service JOINs</em>, not "one container per DB." Sharing one Postgres server locally saves memory on this fragile-Docker machine; in real AWS these become two separate RDS instances with zero code change (only env vars).</div>
+    </div>
+
+    <div class="card concept" id="c10">
+      <div class="concept-head"><div class="concept-stamp">CONCEPT 10</div></div>
+      <div class="concept-title">Startup coupling — the trap you added by "being safe"</div>
+      <p>Instinct: <code>booking-service depends_on: inventory-service: condition: service_healthy</code>. Looks correct. Wait for inventory before starting booking.</p>
+      <div class="bug-box"><div class="bug-label">Why it's wrong for microservices</div>It couples the two services' <em>startup ordering</em>. If inventory takes 30s to come up, booking sits idle for 30s — its container health is dictated by a peer's. Now imagine 6 services in a chain: startup becomes a serialized parade, and any one service's slow restart blocks the world.</div>
+      <div class="why-box"><div class="why-label">The right posture: <code>service_started</code> + runtime resilience</div>Booking says "I'm up as long as MY dependencies (Postgres) are healthy." If inventory is momentarily unreachable during booking's boot, that's exactly what <strong>Resilience4j</strong> exists to absorb. The retry + circuit breaker on outgoing calls means "inventory not ready yet" behaves the same as any other transient failure — bounded, tracked, fallible per-request, not fatal per-service.</div>
+    </div>
+
+    <!-- ===================== BUILD LOG ===================== -->
+    <h2 style="margin-top:60px;">Week 2 build log</h2>
+
+    <div class="card day" id="d1">
+      <div class="day-head"><div class="day-stamp">DAY 1</div><div class="day-title">Design — zero code</div></div>
+      <div class="day-files">deliverable: WEEK2_DESIGN.md</div>
+      <p>Per the roadmap's own rule: <em>"Day 1 — Design: mental model + dry-run trace + LLD/HLD decisions + API contract. Zero code."</em> The deliverable is a written design that leaves nothing ambiguous for Day 2 to invent.</p>
+      <div class="pill-row">
+        <span class="pill">state machine</span><span class="pill">service boundaries</span>
+        <span class="pill">orchestration case</span><span class="pill">compensations</span>
+        <span class="pill">idempotency scheme</span><span class="pill">API contract</span>
+        <span class="pill">3 sequence diagrams</span><span class="pill">7 interview Qs</span>
+      </div>
+      <p style="margin-top:14px;">Explicit trade-offs written down so Day 2 doesn't drift: separate Postgres <em>databases</em> on the same server for now (both are "database-per-service" — one server is honest for local dev, real RDS split arrives Week 4). Payment as an in-service stub, not a container (Week 3 splits it). Multi-seat holds as a loop, not a batched inventory API (avoid broadening inventory's contract mid-flight).</p>
+    </div>
+
+    <div class="card day" id="d2">
+      <div class="day-head"><div class="day-stamp">DAY 2</div><div class="day-title">Skeleton + persistence + idempotency</div></div>
+      <div class="day-files">booking-service/ (new module, 14 source files, 5 test classes)</div>
+      <p><strong>Scope:</strong> the endpoint exists, it inserts a <code>PENDING</code> row with the idempotency key, and it correctly refuses to double-book on retry. <strong>No saga yet</strong> — every booking created today stops at <code>PENDING</code> on purpose.</p>
+
+      <div class="field"><div class="field-label">Test evidence, real Postgres via Testcontainers</div>
+      <pre class="terminal"><span class="ok">✓</span> <span class="dim">contextLoads</span>                                                     <span class="dim">(BookingServiceApplicationTests)</span>
+<span class="ok">✓</span> <span class="dim">savingABooking_assignsAnIdAVersionAndACreatedAt</span>                <span class="dim">(BookingRepositoryTest)</span>
+<span class="ok">✓</span> <span class="dim">findByIdempotencyKey_returnsTheBookingWhenPresent</span>              <span class="dim">(BookingRepositoryTest)</span>
+<span class="ok">✓</span> <span class="dim">twoRowsWithTheSameIdempotencyKey_areRejectedByTheUniqueIndex</span>   <span class="dim">(BookingRepositoryTest)</span>
+<span class="ok">✓</span> <span class="dim">create_withAFreshKey_insertsPendingBookingAndBookingSeats</span>      <span class="dim">(BookingServiceTest)</span>
+<span class="ok">✓</span> <span class="dim">create_withTheSameKeyAndSameBody_returnsTheSameBooking...</span>     <span class="dim">(BookingServiceTest)</span>
+<span class="ok">✓</span> <span class="dim">create_reorderingSeatIds_doesNotFalseFireTheKeyMismatchCheck</span>  <span class="dim">(BookingServiceTest)</span>
+<span class="ok">✓</span> <span class="dim">create_withTheSameKeyAndADifferentBody_throws422_...</span>         <span class="dim">(BookingServiceTest)</span>
+<span class="ok">✓</span> <span class="dim">get_returnsAStoredBooking</span>                                        <span class="dim">(BookingServiceTest)</span>
+<span class="ok">✓</span> <span class="dim">get_returns404WhenTheBookingDoesNotExist</span>                        <span class="dim">(BookingServiceTest)</span>
+<span class="ok">✓</span> <span class="dim">create_undertConcurrentInsertsWithTheSameKey_...</span>              <span class="dim">(BookingServiceTest)</span>
+<span class="ok">✓</span> <span class="dim">... 10 more (controller slice + filter)</span>
+<span class="ok">TOTAL: 21 passed, 0 failed</span>
+      </pre></div>
+
+      <div class="field"><div class="field-label">Live race log (from the concurrent-inserts test)</div>
+      <pre class="terminal"><span class="dim">booking_created key=991c10c8-... bookingId=2 status=PENDING</span>
+<span class="bad">SQL Error: 23505 ERROR: duplicate key value violates
+    unique constraint "uk_bookings_idempotency_key"
+    Detail: Key (idempotency_key)=(991c10c8-...) already exists.</span>
+<span class="ok">booking_idempotent_race_lost key=991c10c8-... bookingId=2</span>
+<span class="dim">// two threads → one insert, one 23505 caught → both return bookingId=2</span>
+      </pre></div>
+
+      <p style="margin-top:14px;"><strong>Deliberately not there yet:</strong> no call to inventory, no payment stub, no state transitions past <code>PENDING</code>, no <code>booking_seats.hold_token</code> populated. Every one of those is Day 3.</p>
+    </div>
+
+    <!-- ===================== BUG MUSEUM ===================== -->
+    <div class="card day" id="d3">
+      <div class="day-head"><div class="day-stamp">DAY 3</div><div class="day-title">Saga wiring — PENDING → CONFIRMED (or clean FAILED)</div></div>
+      <div class="day-files">new: InventoryClient, InventoryClientException, PaymentStub, BookingSagaService, BookingProperties · updated: Booking, BookingService, GlobalExceptionHandler, application.yml · new tests: BookingSagaServiceTest (5)</div>
+
+      <div class="field"><div class="field-label">What happens now on a fresh POST /bookings</div>
+      <pre class="code-block"><code>1. BookingService.create() inserts PENDING row (own tx, commits)
+2. BookingSagaService.runSaga():
+     for each seat: inventoryClient.hold(...)   → record hold_token
+     → mark SEATS_HELD
+   → paymentStub.charge(...)   → payment_ref
+     → mark PAYMENT_INITIATED
+   → for each seat: inventoryClient.confirm(...)
+     → mark CONFIRMED (final)
+3. Response 201 with the full CONFIRMED booking</code></pre></div>
+
+      <p><strong>The saga runs OUTSIDE the initial insert's transaction on purpose.</strong> If it ran inside, a crash after inventory /hold but before the tx commits would leave a held seat with no booking row to compensate against — an orphaned held seat, silently. Committing PENDING first means every downstream side-effect has a durable audit anchor.</p>
+
+      <div class="field"><div class="field-label">On failure — same endpoint, different exit</div>
+        <ul>
+          <li><strong>Hold fails on seat 1</strong> → no compensation needed → mark FAILED → <code>502 Bad Gateway</code> with <code>bookingId</code> in the body.</li>
+          <li><strong>Hold succeeds on seat 1, fails on seat 2</strong> → release seat 1 → mark FAILED → 502. Bridge row for seat 1 gets a <code>released_at</code> stamp; seat 2's stays null (never held).</li>
+          <li><strong>All holds OK, payment fails</strong> → release every held seat → mark FAILED → 502.</li>
+          <li><strong>Release itself fails during compensation</strong> → log, swallow, mark FAILED anyway. Inventory's own hold TTL + reconciliation sweep (Week 1) is the ultimate safety net.</li>
+        </ul>
+      </div>
+
+      <div class="why-box"><div class="why-label">Idempotent retry never re-runs the saga</div>Same key + same body → return the current stored state (CONFIRMED, FAILED, or still-flowing). Re-running would double-charge or double-hold. This is why idempotency is enforced <em>before</em> any side-effect fires.</div>
+
+      <div class="field"><div class="field-label">Test evidence (26 total, 5 new saga end-to-end)</div>
+      <pre class="terminal"><span class="ok">✓</span> happyPath_movesPendingThroughToConfirmed_andStampsPaymentRefAndHoldTokens
+<span class="ok">✓</span> inventoryHoldConflict_onTheFirstSeat_leavesBookingFailedAndTouchesNothingElse
+<span class="ok">✓</span> inventoryHoldConflict_onTheSecondSeat_releasesTheFirstOneAsCompensation
+<span class="ok">✓</span> paymentFailure_afterAllHolds_releasesAllHeldSeats_andMarksFailed
+<span class="ok">✓</span> releaseFailureDuringCompensation_isSwallowed_bookingStillMarkedFailed
+<span class="ok">TOTAL: 26 passed, 0 failed  (real Postgres via Testcontainers; inventory + payment mocked)</span></pre></div>
+
+      <p style="margin-top:14px;"><strong>Deliberately not there yet:</strong> Resilience4j (timeout/retry/circuit breaker on the outgoing calls) — the roadmap has it in Day 3 scope; keeping it as a follow-up pass so the saga's core state-machine logic is proven first. Also: no real HTTP integration test yet (both services actually up together) — that's Day 4 via docker-compose.</p>
+    </div>
+
+    <div class="card day" id="d35">
+      <div class="day-head"><div class="day-stamp">DAY 3.5</div><div class="day-title">Resilience4j on the outgoing calls</div></div>
+      <div class="day-files">new: InventoryTransientException, InventoryRestClientConfig · updated: InventoryClient (@Retry + @CircuitBreaker + fallbacks), pom.xml (resilience4j-spring-boot3), application.yml (retry + CB config)</div>
+
+      <p><strong>Scope:</strong> transient failures against inventory now retry with exponential backoff; persistent failure opens a circuit breaker that fails subsequent calls fast; timeout was already on the RestClient itself. Together they turn "inventory is flaky" from a caller-facing crash into a caller-facing 502 with a compensated booking row — exactly what the saga was designed to handle.</p>
+
+      <div class="field"><div class="field-label">The one design decision that made it clean</div>Split the exception into <code>InventoryClientException</code> (base) and <code>InventoryTransientException</code> (retryable subclass). Config points Retry at the subclass, tells it to ignore the base — so the saga's existing <code>catch (InventoryClientException)</code> still catches everything, and Retry knows which is safe to try again. See Concept 8.</div>
+
+      <div class="field"><div class="field-label">Config, in one glance (application.yml)</div>
+      <pre class="code-block"><code>resilience4j.retry.instances.inventory:
+  max-attempts: 3
+  wait-duration: 200ms
+  exponential-backoff-multiplier: 2      # 200ms → 400ms → 800ms
+  retry-exceptions:  [ InventoryTransientException ]
+  ignore-exceptions: [ InventoryClientException ]
+
+resilience4j.circuitbreaker.instances.inventory:
+  sliding-window-size: 10
+  failure-rate-threshold: 50             # 50%+ fails → OPEN
+  wait-duration-in-open-state: 5s
+  permitted-number-of-calls-in-half-open-state: 3
+  automatic-transition-from-open-to-half-open-enabled: true
+  record-exceptions: [ InventoryTransientException ]
+  ignore-exceptions: [ InventoryClientException ]  # 4xx is NOT unhealthy</code></pre></div>
+
+      <p><strong>Not yet proven with JUnits</strong> — the learning-first pass ended with a compile-clean implementation plus a mental walkthrough. Verifying live in Day 4's docker-compose run + rewriting a proper test in the Week-2 end pass.</p>
+    </div>
+
+    <div class="card day" id="d4">
+      <div class="day-head"><div class="day-stamp">DAY 4</div><div class="day-title">Docker Compose — both services, one command</div></div>
+      <div class="day-files">new: booking-service/Dockerfile, booking-service/.dockerignore, db-init/create-booking-db.sh · updated: docker-compose.yml, .env.example</div>
+
+      <div class="field"><div class="field-label">Post-boot topology</div>
+      <pre class="code-block"><code>┌────────────────┐   http://inventory-service:8081   ┌────────────────┐
+│booking-service │──────────────────────────────────►│inventory-service│
+│   :8082        │                                    │   :8081         │
+└──────┬─────────┘                                    └───────┬─────────┘
+       │                                                      │
+       │             ┌────────────┐          ┌──────────┐    │
+       └────────────►│ postgres   │◄─────────│ redis    │◄───┘
+        DB: booking  │  :5432     │          │  :6379   │  hold TTL
+        user: booking│  DB: inven-│          └──────────┘
+                     │  tory      │
+                     └────────────┘
+      one Postgres server, two databases (see Concept 9)</code></pre></div>
+
+      <div class="field"><div class="field-label">The three real design calls in docker-compose.yml</div>
+        <ol>
+          <li><strong>Init script for booking DB</strong> — <code>db-init/create-booking-db.sh</code> mounted at <code>/docker-entrypoint-initdb.d</code>. Runs once on a fresh <code>pgdata</code> volume. Idempotent on a repopulated volume (script won't re-run).</li>
+          <li><strong>booking → inventory</strong> is <code>condition: service_started</code>, not <code>service_healthy</code>. Startup coupling avoided; runtime resilience picks up the slack (see Concept 10).</li>
+          <li><strong>Two ports</strong> (8081, 8082) so a host-side operator can hit either service via localhost from Postman without a port collision — inside the container network the ports could have matched.</li>
+        </ol>
+      </div>
+
+      <div class="field"><div class="field-label">Mental walkthrough — what happens on <code>docker compose up --build</code></div>
+      <pre class="code-block"><code>0s    postgres boots → runs init script → inventory + booking DBs exist
+5s    postgres healthcheck passes; redis pings back
+5s    inventory-service starts (postgres+redis healthy)
+5s    booking-service starts (postgres healthy; inventory only "started")
+      ├─ booking's Postgres connect ✅
+      └─ booking has NO inventory calls at boot → boots cleanly
+
+25s   both services healthy per Actuator /health
+
+First POST /bookings:
+  1. booking inserts PENDING row (own DB)
+  2. booking → inventory /hold (through Retry + CB)
+       - blip? retry 1×, 2×
+       - permanent down? 3 attempts fail → CB starts counting failures
+       - CB opens after minimum-number-of-calls → fail-fast for 5s
+  3. Payment stub → success (in-process)
+  4. booking → inventory /confirm
+  5. 201 CONFIRMED</code></pre></div>
+
+      <p><strong>Not yet run</strong> on this machine (see the memory note about fragile Docker). Compose file is a declarative artifact — it's correct or it isn't; running is verification, not construction.</p>
+    </div>
+
+    <div class="card day" id="d5plan">
+      <div class="day-head"><div class="day-stamp">DAY 5</div><div class="day-title">Failure experiments — designed on paper</div></div>
+
+      <p>Four experiments, each one designed BEFORE we run them so the expected outcome is a real prediction (interview-answerable) not a post-hoc rationalization:</p>
+
+      <div class="table-wrap"><table>
+        <thead><tr><th>Experiment</th><th>How to run</th><th>What it must prove</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>1. Inventory killed mid-saga</strong></td>
+            <td><code>docker compose stop inventory-service</code>, then <code>POST /bookings</code></td>
+            <td>Resilience4j retry fires 3×, CB opens after N fails, booking cleanly FAILED with 502. No hung threads, no cascading crash of booking-service itself.</td>
+          </tr>
+          <tr>
+            <td><strong>2. Payment fails</strong></td>
+            <td>Restart booking with <code>BOOKING_PAYMENT_SIMULATE_FAILURE=true</code>, <code>POST /bookings</code></td>
+            <td>Hold succeeds, payment throws, compensating release fires per seat, seats return to AVAILABLE, booking marked FAILED. Bridge rows have <code>released_at</code> stamps.</td>
+          </tr>
+          <tr>
+            <td><strong>3. Response lost on confirm</strong></td>
+            <td>Kill booking mid-flight (or drop the response with a proxy), client re-posts with same <code>Idempotency-Key</code></td>
+            <td>Same key + same body → SAME <code>bookingId</code> returned. No double-charge, no double-hold. The idempotency <em>guarantee</em> from Day 2 now enforced across a distributed failure scenario.</td>
+          </tr>
+          <tr>
+            <td><strong>4. Two parallel bookings, same seat</strong></td>
+            <td>Two curls in parallel to <code>POST /bookings</code> with different keys but overlapping seatIds</td>
+            <td>Exactly one booking CONFIRMED, exactly one FAILED with 502. The 409 from inventory is <em>non-transient</em> (see Concept 8), so no retry storm — clean fail on the losing side. This is Week 1's oversell guarantee, now enforced through a service boundary.</td>
+          </tr>
+        </tbody>
+      </table></div>
+
+      <p style="margin-top:10px;"><strong>What ties them together:</strong> every experiment either exercises a compensation path (1, 2) or a correctness invariant (3, 4). Failure experiments <em>only earn their cost</em> when the prediction is written down first — otherwise it's just "let's break stuff and see." The whole point of a saga is the rollback story, so if these four don't produce their expected outcomes, the saga is broken, not the tests.</p>
+    </div>
+
+    <div class="card day" id="b4">
+      <div class="day-head"><div class="day-stamp">BUG 4</div><div class="day-title">Postgres init script silently skipped on non-fresh volume</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom (live-caught 2026-09-18 during Day 4 first-boot)</div>Both containers came up healthy. But <code>booking-service</code> would have failed at boot with "database 'booking' does not exist" — because <code>docker exec ... psql -c '\l'</code> showed only <code>inventory</code>, <code>postgres</code>, <code>template0/1</code>. No <code>booking</code> DB, no <code>booking_user</code>.</div>
+      <div class="why-box"><div class="why-label">Root cause + fix</div>The Postgres image's <code>/docker-entrypoint-initdb.d</code> runs its scripts <strong>exactly once</strong> — on the FIRST container start against a FRESH volume. Any subsequent restart (including <code>docker compose up</code> against an existing <code>pgdata</code>) skips the init entirely. Because I'd tested inventory-service before adding the booking init, the volume already had data → init never ran. <strong>Fixes:</strong> <code>docker compose down -v</code> (nuke volume) then <code>up</code> — heavyweight; OR manually run the init SQL against the running container:
+      <pre class="code-block"><code>docker exec ticketing-platform-postgres-1 psql -U inventory_user -d postgres \
+  -c "CREATE USER booking_user WITH PASSWORD 'booking_pass';"
+docker exec ticketing-platform-postgres-1 psql -U inventory_user -d postgres \
+  -c "CREATE DATABASE booking OWNER booking_user;"</code></pre>
+      <p><strong>Lesson worth keeping:</strong> anything that says "runs on first start" in Docker land really means "runs when the volume is empty, silently skipped otherwise." Prod-safe alternative is Flyway/Liquibase inside the app itself — schema migrations that run every startup, regardless of volume state. Week-2 uses <code>ddl-auto: update</code> which is fine for the entity DDL, but the CREATE DATABASE step needs a Flyway-equivalent for real deployments.</p>
+      </div>
+    </div>
+
+    <div class="card day" id="b5">
+      <div class="day-head"><div class="day-stamp">BUG 5</div><div class="day-title">The one that made retry NEVER fire — <code>ignore-exceptions</code> parent trap</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom (live-caught during Day 4 Experiment 4)</div>Killed <code>inventory-service</code>, hit <code>POST /bookings</code>. Expected: retry 3× with exponential backoff, total elapsed ~1500ms, log shows 3 transport-error lines. <strong>Got:</strong> elapsed 194ms, exactly ONE transport-error line in the log. Retry was silently doing nothing.</div>
+      <div class="why-box"><div class="why-label">Root cause</div>My original config:
+      <pre class="code-block"><code>retry-exceptions:  [ InventoryTransientException ]
+ignore-exceptions: [ InventoryClientException ]   # ← THIS was the trap</code></pre>
+      <code>InventoryTransientException extends InventoryClientException</code>. Resilience4j's <code>ignoreExceptions</code> matching uses <code>isInstance</code> — so the PARENT class in the ignore list <em>also matches the subclass</em>. The retryable subclass got matched by <em>both</em> the retry whitelist AND the ignore blacklist, and <strong>ignore wins</strong>. Result: no retry ever fires. Absolute silent failure.</div>
+      <div class="why-box"><div class="why-label">Fix — remove ignore-exceptions</div>When <code>retry-exceptions</code> is set explicitly, Resilience4j only retries those (and their subclasses); everything else is automatically not retried. <code>ignore-exceptions</code> is redundant here, and — as this bug proves — actively dangerous when it names a parent of a retry-exception type.
+      <pre class="code-block"><code># WRONG (what I had):
+retry-exceptions:  [ InventoryTransientException ]
+ignore-exceptions: [ InventoryClientException ]
+
+# RIGHT:
+retry-exceptions:  [ InventoryTransientException ]
+# no ignore-exceptions — whitelist alone is sufficient</code></pre>
+      <p>Live-verified after fix: same experiment → elapsed 1533ms, three transport-error lines with the same correlation-id in the log. Retry firing correctly.</p>
+      </div>
+      <p><strong>Lesson worth keeping:</strong> exception hierarchy meets whitelist/blacklist matching in surprising ways — always test both fire AND no-fire paths against the real config, not just the config's stated intent. If I hadn't lived-verified this, we'd have shipped a "retry" that never retried.</p>
+    </div>
+
+    <div class="card day" id="b6">
+      <div class="day-head"><div class="day-stamp">BUG 6</div><div class="day-title">CB opened correctly, but Retry kept retrying the CB-open fallback</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom (live-caught immediately after fixing B5, Day 4)</div>Fired 7 rapid requests with inventory down. CB opened correctly around request 3–4 (log shows <code>inventory_circuit_open</code> lines). But elapsed times stayed ~650ms per request — never dropped to the ~10ms "fast-fail" the CB is supposed to provide.</div>
+      <div class="why-box"><div class="why-label">Root cause</div>Default aspect ordering in Resilience4j is: <strong>Retry OUTER, CB INNER</strong>. Each Retry attempt goes through the CB. When CB is open, the CB fallback method runs. My fallback threw <code>InventoryTransientException</code> — which is IN <code>retry-exceptions</code>. So Retry saw the fallback's exception, matched it as retryable, and retried 3× more. Each of those retries also hit CB fallback, also threw transient, also retried. Fast-fail was cancelled by wasted retry rounds.</div>
+      <div class="why-box"><div class="why-label">Fix — fallback throws the NON-transient base type</div>
+      <pre class="code-block"><code>// WRONG:
+throw new InventoryTransientException(0, "circuit open for hold", open);
+
+// RIGHT:
+throw new InventoryClientException(0, "circuit open for hold", open);</code></pre>
+      <p>Base <code>InventoryClientException</code> is NOT in <code>retry-exceptions</code> → Retry skips it → CB-open really does fast-fail. The saga still catches the base exception and marks FAILED — behavior unchanged for the caller.</p>
+      </div>
+      <p><strong>Live verified after fix:</strong> attempt 1 = 1578ms (retry against real dead inventory), attempt 2 = 641ms (fewer retries as CB starts opening), attempts 3+ = ~200ms consistent (CB open, single fallback call per request, no retry storm). Exactly the shape the design promised on paper.</p>
+      <p><strong>Lesson worth keeping:</strong> when Retry wraps CB (the Spring Boot Resilience4j default), the fallback's exception shape drives the outer behavior. A fallback throwing a retryable exception silently defeats the CB's fast-fail promise. Either change the exception shape (this fix) or reverse the aspect ordering.</p>
+    </div>
+
+    <div class="card day" id="d4live">
+      <div class="day-head"><div class="day-stamp">DAY 4 · LIVE EVIDENCE</div><div class="day-title">Real docker-compose stack, 4 experiments run 2026-09-18</div></div>
+      <p>The 4 experiments predicted on paper (see Day 5 plan card above) were run against a real running stack: Postgres + Redis in Docker, inventory-service and booking-service via <code>./mvnw spring-boot:run</code> against those containers. Everything below is copied from the actual terminal, not idealized.</p>
+
+      <div class="field"><div class="field-label">Experiment 1 — Happy path</div>
+      <pre class="terminal">$ curl -X POST http://localhost:8082/bookings \
+      -H "Idempotency-Key: 70c9b7fd-04b2-4d93-a750-a23a8c798c00" \
+      -H "Content-Type: application/json" \
+      -d '{"showId":1,"seatIds":[2],"holderId":"user-A"}'
+
+<span class="ok">{"bookingId":1,"status":"CONFIRMED","showId":1,"seatIds":[2],
+ "holderId":"user-A","paymentRef":"pay-stub-bdbf9261-...",
+ "createdAt":"2026-09-18T09:06:18.75Z","confirmedAt":"2026-09-18T09:06:19.29Z"}
+HTTP 201</span>
+<span class="dim"># Full saga: PENDING → SEATS_HELD → PAYMENT_INITIATED → CONFIRMED in one round-trip</span></pre></div>
+
+      <div class="field"><div class="field-label">Experiment 2 — Idempotency contract</div>
+      <pre class="terminal"><span class="dim"># Retry SAME key + SAME body</span>
+<span class="ok">HTTP 200</span>  <span class="dim">same bookingId=1, same CONFIRMED response — no new insert</span>
+
+<span class="dim"># Retry SAME key + DIFFERENT body</span>
+<span class="bad">HTTP 422</span>  {"title":"Unprocessable Entity","status":422,
+        "detail":"Idempotency-Key '70c9b7fd-...' was already used
+        with a different request body"}</pre></div>
+
+      <div class="field"><div class="field-label">Experiment 3 — Two parallel bookings, same seat (oversell prevention through service boundary)</div>
+      <pre class="terminal"><span class="dim"># Two curls fired in parallel with different Idempotency-Keys but same seatId=[3]</span>
+
+<span class="ok">USER-A: HTTP 201  bookingId=2, status=CONFIRMED, seat 3 held+booked</span>
+<span class="bad">USER-B: HTTP 502  {"title":"Saga Failed",
+                    "detail":"inventory failure: inventory hold returned HTTP 409",
+                    "bookingId":3}</span>
+
+<span class="dim"># Seat 3 final state per /shows/1/seats/availability:</span>
+<span class="ok">{"id":3,"seatNumber":"A3","status":"BOOKED"}</span>
+<span class="dim"># Exactly ONE winner. Week 1's oversell guarantee, now enforced across services.</span>
+<span class="dim"># Note: Resilience4j did NOT retry USER-B's 409 — it's a 4xx, not transient.</span></pre></div>
+
+      <div class="field"><div class="field-label">Experiment 4 — Kill inventory mid-flight (surfaced Bug 5 + Bug 6 live)</div>
+      <pre class="terminal"><span class="dim"># Killed inventory-service PID 30992. Fire POST /bookings:</span>
+
+<span class="bad">BEFORE Bug 5 fix: HTTP 502 in 194ms  ← RETRY NEVER FIRED
+                  (log showed only 1 transport-error line)</span>
+
+<span class="dim"># Removed the parent class from ignore-exceptions in application.yml, restart:</span>
+
+<span class="ok">AFTER Bug 5 fix: HTTP 502 in 1533ms  ← 3 retries with backoff
+                 (log shows 3 transport-error lines, same correlation-id)</span>
+
+<span class="dim"># Then fire 7 rapid requests to trigger CB:</span>
+
+<span class="bad">BEFORE Bug 6 fix: all ~650ms, CB opened per log but Retry kept
+                  retrying the fallback → wasted 3× backoff per request</span>
+
+<span class="dim"># Changed fallback to throw NON-transient InventoryClientException, restart:</span>
+
+<span class="ok">AFTER Bug 6 fix: attempt 1 = 1578ms (retry vs dead inventory)
+                 attempt 2 = 641ms (fewer retries as CB opens)
+                 attempts 3-8 = ~200ms  ← CB OPEN, FAST-FAIL, no retry storm</span></pre></div>
+
+      <div class="field"><div class="field-label">Recovery — bring inventory back, watch CB auto-close</div>
+      <pre class="terminal"><span class="dim"># Restart inventory. CB config: wait-duration-in-open-state=5s + auto-half-open.</span>
+
+<span class="ok">attempt 1 (seat 9):  HTTP 201  815ms  ← CB HALF_OPEN probe, success → CB closes
+attempt 2 (seat 10): HTTP 201  303ms  ← CB fully CLOSED, normal fast happy path</span>
+<span class="dim">attempt 3 (seat 11): HTTP 502  362ms  ← seat 11 doesn't exist (only 10 seeded);
+                                          inventory returns 4xx, non-transient,
+                                          fast-fail correct</span>
+
+<span class="dim"># Final state:</span>
+<span class="ok">seat 9 → BOOKED
+seat 10 → BOOKED</span>
+<span class="dim"># Two real bookings persisted across the CB open→closed cycle.</span></pre></div>
+
+      <div class="why-box"><div class="why-label">The one paragraph summary</div>
+      Six failure experiments verified live against a real docker-compose stack. In the process, three bugs were caught live (Bugs 4, 5, 6 above) and fixed in-session. The fixes surfaced BECAUSE the tests were live and predicted — the paper design ("expected elapsed ~1500ms on retry, ~10ms on CB-open") is what made the wrong numbers stand out. If we had trusted the code without running it, both Bug 5 (silent no-retry) and Bug 6 (retry storm on CB-open) would have shipped invisible.
+      </div>
+    </div>
+
+    <h2 id="tasks" style="margin-top:60px;">Task ledger — every unit of work, with why and payoff</h2>
+    <p class="lede">A row per meaningful task done this week. "Why" is the honest reason (not just the checkbox). "Payoff" is what became possible AFTER — the actual capability delivered.</p>
+    <div class="card concept" style="padding:16px 20px;">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Task</th><th>Why we did it</th><th>Payoff</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Design doc first</strong> (<code>WEEK2_DESIGN.md</code>)</td><td>Distributed workflows have too many ways to be almost-right. Writing the state machine + boundaries + compensations BEFORE code prevents Day 3's first line from inventing the answer.</td><td>Day 2 onward had zero "what should we do here" moments. Sequence diagrams became a spec, not a wish.</td></tr>
+          <tr><td>New Maven module <code>booking-service/</code></td><td>Booking is a different lifetime (workflow) than inventory (permanent state). Same-module would tangle both under one transactional boundary.</td><td>Physical service separation → each can fail, scale, deploy on its own axis without touching the other.</td></tr>
+          <tr><td><strong>Idempotency-Key + unique index</strong></td><td>Any client can retry (browser refresh, mobile carrier). Without protection, one <em>intent</em> = many <em>bookings</em> and refund tickets.</td><td>Same request retried = same booking returned, even under a parallel race. 21 test scenarios green including a real concurrent-insert stampede.</td></tr>
+          <tr><td><strong>Canonical hash of request body</strong></td><td>A retried request with the seat list reordered is the SAME intent. Naive byte-comparison would false-fire a <code>422</code>.</td><td>Client can reorder <code>seatIds</code> freely; the 422 branch fires only on genuinely different intent.</td></tr>
+          <tr><td><strong><code>REQUIRES_NEW</code> for the insert</strong></td><td>Two parallel inserts on the same key: one wins the unique index, one throws. Continuing in the loser's SAME transaction is unsafe (Hibernate poisons the session). See Bug 3.</td><td>Race-loser cleanly re-reads and returns the winning row. Zero double-inserts under real concurrency.</td></tr>
+          <tr><td><strong>Named state transitions</strong> on Booking entity</td><td>A raw <code>setStatus()</code> lets any bug silently corrupt a terminal booking. Layer 1 of the three-layer enforcement (Concept 6).</td><td>Every write validates the current state. <code>EXPIRED → CONFIRMED</code> is unreachable, not just unlikely.</td></tr>
+          <tr><td><strong>Split <code>BookingSagaService</code></strong> from <code>BookingService</code></td><td>Idempotency + persistence (boundary concern) is genuinely different from saga orchestration (domain concern). Same-class would drag one's changes into the other.</td><td>Either can evolve without breaking the other. Different tests, different mocks, different failure modes.</td></tr>
+          <tr><td><strong>Every state transition in its own tx</strong> via <code>TransactionTemplate</code></td><td>Same-bean <code>@Transactional</code> bypasses the Spring proxy (invisible bypass). And each saga step MUST commit before the next — that's the whole definition of a saga.</td><td>Every hold/payment/confirm step is independently durable. A crash between steps leaves an auditable partial state, not orphaned holds.</td></tr>
+          <tr><td><strong>Correlation-id propagation</strong> on outgoing calls</td><td>A booking crossing two services should be one greppable trace, not two disconnected log rivers.</td><td>Grep either service's logs for one id → see the entire cross-service story.</td></tr>
+          <tr><td><strong>Split exception hierarchy</strong> (<code>InventoryTransientException</code>)</td><td>Retry policy needs to know "safe to try again" vs "the server correctly said no." Class hierarchy is the cleanest policy carrier.</td><td>4xx conflicts fail fast (no waste); 5xx retry with backoff. Config is one line: <code>retry-exceptions: [InventoryTransientException]</code>.</td></tr>
+          <tr><td><strong>Resilience4j Retry + Circuit Breaker</strong></td><td>Every microservice REST call has three failure modes (blip, outage, latency). Each has its own right tool.</td><td>Blip absorbed silently. Outage fails fast without exhausting threads. Latency capped per attempt.</td></tr>
+          <tr><td><strong>Fallback throws, doesn't degrade</strong></td><td>A booking can't fabricate a seat hold. Silent success under CB-open would be a silent oversell — the worst class of bug.</td><td>Fail-fast surfaces genuinely as a booking <code>FAILED</code> that the client can retry or investigate.</td></tr>
+          <tr><td><strong>One Postgres, two databases</strong></td><td>Two containers on this machine is wasteful; the invariant "no cross-service JOINs" is what matters, not physical separation.</td><td>Local dev boots in half the RAM. AWS split is env-vars only.</td></tr>
+          <tr><td><strong><code>service_started</code>, NOT <code>service_healthy</code></strong> for booking → inventory</td><td>Startup ordering coupling defeats one whole point of microservices. Runtime resilience picks it up.</td><td>Any service can restart independently. No serialized-parade boot times as the platform grows.</td></tr>
+          <tr><td>Failure experiments <strong>designed on paper</strong> before running</td><td>An interviewer's real question is "what did you PREDICT would happen?" A post-hoc rationalization isn't the same as a foresight.</td><td>Four experiments with pre-committed predictions — a run either confirms or shows a real gap.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <h2 style="margin-top:60px;">Bug museum — three real ones from Day 2</h2>
+
+    <div class="card day" id="b1">
+      <div class="day-head"><div class="day-stamp">BUG 1</div><div class="day-title"><code>@Override</code> signature drift across Spring versions</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom</div>Fresh compile: <code>method does not override or implement a method from a supertype</code> on <code>handleMissingRequestHeader</code>.</div>
+      <div class="why-box"><div class="why-label">Root cause + fix</div>The <code>ResponseEntityExceptionHandler</code> base has quietly shifted the signature of that method between Spring 6 minor versions — the <code>@Override</code> broke against 6.2.x. Fix: don't override the base method at all. Handle it via a direct <code>@ExceptionHandler(MissingRequestHeaderException.class)</code> — same behavior, no base-class coupling. <em>Lesson: overriding a framework's protected method means the framework can change its shape under you; a top-level <code>@ExceptionHandler</code> is the more stable seam.</em></div>
+    </div>
+
+    <div class="card day" id="b2">
+      <div class="day-head"><div class="day-stamp">BUG 2</div><div class="day-title"><code>@MockBean</code> import path — copy-paste-guessed wrong</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom</div><code>package org.springframework.boot.test.mockito does not exist</code>. Cannot find symbol <code>MockBean</code>.</div>
+      <div class="why-box"><div class="why-label">Root cause + fix</div>Correct package is <code>org.springframework.boot.test.<strong>mock.mockito</strong>.MockBean</code>. The subtle nesting — <code>mock.mockito</code>, not <code>mockito</code> — is easy to fumble writing from memory. Cross-checked inventory-service's own tests to be sure. <em>Lesson: when reusing a pattern from a working sibling module, copy the exact import, don't retype it.</em></div>
+    </div>
+
+    <div class="card day" id="b3">
+      <div class="day-head"><div class="day-stamp">BUG 3</div><div class="day-title"><em>The</em> Day-2 bug: Hibernate refuses to flush after a constraint violation</div></div>
+      <div class="bug-box"><div class="bug-label">Symptom</div>The concurrent-insert race test — the one that specifically proves idempotency under real threads — failed with a confusing error: <code>org.hibernate.AssertionFailure: null id in com.ticketing.booking.entity.Booking entry (don't flush the Session after an exception occurs)</code>. Everything else was green.</div>
+      <div class="why-box"><div class="why-label">Root cause</div>Original code kept everything in one <code>@Transactional</code> method: check → insert → catch <code>DataIntegrityViolationException</code> → re-read. But Hibernate's session is stateful. The moment the INSERT fails on the unique index, the session is <em>poisoned</em> — any subsequent operation in the same transaction (including the follow-up "re-read the winning row") triggers that <code>AssertionFailure</code>, because internal entity bookkeeping is now inconsistent. Hibernate is telling you: "don't do more work in this transaction, roll it back and start fresh."</div>
+      <div class="why-box"><div class="why-label">Fix</div>Move the INSERT into its own transaction via <code>TransactionTemplate</code> with <code>PROPAGATION_REQUIRES_NEW</code>. When the constraint violation lands, <em>that</em> transaction rolls back cleanly and independently. The outer flow's session was never poisoned, so the re-read runs against a healthy context.
+      <pre class="code-block"><code>// before: everything in one @Transactional method → race test fails
+// after:
+try {
+    Booking saved = insertTx().execute(
+        status -&gt; insertNew(key, hash, req));      // OWN tx
+    return new BookingCreationResult(toResponse(saved), true);
+} catch (DataIntegrityViolationException race) {
+    // insertTx already rolled back — safe to re-read
+    Booking winner = bookingRepository.findByIdempotencyKey(key)
+        .orElseThrow(() -&gt; race);
+    return matchOrThrow(winner, hash, key, false, "race_lost");
+}</code></pre>
+      </div>
+      <p><em>Lesson worth keeping:</em> "catch and continue" across a JPA transaction only works if you catch the failure <em>outside</em> the transaction where it happened. When the failure is a constraint violation on flush, that's non-negotiable — the session state after that flush is not something you're allowed to keep using.</p>
+    </div>
+
+    <!-- ===================== QUICK REVISION ===================== -->
+    <h2 style="margin-top:60px;">Quick revision — file by file</h2>
+
+    <div class="card concept" id="f1">
+      <div class="concept-head"><div class="concept-stamp">FILE 1</div><div class="concept-title"><code>entity/Booking.java</code></div></div>
+      <p>The booking aggregate. Own the row entirely — nothing else writes it. Unique index on <code>idempotency_key</code> is the DB-side half of the idempotency guarantee; <code>request_hash</code> lets the service distinguish "same request retried" from "same key, different intent." <code>@Version</code> for concurrent status writes. <code>@PrePersist</code> stamps <code>created_at</code> — no external clock dependency.</p>
+    </div>
+
+    <div class="card concept" id="f2">
+      <div class="concept-head"><div class="concept-stamp">FILE 2</div><div class="concept-title"><code>entity/BookingSeat.java</code></div></div>
+      <p>Bridge row per <code>(booking, seat)</code>. Day 2 populates only <code>booking_id + seat_id</code>. <code>hold_token</code> is nullable — fills in Day 3 when inventory <code>/hold</code> succeeds. <code>released_at</code> stays null until compensation runs (Day 5). Living as a separate table now, not later, so Day 3's schema stays additive — no migrations needed to add columns.</p>
+    </div>
+
+    <div class="card concept" id="f3">
+      <div class="concept-head"><div class="concept-stamp">FILE 3</div><div class="concept-title"><code>service/BookingService.java</code></div></div>
+      <p>The idempotency brain. <code>create()</code>: fast-path lookup → same body → return; different body → 422. Slow path: try to insert in <code>REQUIRES_NEW</code> — winner returns fresh, loser catches <code>DataIntegrityViolationException</code> and re-reads. <code>canonicalHash()</code> sorts seats before SHA-256 so the 422 branch never false-fires on a re-ordered retry. <code>get()</code> is read-only.</p>
+    </div>
+
+    <div class="card concept" id="f4">
+      <div class="concept-head"><div class="concept-stamp">FILE 4</div><div class="concept-title"><code>controller/BookingController.java</code></div></div>
+      <p>Thin. Two mappings. The one interesting decision is the 201-vs-200 status split based on <code>freshlyCreated</code> — same body either way, but the code lets a client tell "you actually created this now" apart from "this was already here." The header <code>Idempotency-Key</code> is <code>@RequestHeader</code> (required) — missing → 400 via the exception handler.</p>
+    </div>
+
+    <div class="card concept" id="f5">
+      <div class="concept-head"><div class="concept-stamp">FILE 5</div><div class="concept-title"><code>exception/GlobalExceptionHandler.java</code></div></div>
+      <p>RFC 7807 <code>ProblemDetail</code>. Same shape as inventory-service's — <strong>deliberately copied, not extracted</strong>. A shared lib would couple deploy cycles for a class of change (add a new mapping) that would otherwise be independent. Mappings: 400 (validation + missing header), 404 (not found), 409 (optimistic lock), 422 (idempotency key reuse), 500 (catch-all with message never leaked).</p>
+    </div>
+
+    <div class="card concept" id="f6">
+      <div class="concept-head"><div class="concept-stamp">FILE 6</div><div class="concept-title"><code>filter/CorrelationIdFilter.java</code></div></div>
+      <p>Verbatim copy of inventory's. Reads/generates <code>X-Correlation-Id</code>, sets MDC for the request's lifetime, clears in <code>finally</code> (Tomcat thread reuse). Day 3 will forward this header on the outgoing REST call to inventory — one booking, one id, two services' logs greppable together.</p>
+    </div>
+
+    <h2 id="tech" style="margin-top:60px;">Tech glossary — every library, why it's here</h2>
+    <p class="lede">Two-sentence write-up per tool: <strong>what it is</strong>, <strong>the specific problem it solves in this project</strong>. If a tool is here just because "it's popular," it shouldn't be.</p>
+    <div class="two-col" style="margin-top:24px;">
+      <div class="card mini-card">
+        <h4>Spring Boot 3.4 + Java 17</h4>
+        <p>Same baseline as inventory-service. Records, pattern-matching, <code>@RestController</code> minimalism, auto-config for JPA + validation + actuator. <strong>Solves:</strong> ordinary CRUD + REST plumbing so we focus on saga logic.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Spring Data JPA + Hibernate</h4>
+        <p><code>@Entity</code>, <code>@Version</code>, <code>JpaRepository</code>. <strong>Solves:</strong> the booking + booking_seats persistence with declarative unique constraints and optimistic locking (Concept 6, three-layer enforcement).</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Spring RestClient (Spring 6.1+)</h4>
+        <p>Fluent HTTP client, successor to RestTemplate. Sync-friendly, works with <code>SimpleClientHttpRequestFactory</code> for timeouts. <strong>Solves:</strong> the outgoing calls to inventory-service (Day 3), the substrate under Resilience4j (Day 3.5).</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Resilience4j 2.2</h4>
+        <p>Retry, CircuitBreaker, TimeLimiter, Bulkhead — modern replacement for Hystrix (dead). Annotation + config-driven. <strong>Solves:</strong> three distinct failure modes on the outgoing inventory calls (Concept 8).</p>
+      </div>
+      <div class="card mini-card">
+        <h4>PostgreSQL 16 (alpine)</h4>
+        <p>Real database, not H2 embedded. <strong>Solves:</strong> honest testing of concurrency (unique-index race in Day 2), and matches what production actually is — H2 dialect quirks would hide real bugs.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Testcontainers 1.20</h4>
+        <p>Real Postgres in a real container, spun up per test class. <strong>Solves:</strong> the "no fakes" discipline — a Testcontainer failure means a real prod-shape failure, not a H2 quirk. Same reason inventory-service uses it.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Jakarta Validation (<code>@NotBlank</code>, <code>@Size</code>, ...)</h4>
+        <p>Declarative field-level validation, applied at controller boundary via <code>@Valid</code>. <strong>Solves:</strong> incoming request validation without a manual "did the caller send X" check in every handler.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>RFC 7807 ProblemDetail</h4>
+        <p>Spring's built-in machine-parseable error responses. <strong>Solves:</strong> a consistent error contract across every endpoint — clients get <code>{ title, status, detail, ... }</code> for anything that goes wrong, not stack traces or ad-hoc strings.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>SLF4J MDC + <code>CorrelationIdFilter</code></h4>
+        <p>Servlet filter reads/generates <code>X-Correlation-Id</code>, stamps it into every log line via <code>%X{correlationId}</code>. <strong>Solves:</strong> tracing one booking across booking-service + inventory-service logs by a single grep.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Docker Compose + Alpine images</h4>
+        <p>Declarative topology: services, networks, volumes, healthchecks. <strong>Solves:</strong> one <code>docker compose up</code> gets the whole platform running for local dev without hand-installing anything.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Maven wrapper (<code>./mvnw</code>)</h4>
+        <p>Committed Maven executable pinned to a project-declared version. <strong>Solves:</strong> the "worked on my Maven 3.9, broke on their 3.6" class of bug. Same wrapper reused from inventory-service.</p>
+      </div>
+      <div class="card mini-card">
+        <h4>Lombok</h4>
+        <p><code>@RequiredArgsConstructor</code> only, sparingly. <strong>Solves:</strong> constructor-injection boilerplate. Deliberately excluded from the fat JAR (see <code>pom.xml</code>) — compile-time-only.</p>
+      </div>
+    </div>
+
+    <h2 id="decisions" style="margin-top:60px;">Decision log — where we picked A over B and why</h2>
+    <p class="lede">The decisions worth remembering. In each case there's a real B that would have looked reasonable; here's why we didn't pick it.</p>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-title">Orchestration over choreography</div></div>
+      <p><strong>Why not choreography (event-driven, no coordinator):</strong> three services, complex conditional logic (payment OK but confirm fails → refund), hard requirement that a support agent read ONE row to know a booking's fate. Choreography makes state an inference across an event stream — great when true, brittle at 2am. Revisit trigger pre-committed: switch parts to choreography when a step naturally serves 4+ independent consumers.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Idempotency-Key on the row, not a separate table</div></div>
+      <p><strong>Why not a separate <code>idempotency_keys</code> table:</strong> the key IS the booking's client-side identity, so its dedup evidence belongs with it. One INSERT with a UNIQUE index does both jobs (record + dedup). A separate table is one more write, one more thing that can race with the booking insert.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Exception hierarchy for retry policy, not a predicate class</div></div>
+      <p><strong>Why not a Java <code>Predicate&lt;Throwable&gt;</code> in config:</strong> a predicate hides its intent inside code. Class hierarchy expresses "these are retryable, these are not" declaratively. New exception subtype gets the correct default from its parent, no config drift. And the saga's own <code>catch (InventoryClientException)</code> still handles both without knowing.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Fallback throws, no graceful degradation</div></div>
+      <p><strong>Why not return a "circuit-open" sentinel HoldResponse:</strong> booking-service <em>cannot</em> invent a seat hold. Any sentinel that flows into the saga's happy path is a silent oversell waiting to happen. Fail-fast reveals the truth immediately, and the saga's existing FAILED-plus-compensate path handles it correctly.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Copy GlobalExceptionHandler across services, not extract a shared lib</div></div>
+      <p><strong>Why not <code>ticketing-platform-common</code> lib:</strong> a shared lib couples deploy cycles for a class of change (add a mapping, tweak a message) that would otherwise be independent per service. Duplication is cheap. Coupling is expensive. Same reason inventory-service and booking-service each have their own <code>CorrelationIdFilter</code>.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title"><code>TransactionTemplate(REQUIRES_NEW)</code> over <code>@Transactional</code> on private methods</div></div>
+      <p><strong>Why not just annotate helper methods:</strong> same-bean <code>@Transactional</code> is invisibly bypassed by Spring's proxy on internal calls — the transaction quietly doesn't exist. TransactionTemplate is explicit; the transaction boundary is visible where it lives. Same reason Day 2 fixed its bug by moving the insert into a template.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Payment as an in-service stub for now, not a separate service</div></div>
+      <p><strong>Why not stand up a payment-service container today:</strong> Week 3's whole scope is "split payment into its own service and add strategy for UPI/Card." Anticipating that today = double work. The stub sits behind a class boundary (<code>PaymentStub</code>) so the split is a swap, not a rewrite.</p>
+    </div>
+
+    <div class="card concept">
+      <div class="concept-head"><div class="concept-stamp">DECISION</div><div class="concept-title">Learning-first, JUnits at Week 2 end pass</div></div>
+      <p><strong>Why not test-driven at every step:</strong> Day 3.5 is a genuinely new learning surface (Resilience4j semantics + Spring AOP interaction + MockRestServiceServer wiring). Chasing a green bar can crowd out the actual understanding. Discipline for this week: implement + mentally walk through + document the reasoning; write proper JUnits in one clean pass over the finished shape.</p>
+    </div>
+
+    <h2 style="margin-top:60px;">What's next</h2>
+    <div class="card concept">
+      <p><strong>Live-verify Day 4 + Day 5</strong> — run <code>docker compose up --build</code> against a real machine (not this fragile one), execute the 4 experiments above, capture the real logs into an evidence card here.</p>
+      <p><strong>Week-2 end pass</strong> — one clean sweep of JUnit tests written against the whole finished shape: Resilience4j behavior (retry fires on transient, ignores 4xx), the docker-compose integration paths, and a proper <code>@SpringBootTest</code> for the cross-service saga using WireMock or the real inventory-service container.</p>
+      <p><strong>Weekend</strong> — you answer the 7 interview questions from <code>WEEK2_DESIGN.md §9</code>. I evaluate.</p>
+    </div>
+  </main>
+</div>
+
+<footer>Saga Lab · Week 2, Days 1–4 (code + notes; live verification pending) · 2026-09-18 · repo: <code>GenAiBackend/ticketing-platform/booking-service</code></footer>
+</body>
+</html>

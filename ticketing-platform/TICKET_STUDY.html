@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket Study Notes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F5F1E8;
+    --surface:#FFFFFF;
+    --surface-alt:#EDE6D3;
+    --ink:#1A1A1F;
+    --ink-soft:#565D6D;
+    --border:#D9D0BA;
+    --accent:#A9761F;
+    --accent-soft:#EFE0BC;
+    --qa-accent:#0D5F5F;
+    --qa-soft:#D9EAEA;
+    --qa-border:#7FB8B8;
+    --danger:#A34430;
+    --danger-soft:#F2DCD3;
+    --success:#2E7D5B;
+    --success-soft:#DBEBE1;
+    --code-bg:#1B1F2A;
+    --code-ink:#E9E4D6;
+    --code-comment:#8A93A6;
+    --code-string:#D9A54B;
+    --code-keyword:#7FB8B8;
+    --shadow: 0 1px 2px rgba(27,31,42,.06), 0 8px 24px rgba(27,31,42,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161C; --surface:#1C1F28; --surface-alt:#242833;
+      --ink:#EDE9DC; --ink-soft:#A9AFC0; --border:#343947;
+      --accent:#D9A54B; --accent-soft:#3A311D;
+      --qa-accent:#4FD4D6; --qa-soft:#153436; --qa-border:#367B7B;
+      --danger:#E08370; --danger-soft:#3C2420;
+      --success:#7BC7A3; --success-soft:#1E332A;
+      --code-bg:#0F1116; --code-ink:#E9E4D6;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161C; --surface:#1C1F28; --surface-alt:#242833;
+    --ink:#EDE9DC; --ink-soft:#A9AFC0; --border:#343947;
+    --accent:#D9A54B; --accent-soft:#3A311D;
+    --qa-accent:#4FD4D6; --qa-soft:#153436; --qa-border:#367B7B;
+    --danger:#E08370; --danger-soft:#3C2420;
+    --success:#7BC7A3; --success-soft:#1E332A;
+    --code-bg:#0F1116; --code-ink:#E9E4D6;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--ink);font-family:"Public Sans",-apple-system,sans-serif;line-height:1.65;margin:0;font-size:16.5px;}
+  h1,h2,h3,h4{font-family:"Fraunces",Georgia,serif;text-wrap:balance;color:var(--ink);margin:0 0 .4em;}
+  h1{font-size:38px;font-weight:700;}
+  h2{font-size:30px;font-weight:600;}
+  h3{font-size:22px;font-weight:600;margin-top:1em;}
+  h4{font-size:17px;font-weight:600;}
+  p{margin:0 0 1em;color:var(--ink);}
+  code,.mono{font-family:"IBM Plex Mono",monospace;font-size:.92em;}
+  code{background:var(--surface-alt);padding:1px 6px;border-radius:4px;color:var(--ink);}
+  a{color:var(--qa-accent);text-decoration:none;font-weight:500;}
+  a:hover{text-decoration:underline;}
+  .eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:11.5px;color:var(--accent);font-weight:700;margin:0 0 8px;}
+  .lede{font-size:17.5px;color:var(--ink-soft);max-width:70ch;line-height:1.6;}
+  .layout{display:flex;min-height:100%;}
+  .sidebar{width:260px;flex:none;padding:28px 20px 40px;border-right:1px solid var(--border);position:sticky;top:0;align-self:flex-start;height:100vh;overflow-y:auto;background:var(--surface);}
+  .brand-eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:10.5px;color:var(--accent);font-weight:700;}
+  .brand-name{font-family:"Fraunces",serif;font-size:24px;font-weight:700;margin:2px 0 4px;}
+  .brand-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:24px;}
+  .nav-group{margin-bottom:22px;}
+  .nav-group-title{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-soft);font-weight:700;margin:0 0 8px 8px;}
+  .nav-link{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;color:var(--ink);text-decoration:none;font-size:13.5px;line-height:1.35;}
+  .nav-link:hover{background:var(--surface-alt);text-decoration:none;}
+  .nav-tag{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;min-width:22px;text-align:center;}
+  .nav-tag.qa{color:var(--qa-accent);background:var(--qa-soft);}
+  main{flex:1;min-width:0;padding:48px 52px 120px;max-width:960px;}
+  .intro-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px 30px;margin-top:22px;box-shadow:var(--shadow);}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);}
+  .section{padding:28px 32px;margin-top:32px;}
+  .section-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:8px;padding-bottom:12px;border-bottom:2px solid var(--accent-soft);}
+  .section-stamp{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:6px;letter-spacing:.05em;}
+  .section-title{font-family:"Fraunces",serif;font-size:26px;font-weight:600;}
+  .concept-box{background:var(--surface-alt);border-left:4px solid var(--accent);border-radius:0 10px 10px 0;padding:16px 20px;margin:16px 0;}
+  .concept-box .box-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--accent);margin:0 0 6px;}
+  .analogy-box{background:#FFF9E8;border:1px dashed var(--accent);border-radius:10px;padding:14px 18px;margin:14px 0;font-style:italic;color:#5a4c1a;}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .analogy-box{background:#2A2415;color:#D9C48A;}}
+  .analogy-box::before{content:"🧠 Analogy: ";font-style:normal;font-weight:700;color:var(--accent);}
+  .why-box{border:1px solid var(--success);background:var(--success-soft);border-radius:10px;padding:14px 18px;margin:14px 0;}
+  .why-box .box-label{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--success);margin-bottom:6px;}
+  .bug-box{border:1px solid var(--danger);background:var(--danger-soft);border-radius:10px;padding:14px 18px;margin:14px 0;}
+  .bug-box .box-label{font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:6px;}
+  pre{margin:14px 0;} pre code{background:none;padding:0;color:inherit;}
+  .code-block{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:16px 18px;overflow-x:auto;font-size:13px;line-height:1.65;position:relative;}
+  .code-block .file-tag{position:absolute;top:0;right:0;background:var(--accent);color:var(--surface);font-family:"IBM Plex Mono",monospace;font-size:10.5px;padding:3px 10px;border-radius:0 10px 0 8px;font-weight:600;}
+  .code-block .cm{color:var(--code-comment);font-style:italic;}
+  .code-block .kw{color:var(--code-keyword);}
+  .code-block .st{color:var(--code-string);}
+  .code-block .ok{color:#7BC7A3;}
+  .code-block .bad{color:#E08370;}
+  .file-ref{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink-soft);background:var(--surface-alt);padding:2px 8px;border-radius:5px;display:inline-block;}
+  .file-list{background:var(--surface-alt);border-radius:10px;padding:14px 18px;margin:14px 0;}
+  .file-list-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--ink-soft);margin-bottom:8px;}
+  .file-list ul{margin:0;padding-left:20px;}
+  .file-list li{font-family:"IBM Plex Mono",monospace;font-size:12.5px;margin-bottom:4px;color:var(--ink);}
+  .table-wrap{overflow-x:auto;margin:14px 0;}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;background:var(--surface);border-radius:10px;overflow:hidden;}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);background:var(--surface-alt);font-weight:700;}
+  tr:last-child td{border-bottom:none;}
+  .qa-block{margin:36px 0;}
+  .qa-question{background:var(--qa-soft);border:2px solid var(--qa-border);border-radius:12px 12px 12px 0;padding:18px 22px;margin-bottom:0;position:relative;}
+  .qa-question .q-label{position:absolute;top:-12px;left:20px;background:var(--qa-accent);color:#FFF;font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:700;padding:4px 10px;border-radius:5px;letter-spacing:.1em;}
+  .qa-question .q-text{font-family:"Fraunces",serif;font-size:19px;font-weight:600;color:var(--qa-accent);margin:6px 0 0;line-height:1.5;}
+  .qa-question .q-said{font-size:12.5px;color:var(--ink-soft);margin-top:8px;font-style:italic;}
+  .qa-answer{background:var(--surface);border:1px solid var(--qa-border);border-top:none;border-radius:0 0 12px 12px;padding:22px 26px;box-shadow:var(--shadow);}
+  .qa-answer h3{color:var(--qa-accent);font-size:18px;margin-top:16px;}
+  .qa-answer h3:first-child{margin-top:0;}
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;}
+  @media (max-width:800px){.compare-grid{grid-template-columns:1fr;}}
+  .compare-card{border-radius:10px;padding:14px 18px;}
+  .compare-card.wrong{background:var(--danger-soft);border:1px solid var(--danger);}
+  .compare-card.right{background:var(--success-soft);border:1px solid var(--success);}
+  .compare-card .head{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+  .compare-card.wrong .head{color:var(--danger);}
+  .compare-card.right .head{color:var(--success);}
+  .compare-card pre{margin:6px 0;}
+  .pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:3px 10px;border-radius:999px;background:var(--surface-alt);border:1px solid var(--border);margin:2px 4px 2px 0;}
+  .pill.q{background:var(--qa-soft);color:var(--qa-accent);border-color:var(--qa-border);}
+  .placeholder-card{padding:22px 28px;border:2px dashed var(--border);border-radius:12px;margin-top:32px;text-align:center;background:transparent;color:var(--ink-soft);}
+  ul.clean{margin:8px 0;padding-left:22px;}
+  ul.clean li{margin-bottom:6px;}
+  ol.clean{margin:8px 0;padding-left:22px;}
+  ol.clean li{margin-bottom:8px;}
+  footer{color:var(--ink-soft);font-size:12.5px;padding:30px 52px;border-top:1px solid var(--border);margin-top:40px;}
+  @media (max-width:820px){
+    .sidebar{position:static;height:auto;width:auto;border-right:none;border-bottom:1px solid var(--border);}
+    .layout{flex-direction:column;} main{padding:32px 20px 80px;} footer{padding-left:20px;}
+    h1{font-size:30px;}
+    body{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand-eyebrow">Ticketing Platform</div>
+    <div class="brand-name">Ticket Study</div>
+    <div class="brand-sub">Rajat's deep-dive notes · Q&amp;A + concepts + code</div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Sections</div>
+      <a class="nav-link" href="#s1"><span class="nav-tag">S1</span> Problem statement</a>
+      <a class="nav-link" href="#s2"><span class="nav-tag">S2</span> Do stores, do lifetimes</a>
+      <a class="nav-link" href="#next-section" style="opacity:.55;"><span class="nav-tag">S3</span> Concurrency 2-tier defense <em style="font-size:10px;">(coming)</em></a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Q&amp;A (mine)</div>
+      <a class="nav-link" href="#q1"><span class="nav-tag qa">Q1</span> Enum vs String</a>
+      <a class="nav-link" href="#q2"><span class="nav-tag qa">Q2</span> @Version alone enough?</a>
+      <a class="nav-link" href="#q3"><span class="nav-tag qa">Q3</span> Redis fast kyun/kaise?</a>
+      <a class="nav-link" href="#q4"><span class="nav-tag qa">Q4</span> Context switch + cache + lock — easy way</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">S2 · Check-yourself</div>
+      <a class="nav-link" href="#s2-quiz"><span class="nav-tag">?</span> 3 sawaal to try</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-title">Companion files</div>
+      <a class="nav-link" href="SEAT_LOCK.html">📄 SEAT_LOCK — Week 1 build log</a>
+      <a class="nav-link" href="SAGA_LAB.html">📄 SAGA_LAB — Week 2 build log</a>
+      <a class="nav-link" href="LEARNING_NOTES.md">📄 LEARNING_NOTES.md</a>
+    </div>
+  </aside>
+
+  <main>
+    <div class="eyebrow">Learning journal · updated 2026-09-18</div>
+    <h1>My Ticketing Deep-Dive</h1>
+    <p class="lede">Yeh file mera <strong>personal study companion</strong> hai. Jarvis jo bhi samjhata hai, meri Q&amp;A jo main puchhta hoon, code snippets, analogies — sab yahaan capture. <strong>Read once → revisit later → self-quiz</strong>. Baaki HTML files (SEAT_LOCK, SAGA_LAB) showcase/build-log hain; ye <em>seekhne</em> ke liye.</p>
+
+    <div class="intro-card">
+      <div style="display:flex;gap:22px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;">
+          <h4 style="margin-top:0;color:var(--accent);">🎯 Learning goal</h4>
+          <p style="margin:0;color:var(--ink);">Ticketing project ka har design decision <strong>"why"</strong> ke saath samjhna. Interview-defendable level. Rote nahi, mechanism ke saath.</p>
+        </div>
+        <div style="flex:1;min-width:220px;">
+          <h4 style="margin-top:0;color:var(--qa-accent);">💬 Format</h4>
+          <p style="margin:0;color:var(--ink);"><strong>Section</strong> = concept + code + kyun. <strong>Q&amp;A</strong> = jo main puchhun. Har section ke baad small task/quiz.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SECTION 1 ==================== -->
+    <div class="card section" id="s1">
+      <div class="section-head">
+        <div class="section-stamp">SECTION 1</div>
+        <div class="section-title">Problem statement — WHY yeh service exists</div>
+      </div>
+
+      <div class="concept-box">
+        <div class="box-label">📌 Ek line mein</div>
+        <p style="margin:0;font-size:17px;"><strong>"Ek seat ko exactly ek user milni chahiye. Chahe 500 log ek saath us pe click karein."</strong></p>
+      </div>
+
+      <p>Yeh line pura service ka design driver hai. Har class, har config, har test — isi ek line ko rakhne ke liye hai.</p>
+
+      <p><strong>Kyun important?</strong> Naive approach socho — normal CRUD app jaise:</p>
+      <pre class="code-block"><code><span class="cm">// ❌ NAIVE — the bug factory</span>
+<span class="kw">if</span> (seat.getStatus() == AVAILABLE) {
+    seat.setStatus(HELD);
+    save(seat);
+}</code></pre>
+      <p>500 threads ek saath yeh chala rahe. <strong>3-4 threads bhi easily "AVAILABLE" dekh lenge simultaneously</strong> aur sab HELD kar denge. Sab 4 users ko "You got the seat!" email. <strong>Legal, refund, brand disaster.</strong></p>
+
+      <div class="analogy-box">
+        Concert mein last row ka lone seat — 3 log ek saath ushi ki taraf lapkate hain. <strong>Sirf ek baith payega.</strong> Baaki 2 ko usher kehta hai "sorry sir, taken." Software mein bhi bilkul yehi behavior chahiye — silently accept nahi, saaf <code>409 Conflict</code> batao.
+      </div>
+
+      <h3>Code — jahaan yeh promise physically enforced hoti hai</h3>
+      <p><code>Seat</code> entity mein ek line hai jo pura promise carry karti hai:</p>
+
+      <pre class="code-block"><span class="file-tag">Seat.java</span><code><span class="cm">// ticketing-platform/inventory-service/src/main/java/</span>
+<span class="cm">// com/ticketing/inventory/entity/Seat.java</span>
+
+<span class="kw">@Entity</span>
+<span class="kw">@Table</span>(
+    name = <span class="st">"seats"</span>,
+    uniqueConstraints = <span class="kw">@UniqueConstraint</span>(
+        columnNames = {<span class="st">"show_id"</span>, <span class="st">"seat_number"</span>}
+    )
+)
+<span class="kw">public class</span> Seat {
+
+    <span class="kw">@Id</span>
+    <span class="kw">@GeneratedValue</span>(strategy = GenerationType.IDENTITY)
+    <span class="kw">private</span> Long id;
+
+    <span class="kw">@Column</span>(name = <span class="st">"show_id"</span>, nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> Long showId;
+
+    <span class="kw">@Column</span>(name = <span class="st">"seat_number"</span>, nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> String seatNumber;
+
+    <span class="kw">@Enumerated</span>(EnumType.STRING)
+    <span class="kw">@Column</span>(nullable = <span class="kw">false</span>)
+    <span class="kw">private</span> SeatStatus status = SeatStatus.AVAILABLE;
+
+    <span class="kw">@Version</span>   <span class="cm">// ← ⚡ THE oversell-prevention primitive</span>
+    <span class="kw">private</span> Long version;
+}</code></pre>
+
+      <p><strong>Yeh entity hi contract hai.</strong> <code>status</code> ka lifecycle: <code>AVAILABLE → HELD → BOOKED</code>. <code>@Version</code> field is the oversell-prevention weapon (Q2 mein full deep dive).</p>
+
+      <div class="file-list">
+        <div class="file-list-label">📂 Files jo touch hue Section 1 mein</div>
+        <ul>
+          <li>inventory-service/src/main/java/com/ticketing/inventory/entity/Seat.java</li>
+          <li>inventory-service/src/main/java/com/ticketing/inventory/entity/SeatStatus.java</li>
+          <li>inventory-service/src/main/java/com/ticketing/inventory/config/SeatSeedConfig.java  <span style="color:var(--ink-soft);">← 10 demo seats seed karta hai for show 1</span></li>
+        </ul>
+      </div>
+
+      <div class="why-box">
+        <div class="box-label">✅ Kyun yeh way</div>
+        <ul class="clean" style="margin:0;">
+          <li><strong>Enum for status, not String</strong> — invalid states impossible at compile time (Q1 mein deep)</li>
+          <li><strong><code>(show_id, seat_number)</code> unique constraint</strong> — do rows same seat ke liye impossible, DB-level protection</li>
+          <li><strong><code>@Version</code> on entity itself</strong> — concurrency primitive Hibernate ke andar built-in, no manual lock code</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ==================== Q&A 1 ==================== -->
+    <div class="qa-block" id="q1">
+      <div class="qa-question">
+        <div class="q-label">QUESTION 1</div>
+        <p class="q-text">"Enum vs String vala diff bata, samjha nahi."</p>
+        <div class="q-said">Section 1 mein maine bola "enum for status, not String" — but reason mein depth chahiye.</div>
+      </div>
+
+      <div class="qa-answer">
+        <h3>Agar String use kiya hota</h3>
+        <p>Imagine yeh likha hota:</p>
+        <pre class="code-block"><code><span class="kw">@Column</span>(nullable = <span class="kw">false</span>)
+<span class="kw">private</span> String status = <span class="st">"AVAILABLE"</span>;   <span class="cm">// ← String</span></code></pre>
+
+        <p>Toh yeh sab <strong>compile karega</strong> (koi error nahi):</p>
+        <pre class="code-block"><code>seat.setStatus(<span class="st">"HELD"</span>);        <span class="ok">// ✅ correct</span>
+seat.setStatus(<span class="st">"held"</span>);        <span class="cm">// ✅ compiles, DIFFERENT value (case!)</span>
+seat.setStatus(<span class="st">"BOOKD"</span>);       <span class="cm">// ✅ compiles — typo, INVALID state in DB</span>
+seat.setStatus(<span class="st">"PENDING"</span>);     <span class="cm">// ✅ compiles — made-up state</span>
+seat.setStatus(<span class="st">"cancelled"</span>);   <span class="cm">// ✅ compiles — string koi bhi</span></code></pre>
+
+        <p>Ab imagine kal koi check likhta hai:</p>
+        <pre class="code-block"><code><span class="kw">if</span> (seat.getStatus().equals(<span class="st">"HELD"</span>)) {
+    <span class="cm">// release logic</span>
+}</code></pre>
+        <div class="bug-box">
+          <div class="box-label">🐛 Silent bug</div>
+          Yeh code <strong>silently fail hoga</strong> jab koi purana row <code>"held"</code> (lowercase) rakhta ho. Runtime bug — production mein pakda jayega, debugger mein baithke saara code padhna hoga.
+        </div>
+
+        <h3>Enum use kiya, toh:</h3>
+        <pre class="code-block"><code><span class="kw">public enum</span> SeatStatus {
+    AVAILABLE, HELD, BOOKED
+}
+
+<span class="kw">@Enumerated</span>(EnumType.STRING)
+<span class="kw">@Column</span>(nullable = <span class="kw">false</span>)
+<span class="kw">private</span> SeatStatus status = SeatStatus.AVAILABLE;</code></pre>
+
+        <p>Ab yeh sab <strong>compile hi nahi hoga:</strong></p>
+        <div class="compare-grid">
+          <div class="compare-card wrong">
+            <div class="head">❌ Won't compile</div>
+            <pre style="margin:0;"><code style="font-size:12px;">seat.setStatus(SeatStatus.held);
+seat.setStatus(SeatStatus.BOOKD);
+seat.setStatus(SeatStatus.PENDING);
+seat.setStatus("HELD");           <span class="cm">// type mismatch</span></code></pre>
+          </div>
+          <div class="compare-card right">
+            <div class="head">✅ Compiles</div>
+            <pre style="margin:0;"><code style="font-size:12px;">seat.setStatus(SeatStatus.HELD);
+seat.setStatus(SeatStatus.AVAILABLE);
+seat.setStatus(SeatStatus.BOOKED);</code></pre>
+          </div>
+        </div>
+
+        <div class="why-box">
+          <div class="box-label">💡 The core win</div>
+          <strong>Runtime bug → compile error. Bug production mein aayega hi nahi.</strong> IDE se autocomplete milta, refactor safe hai (rename works everywhere), switch statement exhaustive check kar sakta hai.
+        </div>
+
+        <h3>Bonus power — exhaustive switch</h3>
+        <pre class="code-block"><code><span class="kw">switch</span> (seat.getStatus()) {
+    <span class="kw">case</span> AVAILABLE -> ...
+    <span class="kw">case</span> HELD -> ...
+    <span class="kw">case</span> BOOKED -> ...
+    <span class="cm">// ← agar main naya enum value add karu (say EXPIRED),</span>
+    <span class="cm">//   compiler WARN karega ki EXPIRED handle nahi kiya</span>
+}</code></pre>
+        <p>String mein yeh possible hi nahi.</p>
+
+        <h3>⚠️ Ek gotcha — <code>EnumType.STRING</code> vs <code>EnumType.ORDINAL</code></h3>
+        <div class="compare-grid">
+          <div class="compare-card right">
+            <div class="head">✅ EnumType.STRING (I used this)</div>
+            <p style="margin:6px 0;font-size:14px;">DB column mein literally <code>"HELD"</code> / <code>"AVAILABLE"</code> / <code>"BOOKED"</code> store hota. Human-readable, name-based, reorder-safe.</p>
+          </div>
+          <div class="compare-card wrong">
+            <div class="head">❌ EnumType.ORDINAL (danger)</div>
+            <p style="margin:6px 0;font-size:14px;">DB mein <code>0, 1, 2</code> store hota (position-based). <strong>Kal koi enum values reorder karle</strong> — <code>AVAILABLE, BOOKED, HELD</code> — toh purane rows jo <code>1</code> rakhte the woh <code>HELD</code> se <code>BOOKED</code> ban gaye. <strong>Data corruption, no error, no warning.</strong></p>
+          </div>
+        </div>
+
+        <div class="why-box">
+          <div class="box-label">📌 Rule to remember</div>
+          <strong>Hamesha <code>@Enumerated(EnumType.STRING)</code>.</strong> Position pe nahi, naam pe depend karo.
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Q&A 2 ==================== -->
+    <div class="qa-block" id="q2">
+      <div class="qa-question">
+        <div class="q-label">QUESTION 2</div>
+        <p class="q-text">"Locking mein <code>@Version</code> annotation hi enough hai concurrency ke liye Hibernate mein?"</p>
+        <div class="q-said">Section 1 kaha <code>@Version</code> is the oversell weapon — but kaafi hai kya woh alone?</div>
+      </div>
+
+      <div class="qa-answer">
+        <div class="concept-box">
+          <div class="box-label">📌 Short answer</div>
+          <strong>Haan — LEKIN sirf ek specific case ke liye:</strong> "prevent lost updates on the same row." Baaki concurrency problems ke liye alag tools chahiye.
+        </div>
+
+        <h3><code>@Version</code> exactly kya karta hai — mechanics</h3>
+        <p>Har <code>UPDATE</code> Hibernate automatically yeh SQL generate karta hai:</p>
+        <pre class="code-block"><code><span class="kw">UPDATE</span> seats
+<span class="kw">SET</span> status = <span class="st">'HELD'</span>, version = 2
+<span class="kw">WHERE</span> id = 5 <span class="kw">AND</span> version = 1;   <span class="cm">-- ← old version bhi WHERE mein</span></code></pre>
+
+        <p>Ab imagine 2 threads race karte hain:</p>
+        <pre class="code-block"><code><span class="cm">Time    Thread A                            Thread B</span>
+<span class="cm">------  ----------------------------------  ----------------------------------</span>
+t0      SELECT * FROM seats WHERE id=5
+        <span class="ok">→ row {status=AVAILABLE, version=1}</span>
+
+t1                                          SELECT * FROM seats WHERE id=5
+                                            <span class="ok">→ row {status=AVAILABLE, version=1}</span>
+
+t2      UPDATE ... WHERE id=5 AND version=1
+        <span class="ok">→ 1 row updated ✅</span>
+        <span class="ok">→ row now {status=HELD, version=2}</span>
+
+t3                                          UPDATE ... WHERE id=5 AND version=1
+                                            <span class="bad">→ 0 rows updated (version is now 2!)</span>
+                                            <span class="bad">→ Hibernate throws</span>
+                                            <span class="bad">  OptimisticLockingFailureException</span></code></pre>
+
+        <div class="why-box">
+          <div class="box-label">🎯 The magic</div>
+          <strong>Thread B ka WHERE clause match nahi karta, so 0 rows updated, so Hibernate exception throw karti hai.</strong> Second writer ko <strong>error</strong> milta hai — silent overwrite nahi. <em>Yehi lost-update prevention hai.</em>
+        </div>
+
+        <h3>Kab yeh enough hai — hamare case mein</h3>
+        <p>Hamari need: <em>"do parallel writers ek seat par, dono kuch update karna chahte hain — dono ko safely allow mat karo. Ek ko error do."</em></p>
+        <p><strong><code>@Version</code> iske liye exactly designed hai. Enough hai.</strong></p>
+
+        <h3>Kab yeh enough NAHI hai — 4 cases</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Scenario</th><th>Problem with <code>@Version</code></th><th>Right tool</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>1. Wait karna hai jab tak lock free ho</strong></td>
+              <td><code>@Version</code> wait nahi karta, immediate fail karta</td>
+              <td><code>SELECT ... FOR UPDATE</code> (pessimistic) via <code>@Lock(LockModeType.PESSIMISTIC_WRITE)</code>. Bank account debit jaisa jahan sequentially process karna hai.</td>
+            </tr>
+            <tr>
+              <td><strong>2. Reads bhi block karne hain during write</strong></td>
+              <td><code>@Version</code> reads allow karta hai, sirf conflicting writes fail</td>
+              <td>Transaction isolation level <code>SERIALIZABLE</code></td>
+            </tr>
+            <tr>
+              <td><strong>3. Multi-row atomic operation</strong></td>
+              <td><code>@Version</code> per row hai, cross-row atomicity nahi</td>
+              <td><code>@Transactional</code> + all-or-nothing rely (koi 1 row fail → sab rollback)</td>
+            </tr>
+            <tr>
+              <td><strong>4. Distributed lock — multiple services compete</strong></td>
+              <td><code>@Version</code> sirf ek DB ke andar kaam karta</td>
+              <td><strong>Redis SETNX</strong> (jaisa hamne kiya), Zookeeper, etcd</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <h3>Hamari 2-tier defense mein exactly yehi kyun</h3>
+        <pre class="code-block"><code>Redis SETNX (Tier 1) → distributed hot-path lock, fast fail-early
+        ↓
+Postgres <span class="kw">@Version</span> (Tier 2) → DB-level correctness backstop</code></pre>
+
+        <ul class="clean">
+          <li><strong>Redis SETNX</strong> — Tier 1 — pura ecosystem across services ke liye. Kal booking-service bhi same seat pe compete karega (Week 2 mein exactly yehi hua).</li>
+          <li><strong><code>@Version</code></strong> — Tier 2 — DB row-level. Even if kisi ne Redis skip karke direct <code>UPDATE seats</code> kiya, <code>@Version</code> protect karega.</li>
+        </ul>
+
+        <div class="why-box">
+          <div class="box-label">💡 Deep principle</div>
+          <strong>Alag concerns, alag tools.</strong> Redundant lagti hai but har ek different failure mode ko cover karti hai. Redis = fast optimization for the hot path. <code>@Version</code> = the immutable law that binds every writer.
+        </div>
+
+        <div class="concept-box">
+          <div class="box-label">🎓 Interview-ready summary</div>
+          <p style="margin:0;"><em>"<code>@Version</code> optimistic locking implement karti hai — enough hai jab hum accept karte hain ki concurrent writer ko clean error dena OK hai (contrast with pessimistic locking jahan wait karna required hai). For distributed setups (multiple services, multiple DB nodes) additional layer chahiye — hamne Redis SETNX se ye layer add ki."</em></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SECTION 2 ==================== -->
+    <div class="card section" id="s2">
+      <div class="section-head">
+        <div class="section-stamp">SECTION 2</div>
+        <div class="section-title">Do stores, do lifetimes — deliberately</div>
+      </div>
+
+      <div class="concept-box">
+        <div class="box-label">📌 Ek line mein</div>
+        <p style="margin:0;font-size:17px;"><strong>"Alag nature ki data alag stores mein. Forever data → durable Postgres. TTL claim → ephemeral Redis. Dono lagayi hain, dono ki alag zimmedari hai."</strong></p>
+      </div>
+
+      <p>Sabse pehla sawaal jo koi bhi puchhega: <strong>"bhai ek Postgres se kaam nahi chal jata? Redis kyun bhi lagi?"</strong></p>
+
+      <p>Technically chal jata, <strong>but bahut buri tarah se.</strong> Ek store se do bilkul alag jobs karwana would need us to write a LOT of custom infrastructure code that Redis gives us for free.</p>
+
+      <p>Do jobs hain jo hume ek saath karne hain:</p>
+      <ol class="clean">
+        <li><strong>"Yeh seat exist karti hai aur uska final status kya hai"</strong> — permanent record</li>
+        <li><strong>"Kisi ne 5 min pehle claim kiya hai, still uski"</strong> — temporary claim jo apne aap khatam ho jaye</li>
+      </ol>
+      <p>Ye do jobs ki <strong>nature</strong> hi alag hai. Ek permanent, ek temporary. <strong>Alag jobs = alag tools.</strong></p>
+
+      <div class="analogy-box">
+        Library imagine karo. <strong>Books catalog</strong> = thick permanent register, kabhi delete nahi hota, library jal jaye toh backup se restore. <strong>Sticky notes</strong> "reserved for member X" — glue commercial-grade nahi, <strong>5 baje shaam khud gir jaati</strong>. Deliberately weak glue. Agar hum sticky notes ko permanent glue se chipkate — member nahi aya toh book <strong>forever "reserved"</strong>, librarian manually har note check kar ke remove kare. Redis in hamare system ki <strong>wahi sticky note hai</strong> — deliberate weak glue.
+      </div>
+
+      <h3>Full picture — ek diagram</h3>
+      <pre class="code-block"><code>                        ┌──────────────────────────┐
+                        │   inventory-service      │
+                        │                          │
+       "seat exist?" ──►│  hold, release,          │
+       "hold karna?"    │  confirm, availability   │
+                        └──────────┬───────────────┘
+                                   │
+                    ┌──────────────┴───────────────┐
+                    ▼                              ▼
+       ┌────────────────────┐          ┌──────────────────────┐
+       │  <span class="ok">Postgres</span>          │          │  <span class="kw">Redis</span>               │
+       │  seats table       │          │  hold:{seatId} = ... │
+       │                    │          │                       │
+       │  <span class="ok">DURABLE</span>           │          │  <span class="kw">EPHEMERAL</span>           │
+       │  (source of truth) │          │  (5-min claim)       │
+       │                    │          │                       │
+       │  volume: pgdata <span class="ok">✅</span> │          │  volume: <span class="bad">NONE ✗</span>      │
+       │  survives restart  │          │  loses on restart —   │
+       │                    │          │  DELIBERATELY         │
+       └────────────────────┘          └──────────────────────┘</code></pre>
+
+      <h3>Comparison — do stores, side-by-side</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Aspect</th><th>Postgres (<code>seats</code> table)</th><th>Redis (<code>hold:{seatId}</code> key)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Kya rakhta hai</strong></td><td><code>id, show_id, seat_number, status, version</code></td><td><code>holderId</code> string</td></tr>
+          <tr><td><strong>Kab likha jata</strong></td><td>Create hone pe (once), hold/confirm ke UPDATE mein</td><td><code>POST /hold</code> succeed hone pe</td></tr>
+          <tr><td><strong>Lifetime</strong></td><td>Forever — seat exist karti rehti hai, status change hota</td><td>5 min TTL, ya explicit release/confirm ke baad</td></tr>
+          <tr><td><strong>Kaise expire hota</strong></td><td>Kabhi nahi — sirf update hota</td><td>Redis khud auto-delete karta TTL ke baad</td></tr>
+          <tr><td><strong>Restart pe kya hota</strong></td><td>Data survives (volume-backed)</td><td><strong>Data khoye — DELIBERATELY</strong></td></tr>
+          <tr><td><strong>Purpose</strong></td><td>"Kya hai"</td><td>"Abhi kisne claim kiya hai"</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>🔑 The crucial insight — Redis ko volume kyun NAHI diya</h3>
+      <p>Yeh sabse important design decision hai is section ka. Counterintuitive.</p>
+
+      <div class="concept-box">
+        <div class="box-label">🤔 Normal reflex vs sahi choice</div>
+        <p style="margin:0;"><strong>Normal reflex:</strong> "Data hai, volume do — restart pe kho jayega warna."<br>
+        <strong>Ye yahaan galat hai.</strong> Kyun? Do scenarios socho.</p>
+      </div>
+
+      <h3>Redis crash scenario — power cut moment</h3>
+      <p>20 holds active the crash ke waqt. Ab do worlds ki tulna:</p>
+
+      <div class="compare-grid">
+        <div class="compare-card wrong">
+          <div class="head">❌ Scenario A: Redis volume-BACKED hoti</div>
+          <ul class="clean" style="margin:6px 0;font-size:14px;">
+            <li>Restart hoke sab 20 holds wapas load ho gaye</li>
+            <li>But <strong>TTL clock reset hua hai</strong> — original 5-min timer ka pata nahi</li>
+            <li>Kuch holds "abandoned" the crash ke waqt (user ne pay nahi kiya tha)</li>
+            <li>Redis crash ne unhein <strong>"resurrect" kar diya</strong> extra 5 min ke liye</li>
+            <li><strong>Enough restarts → seats FOREVER HELD</strong></li>
+          </ul>
+        </div>
+        <div class="compare-card right">
+          <div class="head">✅ Scenario B: Redis volume-LESS (hamara design)</div>
+          <ul class="clean" style="margin:6px 0;font-size:14px;">
+            <li>Restart empty aata — <strong>saare hold keys gone</strong></li>
+            <li>Reconciliation sweep chalti — Postgres mein HELD seats + Redis mein keys nahi</li>
+            <li>Sab seats <strong>AVAILABLE</strong> kar deti</li>
+            <li>Mid-payment users ko frontend pe error milega (retry naya hold)</li>
+            <li><strong>System safe state mein — koi seat stuck nahi</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="box-label">🎯 The core insight</div>
+        <strong>Redis-no-volume = feature, not bug.</strong><br>Missing volume line in <code>docker-compose.yml</code> is the design decision, not an oversight.
+        <p style="margin-top:8px;margin-bottom:0;"><em>"Ephemeral data ko ephemeral storage mein rakho. Persistence add karne se cleanup logic manually add karna padega."</em></p>
+      </div>
+
+      <h3>Code — jahaan yeh decision physically enforced hai</h3>
+      <pre class="code-block"><span class="file-tag">docker-compose.yml</span><code><span class="cm"># ticketing-platform/docker-compose.yml</span>
+
+services:
+  <span class="ok">postgres</span>:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data   <span class="cm"># ← ✅ DURABLE, survives restart</span>
+      - ./db-init:/docker-entrypoint-initdb.d
+
+  <span class="kw">redis</span>:
+    image: redis:7-alpine
+    ports:
+      - <span class="st">"6379:6379"</span>
+    <span class="cm"># ← ⚡ NO volumes: block. Deliberate.</span>
+    <span class="cm"># ← Restart = fresh Redis = all holds gone = reconciliation frees them.</span>
+
+volumes:
+  pgdata:                                  <span class="cm"># ← declared for Postgres only</span></code></pre>
+
+      <p><strong>Compare karo:</strong></p>
+      <ul class="clean">
+        <li>Postgres section mein <code>volumes:</code> block hai + top-level <code>pgdata:</code> volume declared</li>
+        <li>Redis section mein <code>volumes:</code> block <strong>hi nahi hai</strong></li>
+        <li><strong>Yeh missing volume line is the design decision</strong>, not an oversight</li>
+      </ul>
+
+      <h3>Kaise Redis actually use hoti hai — core code</h3>
+      <pre class="code-block"><span class="file-tag">HoldService.java</span><code><span class="cm">// inventory-service/src/main/java/com/ticketing/inventory/service/HoldService.java</span>
+
+<span class="kw">private final</span> StringRedisTemplate redisTemplate;
+
+<span class="kw">@Transactional</span>
+<span class="kw">public</span> HoldResponse hold(Long showId, Long seatId, String holderId) {
+    String key = <span class="st">"hold:"</span> + seatId;
+
+    <span class="cm">// SETNX + EX in one atomic Redis command</span>
+    <span class="cm">// Redis server single-threaded = mutual exclusion guarantee</span>
+    Boolean acquired = redisTemplate.opsForValue()
+        .setIfAbsent(key, holderId, Duration.ofSeconds(300));   <span class="cm">// 5 min TTL</span>
+
+    <span class="kw">if</span> (Boolean.TRUE.equals(acquired)) {
+        <span class="kw">return</span> grantHold(showId, seatId, holderId, key);        <span class="cm">// → Postgres update</span>
+    }
+    <span class="cm">// koi aur pehle claim kar chuka</span>
+    <span class="kw">throw new</span> ConflictException(<span class="st">"Seat already held by someone else"</span>);
+}</code></pre>
+
+      <div class="concept-box">
+        <div class="box-label">💡 Yeh ek line — <code>setIfAbsent(key, holderId, Duration.ofSeconds(300))</code></div>
+        3 kaam ek saath karti hai <strong>atomically</strong>:
+        <ol class="clean" style="margin:8px 0;">
+          <li>Check if key exists (if yes, return false — fail)</li>
+          <li>Set the key with the value (if no)</li>
+          <li>Attach a 5-minute expiry (self-cleanup)</li>
+        </ol>
+        Yeh 3 alag operations hote toh atomicity break hoti — koi aur thread beech mein win kar leta. <strong>Redis ki inbuilt atomic command = single point of decision.</strong> Isliye Redis chuna, plain in-memory Java HashMap ya Postgres nahi.
+      </div>
+
+      <h3>🌍 Alternative worlds — jo hamne try nahi kiya, kyun</h3>
+      <p>Yeh interview-question wala part hai. <strong>"Yaar Postgres alone se kyun nahi?"</strong> ka full answer:</p>
+
+      <div class="table-wrap"><table>
+        <thead><tr><th>Alternative</th><th>Kya karna padta</th><th>Problem</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Postgres alone</strong><br>(no Redis)</td>
+            <td>Ek <code>holds</code> table (seat_id, holder_id, expires_at). Har hold pe INSERT. <code>@Scheduled</code> job jo <code>DELETE WHERE expires_at &lt; NOW()</code> chalati minute-minute.</td>
+            <td>Every hold is a durable DB write. <strong>Postgres write throughput becomes the flash-sale bottleneck.</strong> No cheap atomic SETNX equivalent.</td>
+          </tr>
+          <tr>
+            <td><strong>Redis alone</strong><br>(no Postgres)</td>
+            <td>Seat existence + confirmed booking sab Redis mein. Redis persistence (AOF/RDB) add karo durability ke liye.</td>
+            <td><strong>Redis crash = confirmed bookings gone forever.</strong> Users paid, ticket disappeared. Adding persistence brings Scenario A wali "resurrect" problem back.</td>
+          </tr>
+          <tr>
+            <td><strong>Dono independent</strong><br>(no coordination)</td>
+            <td>Redis says "held", Postgres says "available". Application picks one.</td>
+            <td>Divergent state means <strong>correctness is undefined.</strong> Kis pe trust karein? Impossible to reason about.</td>
+          </tr>
+          <tr>
+            <td><strong>✅ Hamara (dono coordinated)</strong></td>
+            <td>Postgres for durable state, Redis for ephemeral claim, compensating actions handle transient divergence, reconciliation sweep aligns them.</td>
+            <td>Each store used to its strength. Divergence sirf transient, reconciled quickly. <strong>Correctness clear.</strong></td>
+          </tr>
+        </tbody>
+      </table></div>
+
+      <div class="why-box">
+        <div class="box-label">✅ Kyun yeh way — 3-line summary</div>
+        <ol class="clean" style="margin:0;">
+          <li><strong>Alag lifetimes ki data alag stores mein.</strong> Forever data → durable Postgres. TTL data → ephemeral Redis.</li>
+          <li><strong>Redis-no-volume = correctness feature.</strong> Volume dena hota toh "ghost hold" problem create hoti (Scenario A).</li>
+          <li><strong>Redis atomic primitives (SETNX + EX)</strong> give mutual exclusion for free — Postgres se implement karna painful hota.</li>
+        </ol>
+      </div>
+
+      <div class="file-list">
+        <div class="file-list-label">📂 Files jo touch hue Section 2 mein</div>
+        <ul>
+          <li>docker-compose.yml  <span style="color:var(--ink-soft);">← volumes decision</span></li>
+          <li>inventory-service/src/main/java/com/ticketing/inventory/service/HoldService.java  <span style="color:var(--ink-soft);">← Redis + Postgres coord</span></li>
+          <li>inventory-service/src/main/java/com/ticketing/inventory/service/HoldReconciliationService.java  <span style="color:var(--ink-soft);">← auto-cleanup</span></li>
+          <li>inventory-service/src/main/java/com/ticketing/inventory/entity/Seat.java  <span style="color:var(--ink-soft);">← durable schema</span></li>
+        </ul>
+      </div>
+
+      <h3 id="s2-quiz" style="margin-top:24px;">🧠 Check yourself — 3 sawaal (apne words mein answer soch)</h3>
+      <div class="concept-box" style="border-left-color:var(--qa-accent);">
+        <div class="box-label" style="color:var(--qa-accent);">📝 Try before asking Jarvis</div>
+        <ol class="clean" style="margin:0;">
+          <li><strong>"Agar main Redis ko volume de doon (persistence add kar doon), Scenario A mein exact-exact kya break hoga? Ek specific example de."</strong></li>
+          <li><strong>"Reconciliation sweep 30s pe chalta hai. Agar main ise 5s ka bana doon — kya better hai? Kya trade-off hai?"</strong></li>
+          <li><strong>"Bank account balance mein hold-like feature banani ho toh Redis+TTL use karega ya nahi? Kyun?"</strong></li>
+        </ol>
+        <p style="margin-top:12px;margin-bottom:0;font-size:13.5px;color:var(--ink-soft);"><em>Jab jawab tayaar ho toh Jarvis ko batana — Q&amp;A block yahaan add ho jayega.</em></p>
+      </div>
+    </div>
+
+    <!-- ==================== Q&A 3 ==================== -->
+    <div class="qa-block" id="q3">
+      <div class="qa-question">
+        <div class="q-label">QUESTION 3</div>
+        <p class="q-text">"Redis fast kyun hai, kaise? Aur SETNX kya hai actually? Postgres bhi cache karta hai — kyun slow? Single-threaded hai but atomicity kaise? 100 clients Postgres vs Redis mein kya alag?"</p>
+        <div class="q-said">Section 2 ne bataya "RAM se fast + no scheduled cleanup jobs" — but 4 deep follow-ups: SETNX ka actual mechanism, Postgres cache ki majboori, single-thread ki magic, aur 100-client mechanics.</div>
+      </div>
+
+      <div class="qa-answer">
+
+        <!-- ========== Q3.1 ========== -->
+        <h3>Q3.1 — SETNX kya hai actually?</h3>
+        <p><strong>SETNX = SET if Not eXists.</strong> Redis ka command. Do parts:</p>
+        <ul class="clean">
+          <li><strong>SET</strong> — key ki value set karo</li>
+          <li><strong>NX</strong> — "Not eXists" flag — sirf tab set karo agar key <strong>pehle se exist nahi karti</strong></li>
+        </ul>
+
+        <p>Redis CLI mein full modern form yeh hai:</p>
+        <pre class="code-block"><code><span class="cm"># Redis CLI</span>
+&gt; SET hold:5 <span class="st">"user-A"</span> NX EX 300</code></pre>
+
+        <div class="concept-box">
+          <div class="box-label">📌 Break down</div>
+          <ul class="clean" style="margin:0;">
+            <li><code>hold:5</code> — key</li>
+            <li><code>"user-A"</code> — value</li>
+            <li><code>NX</code> — "if not exists" (agar key already hai, KUCH NAHI KARO, <code>nil</code> return)</li>
+            <li><code>EX 300</code> — expire after 300 seconds (5 min TTL)</li>
+          </ul>
+          <p style="margin-top:10px;margin-bottom:0;"><strong>Yeh EK ATOMIC command hai.</strong> Ek server ke andar single instant mein saara kaam — check + set + TTL attach.</p>
+        </div>
+
+        <h4>Purana galat pattern vs modern atomic — side by side</h4>
+        <div class="compare-grid">
+          <div class="compare-card wrong">
+            <div class="head">❌ Two-command approach (2010 era)</div>
+            <pre style="margin:0;"><code style="font-size:12px;">&gt; SETNX hold:5 <span class="st">"user-A"</span>    <span class="cm"># step 1</span>
+&gt; EXPIRE hold:5 300         <span class="cm"># step 2</span></code></pre>
+            <p style="margin:8px 0 0;font-size:13px;">Step 1 &amp; Step 2 ke beech server crash → key exists but <strong>NO TTL</strong> → seat forever HELD. Real bug tha.</p>
+          </div>
+          <div class="compare-card right">
+            <div class="head">✅ Modern atomic (hamara code)</div>
+            <pre style="margin:0;"><code style="font-size:12px;">&gt; SET hold:5 <span class="st">"user-A"</span> NX EX 300
+<span class="cm"># check + set + TTL in one</span>
+<span class="cm"># indivisible operation</span></code></pre>
+            <p style="margin:8px 0 0;font-size:13px;">Server crash mid-command → command ne effect hi nahi lia (all-or-nothing). Safe.</p>
+          </div>
+        </div>
+
+        <h4>Java code — Spring Data Redis</h4>
+        <pre class="code-block"><span class="file-tag">HoldService.java</span><code><span class="cm">// Under the hood yeh SET NX EX 300 bhejta hai Redis ko</span>
+Boolean acquired = redisTemplate.opsForValue()
+    .setIfAbsent(<span class="st">"hold:5"</span>, <span class="st">"user-A"</span>, Duration.ofSeconds(300));
+
+<span class="kw">if</span> (Boolean.TRUE.equals(acquired)) {
+    <span class="cm">// key ban gayi, hold hamara</span>
+} <span class="kw">else</span> {
+    <span class="cm">// koi aur pehle claim kar chuka</span>
+}</code></pre>
+
+        <div class="why-box">
+          <div class="box-label">💡 "3 cheezein ek saath" ka matlab</div>
+          Check karo + set karo + expire attach karo — <strong>teeno single atomic Redis command</strong> mein. Yeh SETNX + EX flag ki asli power hai. Section 2 mein jo "3 kaam ek line mein" bola — yehi hai.
+        </div>
+
+        <!-- ========== Q3.2 ========== -->
+        <h3 style="margin-top:36px;">Q3.2 — Postgres bhi cache karta hai — kyun slow phir?</h3>
+        <p><strong>Postgres DOES cache</strong> (<code>shared_buffers</code>) — typically 25% of RAM. Toh phir Redis vs Postgres cache — kya farak?</p>
+
+        <div class="concept-box">
+          <div class="box-label">📌 Core answer</div>
+          <p style="margin:0;">Postgres cache <strong>ek layer hai</strong> durable storage ke upar. Uska kaam sirf speed nahi — balki DB ka <strong>contract nibhana</strong> hai. Woh contract nibhaate-nibhaate speed ka toll padta hai.</p>
+        </div>
+
+        <h4>Postgres ki cache mein bhi jo overhead uthana padta</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Kaam</th><th>Kyun karna padta hai</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>MVCC — same row ke multiple versions</strong></td>
+              <td>Multiple transactions same time pe row read/write kar rahe — sabko apna snapshot chahiye</td>
+            </tr>
+            <tr>
+              <td><strong>Locks + latches</strong> on cache pages</td>
+              <td>100 concurrent writers ko conflict-free serve karna — fine-grained coordination</td>
+            </tr>
+            <tr>
+              <td><strong>fsync on commit</strong> — cache mein hai, but WAL disk pe likhna MANDATORY</td>
+              <td>DURABILITY guarantee — power cut pe committed transaction lost nahi hona chahiye</td>
+            </tr>
+            <tr>
+              <td><strong>Query planner + optimizer</strong> — cached data ke liye bhi plan banana</td>
+              <td>Complex SQL parse + optimize + index selection</td>
+            </tr>
+            <tr>
+              <td><strong>Constraint checking</strong> — FKs, uniques, checks</td>
+              <td>Data integrity guarantees</td>
+            </tr>
+          </tbody>
+        </table></div>
+
+        <h4>Redis mein yeh SAB overhead nahi</h4>
+        <ul class="clean">
+          <li>Multiple versions? ❌ Nahi — ek key, ek value</li>
+          <li>Locks? ❌ Nahi — single-threaded, koi coordination nahi</li>
+          <li>fsync on write? ❌ Default mein nahi (async persistence, hum toh persistence hi off kar sakte)</li>
+          <li>Query planner? ❌ Nahi — key → value, direct hash lookup</li>
+          <li>Constraint checking? ❌ Nahi — string in, string out</li>
+        </ul>
+
+        <div class="analogy-box">
+          <strong>Bank ka vault + sticky note.</strong> Postgres cache = bank's high-security vault with visible tellers — cash quickly de dete hain front desk se (cache), lekin har transaction ke saath vault mein entry likhni padti (WAL fsync), har teller ka apna ledger sync karna padta (MVCC), auditors baar-baar constraint check karte. Fast, but <strong>speed ka overhead hai kyunki bharosa banaye rakhna hai.</strong> Redis = sticky notes on the wall — "Ram ne 500 udhaar liye" bas likh diya. Koi audit trail, koi sync, koi durability promise. Wall jal jaye toh gone — but 1 second mein pooch sakte "kaun le gaya." <strong>Weaker contract = faster.</strong>
+        </div>
+
+        <h4>Practical numbers (real hardware)</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Operation</th><th>Postgres cache HIT</th><th>Redis</th></tr></thead>
+          <tbody>
+            <tr><td>Single row read</td><td>100–500 μs</td><td><strong>50–100 μs</strong> (5x faster)</td></tr>
+            <tr><td>Simple write</td><td>1–5 ms (fsync!)</td><td><strong>~50 μs</strong> (100x faster)</td></tr>
+            <tr><td>Ops/sec on modest hardware</td><td>10k–50k tx/sec</td><td><strong>100k–1M ops/sec</strong></td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="why-box">
+          <div class="box-label">🎯 Ek line summary</div>
+          Postgres cache <strong>hit case</strong> mein bhi Redis se slow kyunki Postgres ka kaam sirf "value laao" nahi hai — pura DB contract nibhana hai. <strong>Trade-off hai, na ki technical limitation.</strong>
+        </div>
+
+        <!-- ========== Q3.3 ========== -->
+        <h3 style="margin-top:36px;">Q3.3 — Single-threaded hai but atomicity kaise ban rahi?</h3>
+
+        <div class="concept-box">
+          <div class="box-label">📌 The core insight</div>
+          <p style="margin:0;"><strong>"Single-threaded" = ek CPU core par ek time mein ek command chal rahi hai.</strong> Isliye atomicity FREE mil jati — koi aur command intervene NAHI KAR SAKTA jab pehli chal rahi.</p>
+        </div>
+
+        <h4>Redis server ka main event loop — pseudocode</h4>
+        <pre class="code-block"><code><span class="kw">while</span> (<span class="kw">true</span>) {
+    command = get_next_command_from_client();   <span class="cm">// ek client se</span>
+    execute(command);                            <span class="cm">// pura execute</span>
+    write_response(client);                      <span class="cm">// response bhej</span>
+    <span class="cm">// ← ab agli iteration → next client</span>
+}</code></pre>
+
+        <p>100 clients aa rahe hain <code>SETNX</code> ke saath — sab <strong>queue</strong> mein baithe. Redis ek-ek karke process karta.</p>
+
+        <h4>SETNX ke andar kya-kya hota — internally</h4>
+        <p>Jab client bhejta <code>SET hold:5 "user-A" NX EX 300</code>, Redis server:</p>
+        <pre class="code-block"><code><span class="ok">1.</span> Command parse karo — <span class="st">"SET NX EX combination"</span>
+<span class="ok">2.</span> Hash table mein dekh — key <span class="st">"hold:5"</span> exist karti hai?
+     - Haan → <span class="kw">return</span> nil, done
+     - Nahi → continue
+<span class="ok">3.</span> Key <span class="st">"hold:5"</span> = <span class="st">"user-A"</span> set kar
+<span class="ok">4.</span> Key ka TTL = 300s set kar
+<span class="ok">5.</span> <span class="kw">Return</span> OK</code></pre>
+
+        <p><strong>Yeh 5 steps INSIDE the single event-loop iteration hain.</strong> Beech mein koi aur command intervene <strong>NAHI KAR SAKTA</strong> — kyunki server single-threaded. <em>Yehi atomicity hai.</em></p>
+
+        <h4>2 clients ka timeline — visualization</h4>
+        <pre class="code-block"><code>Time  Client A                    Client B                    Redis Server
+────  ────────────                ────────────                ──────────────────────────
+t0    SET hold:5 <span class="st">"A"</span> NX EX 300 →                             [Queue: A's command]
+                                                              Start processing A:
+t1                                                              - key exist? NO
+                                                                - set key = <span class="st">"A"</span>
+                                                                - set TTL = 300s
+                                                                - <span class="kw">return</span> OK ↓
+t1    <span class="ok">← OK</span>
+
+t2                                SET hold:5 <span class="st">"B"</span> NX EX 300 →  [Queue: B's command]
+                                                              Start processing B:
+t3                                                              - key exist? YES (<span class="st">"A"</span>)
+                                                                - do nothing (NX flag)
+                                                                - <span class="kw">return</span> nil ↓
+t3                                <span class="bad">← nil (0)</span></code></pre>
+
+        <p><strong>Beech mein Client B kabhi bhi A ke half-completed state ko nahi dekh sakta.</strong> Kyunki A ka pura command run hote hote, B ka command wait mein hai. <strong>Yeh single-threading = free atomicity.</strong></p>
+
+        <h4>Multi-threaded server (Postgres jaisa) hota toh?</h4>
+        <pre class="code-block"><code>Client A ka thread:               Client B ka thread:
+─────────────────                 ─────────────────
+Read key?
+                                   Read key?  <span class="bad">← RACE! Dono ne empty dekha</span>
+
+Not exists, will set                Not exists, will set
+
+Acquire lock on hold:5              Wait for lock...
+Set value = <span class="st">"A"</span>
+Set TTL
+Release lock                        Acquire lock
+                                    Set value = <span class="st">"B"</span>  <span class="bad">← A overwritten!</span>
+                                    Set TTL
+                                    Release lock</code></pre>
+
+        <p><strong>Multi-threaded mein race condition possible unless explicit locks lagate ho.</strong> Postgres does this via row locks + transaction isolation — but yeh <strong>coordination overhead</strong> hai jo speed kha jata hai.</p>
+
+        <div class="why-box">
+          <div class="box-label">🎯 The one-liner to remember</div>
+          <strong>"Redis is fast BECAUSE it's single-threaded — not despite it. Coordination cost = zero. SETNX + EX despite being 3 logical operations = 1 indivisible unit."</strong>
+        </div>
+
+        <!-- ========== Q3.4 ========== -->
+        <h3 style="margin-top:36px;">Q3.4 — 100 clients: Postgres vs Redis mechanics</h3>
+
+        <h4>Postgres — process/thread per client</h4>
+        <pre class="code-block"><code>Client 1 → TCP connection → PG server spawns backend PROCESS 1
+Client 2 → TCP connection → PG server spawns backend PROCESS 2
+...
+Client 100 → 100 backend processes</code></pre>
+
+        <p>Har process ka apna:</p>
+        <ul class="clean">
+          <li>Memory space (heap, stack)</li>
+          <li>Query planner instance</li>
+          <li>Local buffers</li>
+          <li>Connection to shared_buffers (shared cache)</li>
+        </ul>
+
+        <h4>3 problems is architecture ke saath</h4>
+
+        <div class="bug-box" style="margin-top:12px;">
+          <div class="box-label">Problem 1 — Context switching</div>
+          <pre class="code-block" style="margin-top:8px;background:transparent;color:inherit;padding:0;"><code>Time    CPU Core 0 running:
+t0      Process 1 executing SELECT
+t1      OS timer interrupt → save Process 1 state → load Process 5 state
+        (save/load = ~1-10 microseconds, <span class="bad">wasted work</span>)
+t2      Process 5 executing UPDATE
+t3      OS timer interrupt → save Process 5 → load Process 12
+...</code></pre>
+          <p style="margin:8px 0 0;font-size:13.5px;">Kernel har 10ms (typical timer slice) pe process switch karta. <strong>100 processes, 4 cores → 25 processes/core → each gets ~40ms per cycle.</strong> Har switch = lost CPU cycles.</p>
+        </div>
+
+        <div class="bug-box">
+          <div class="box-label">Problem 2 — Cache line invalidation</div>
+          <pre class="code-block" style="margin-top:8px;background:transparent;color:inherit;padding:0;"><code>CPU Core 0 L1/L2 cache: hot with Process 1's data (say hold:5 row)
+[context switch]
+Core 0 cache: now needs Process 5's data
+Process 1's cache lines: <span class="bad">EVICTED or INVALIDATED</span>
+[context switch back to Process 1]
+Cache miss! Reload from RAM (100x slower than cache)</code></pre>
+          <p style="margin:8px 0 0;font-size:13.5px;">Modern CPUs: L1 cache ~1ns, L2 ~4ns, L3 ~10ns, RAM ~100ns. <strong>Cache miss = 100x slower memory access.</strong> 100 clients ka context switching = cache miss storm.</p>
+        </div>
+
+        <div class="bug-box">
+          <div class="box-label">Problem 3 — Shared data + locks</div>
+          <ul class="clean" style="margin:0;font-size:14px;">
+            <li>Shared buffer pool: 100 processes concurrently access</li>
+            <li>Latches (light locks) on cache pages</li>
+            <li>Row-level locks on updates</li>
+            <li>Coordination code runs on every access</li>
+          </ul>
+        </div>
+
+        <h4>Redis — single process, single thread, event loop</h4>
+        <pre class="code-block"><code>Client 1 → TCP connection (socket 1)
+Client 2 → TCP connection (socket 2)
+...
+Client 100 → 100 sockets — ALL registered in <span class="ok">ONE</span> epoll/kqueue set
+
+<span class="cm">// Redis event loop pseudocode:</span>
+<span class="kw">while</span> (<span class="kw">true</span>) {
+    ready_sockets = epoll_wait(all_100_sockets);   <span class="cm">// OS tells which have data</span>
+    <span class="kw">for</span> (socket <span class="kw">in</span> ready_sockets) {
+        command = parse(socket.read());
+        result = execute(command);
+        socket.write(result);
+    }
+}</code></pre>
+
+        <div class="why-box">
+          <div class="box-label">✅ Redis architecture ka win</div>
+          <ul class="clean" style="margin:0;">
+            <li><strong>No context switching between clients</strong> — event loop just cycles</li>
+            <li><strong>CPU cache stays HOT</strong> for Redis's internal data structures</li>
+            <li><strong>No locks</strong> — koi doosri thread nahi hai jo interfere kare. Sab kuch serialized inherently.</li>
+          </ul>
+        </div>
+
+        <h4>Concrete throughput — modest hardware (8-core, 32 GB)</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Server</th><th>Concurrent clients</th><th>Ops/sec typical</th><th>CPU cores used</th></tr></thead>
+          <tbody>
+            <tr><td>Postgres</td><td>100</td><td>20k–50k</td><td>All 8 (via 100 processes)</td></tr>
+            <tr><td><strong>Redis</strong></td><td>100</td><td><strong>500k–1M</strong></td><td><strong>1 core</strong> (single thread!)</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="concept-box" style="border-left-color:var(--qa-accent);">
+          <div class="box-label" style="color:var(--qa-accent);">🎯 The counterintuitive fact</div>
+          <p style="margin:0;"><strong>Redis using ONE core beats Postgres using EIGHT cores.</strong> Because Postgres 8 cores ka bhaari hissa context switching, lock contention, cache invalidation mein waste hota hai. Redis 1 core ka pura utilization data crunching mein — kyunki koi coordination overhead nahi.</p>
+          <p style="margin-top:10px;margin-bottom:0;"><em>Yeh koi bug nahi — designers ne consciously chosen: simpler execution model = faster raw ops. Postgres = richer guarantees, more work per op. Both correct for their purpose.</em></p>
+        </div>
+
+        <!-- ========== Q3 SUMMARY ========== -->
+        <h3 style="margin-top:36px;">🎓 Q3 — Interview-ready summary</h3>
+        <div class="concept-box">
+          <p style="margin:0;font-size:15.5px;">
+            <em>"Redis is fast because of 4 architectural choices, not one. <strong>(1)</strong> Pure RAM, no disk fsync overhead. <strong>(2)</strong> Single-threaded event loop → free atomicity + zero coordination cost. <strong>(3)</strong> Simple key-value model → O(1) hash lookup, no query planner. <strong>(4)</strong> Minimal wire protocol vs SQL. Postgres cache is slower not because RAM is different, but because Postgres cache has to serve MVCC, locks, WAL fsync, and constraint checking — the price of correctness guarantees. Both are the RIGHT choice for their contract: Postgres for durable state, Redis for ephemeral hot claims. That's why we use BOTH in the ticketing platform."</em>
+          </p>
+        </div>
+
+        <div class="file-list">
+          <div class="file-list-label">📂 Where SETNX actually runs in this project</div>
+          <ul>
+            <li>inventory-service/src/main/java/com/ticketing/inventory/service/HoldService.java <span style="color:var(--ink-soft);">← <code>redisTemplate.opsForValue().setIfAbsent(key, holderId, Duration.ofSeconds(300))</code></span></li>
+            <li>inventory-service/src/main/java/com/ticketing/inventory/service/HoldService.java <span style="color:var(--ink-soft);">← compensating <code>redisTemplate.delete(key)</code> if Postgres step fails</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Q&A 4 ==================== -->
+    <div class="qa-block" id="q4">
+      <div class="qa-question">
+        <div class="q-label">QUESTION 4</div>
+        <p class="q-text">"Context switching, cache invalidation, lock contention — teeno easy way mein samjha better understanding ke liye."</p>
+        <div class="q-said">Q3.4 mein "100 clients Postgres vs Redis" ke andar yeh 3 terms use hue — deep mein samajhna hai teeno alag alag + kaise saath mein hit karte.</div>
+      </div>
+
+      <div class="qa-answer">
+
+        <!-- ========== Q4.1 Context Switching ========== -->
+        <h3>Q4.1 — 🔄 Context Switching (CPU ka "task switching cost")</h3>
+
+        <div class="concept-box">
+          <div class="box-label">📌 Ek line mein</div>
+          <p style="margin:0;"><strong>CPU ek time pe ek hi kaam karta hai. "Multiple programs saath chalna" actually turn-by-turn hai — aur ek se doosre pe switch karne ka time-cost hi context switching hai.</strong></p>
+        </div>
+
+        <div class="analogy-box">
+          <strong>Teacher-classroom analogy.</strong> Ek classroom hai, teacher ek hi, 30 students. Har student ka alag homework help chahiye. Teacher Student #1 ki notebook check kar raha — 10 sec baad Student #7 ka haath uthta. Teacher ab #7 pe. LEKIN pehle: <strong>save state</strong> — #1 ki notebook kaunsa page thi, kaunsa problem tha yaad rakho. Phir <strong>load state</strong> — #7 ki notebook nikaalo, page dhundo, uski last query yaad karo. <strong>Yeh "save + load" ka switching-time hi context-switching cost hai.</strong> Actual teaching nahi ho raha — sirf state swap. Har 10 sec pe student badle toh <strong>40% time sirf switching mein waste.</strong>
+        </div>
+
+        <h4>CPU mein actually kya hota</h4>
+        <ul class="clean">
+          <li>CPU ke andar <strong>registers</strong> — ultra-fast tiny memory (RAM se 100x fast)</li>
+          <li>Currently chal raha program apna state (kaunsa instruction, variables ki values) registers mein rakhta</li>
+          <li>OS scheduler har <strong>~10 milliseconds</strong> pe interrupt bhejta</li>
+          <li>Interrupt aane pe:
+            <ol class="clean">
+              <li>Current process ka register state → RAM mein <strong>save</strong></li>
+              <li>Next process ka saved state → RAM se registers mein <strong>load</strong></li>
+              <li><strong>Overhead: ~1–10 microseconds per switch</strong></li>
+            </ol>
+          </li>
+        </ul>
+
+        <h4>Postgres vs Redis mein switching</h4>
+        <div class="compare-grid">
+          <div class="compare-card wrong">
+            <div class="head">❌ Postgres — 100 clients</div>
+            <ul class="clean" style="margin:6px 0;font-size:13.5px;">
+              <li>100 backend processes chal rahe</li>
+              <li>4 CPU cores available → each core juggling ~25 processes</li>
+              <li>Kernel har 10ms pe process badalta</li>
+              <li>Per second: <strong>hundreds of context switches per core</strong></li>
+              <li>~5μs × 100 switches × 4 cores = ~2ms/sec <strong>pure switching waste</strong></li>
+            </ul>
+          </div>
+          <div class="compare-card right">
+            <div class="head">✅ Redis — 100 clients</div>
+            <ul class="clean" style="margin:6px 0;font-size:13.5px;">
+              <li>1 process, 1 thread, event loop</li>
+              <li>Event loop cycles through sockets</li>
+              <li>All 100 clients handled in <strong>one thread's execution</strong></li>
+              <li><strong>Context switches between clients: ZERO</strong></li>
+              <li>Kernel time se hi cost pay hi nahi karta</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- ========== Q4.2 Cache Invalidation ========== -->
+        <h3 style="margin-top:36px;">Q4.2 — 🗃️ Cache Invalidation ("CPU ka forgetful desk")</h3>
+
+        <div class="concept-box">
+          <div class="box-label">📌 Ek line mein</div>
+          <p style="margin:0;"><strong>CPU ke andar chhote super-fast memories (caches) hote frequently used data ke liye. Context switch ya different data access ke wajah se cache "purana" ho jata → RAM se dobara laana padta → 100x slower.</strong></p>
+        </div>
+
+        <div class="analogy-box">
+          <strong>Chef-kitchen analogy.</strong> Chef ke paas 3 storage layers — <strong>saamne arm's reach</strong> (namak, mirchi, tel — L1), <strong>kitchen island</strong> (sabziyaan, common masale — L2), <strong>pantry cupboard</strong> (100+ items — L3), aur <strong>basement bulk storage</strong> (RAM). Chef naashta bana raha — sab items saamne, super fast. Suddenly big lunch order aa gaya — <strong>pilaf ke items basement se laane padenge, aur naashte ke items ko L1 se hataana padega</strong>. Kal naashta banega toh dobara basement se laane padenge. <em>"Item that was in cache is no longer relevant" = cache invalidation.</em>
+        </div>
+
+        <h4>CPU cache — real numbers</h4>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Layer</th><th>Size</th><th>Access time</th><th>Analogy</th></tr></thead>
+          <tbody>
+            <tr><td><strong>L1 cache</strong></td><td>~32 KB per core</td><td><strong>~1 ns</strong></td><td>Dimag ki baat</td></tr>
+            <tr><td><strong>L2 cache</strong></td><td>~256 KB per core</td><td>~4 ns</td><td>Almari se paper</td></tr>
+            <tr><td><strong>L3 cache</strong></td><td>~8 MB shared</td><td>~10 ns</td><td>Almari ke corner</td></tr>
+            <tr><td><strong>RAM</strong></td><td>32 GB</td><td><strong>~100 ns</strong></td><td>Doosre kamre se</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="bug-box">
+          <div class="box-label">🐛 The 100x penalty</div>
+          <strong>Cache miss = 100x slower memory access</strong> (100 ns vs 1 ns). Hardware level reality. Har cache miss ~100 CPU cycles waste — pura CPU pipeline stall while data comes from RAM.
+        </div>
+
+        <h4>Context switching + cache invalidation ka combined hit</h4>
+        <pre class="code-block"><code>Time    CPU Core 0's L1 cache state
+────    ──────────────────────────────
+t0      <span class="ok">Process 1's data (hold:5 row) — HOT in cache</span>
+t1      [context switch → Process 5]
+t2      Process 5's data loading into cache
+        → <span class="bad">Process 1's cache lines EVICTED</span>
+        → Process 1's data ab RAM mein bas
+t3      [context switch back → Process 1]
+t4      Process 1 needs hold:5 row
+        → <span class="bad">Cache miss! Reload from RAM (100 ns)</span>
+        → Har row read jo 1 ns ka tha ab 100 ns</code></pre>
+
+        <div class="analogy-box" style="margin-top:14px;">
+          <strong>Thanda vs garam engine.</strong> Cache warm = engine warm — car pickup fast, mileage good. Cache miss = cold engine — first km slow, throttle response weak. <strong>Postgres = har 10 min pe car band karke restart</strong> — har baar cold engine. <strong>Redis = engine ek baar start hui, chalti hi rahi</strong> — warm forever.
+        </div>
+
+        <div class="compare-grid" style="margin-top:14px;">
+          <div class="compare-card wrong">
+            <div class="head">❌ Postgres cache — cold cycles</div>
+            <p style="margin:6px 0;font-size:13.5px;">Har context switch cache warm-up cost lagata. 100 processes ki data L1/L2 mein fit hi nahi hoti, so miss rate high.</p>
+          </div>
+          <div class="compare-card right">
+            <div class="head">✅ Redis cache — always hot</div>
+            <p style="margin:6px 0;font-size:13.5px;">Same thread, same core, same data structures continuously accessed. Hash tables, key space — sab hot. <strong>Cache hit rate near 100%.</strong></p>
+          </div>
+        </div>
+
+        <!-- ========== Q4.3 Lock Contention ========== -->
+        <h3 style="margin-top:36px;">Q4.3 — 🔒 Lock Contention ("wait line ka waste")</h3>
+
+        <div class="concept-box">
+          <div class="box-label">📌 Ek line mein</div>
+          <p style="margin:0;"><strong>Jab multiple threads/processes ek hi shared resource par kaam karna chahte, ek time mein ek hi kar sakta — bakiyon ka wait time = lock contention cost.</strong></p>
+        </div>
+
+        <div class="analogy-box">
+          <strong>Office bathroom analogy.</strong> Ek office mein <strong>ek hi bathroom</strong>, 20 log kaam kar rahe. Kisi ko bathroom jana → darwaza check karo — locked hai kya. <strong>Locked → baahar wait.</strong> Free → andar jao, kaam karo, lock lagao. Baahar wale ne wait kiya jab tak tumne lock nahi khola. <strong>Kitna zyada waste?</strong> Depend karta busy-ness pe — <strong>peak time mein 5 min ka kaam mein 15 min waste</strong> (10 min wait, 5 min actual).
+        </div>
+
+        <h4>Code mein actual mechanics</h4>
+        <p>Postgres mein hold flow imagine karo:</p>
+        <pre class="code-block"><code><span class="kw">UPDATE</span> seats <span class="kw">SET</span> status = <span class="st">'HELD'</span> <span class="kw">WHERE</span> id = 5 <span class="kw">AND</span> version = 1;</code></pre>
+
+        <p>Postgres internally:</p>
+        <ol class="clean">
+          <li>Row 5 pe <strong>row-level lock lagata</strong></li>
+          <li>Jab tak transaction commit ya rollback nahi hoti, lock hold</li>
+          <li>Concurrent thread jo bhi row 5 UPDATE karna chahe → <strong>WAIT</strong></li>
+        </ol>
+
+        <div class="bug-box">
+          <div class="box-label">🐛 100 concurrent threads sab hold seat 5 karna chahte</div>
+          <ul class="clean" style="margin:0;">
+            <li>Har thread queue mein aata</li>
+            <li>Ek by ek process hoti — <strong>sequential effectively</strong></li>
+            <li><strong>99 threads wait mein — kuch nahi kar rahe</strong>, CPU pe hain lekin blocked</li>
+          </ul>
+        </div>
+
+        <p>Plus Postgres mein locks sirf rows pe nahi:</p>
+        <ul class="clean">
+          <li><strong>Latches</strong> — light locks on cache pages (very frequent, per-access)</li>
+          <li><strong>Advisory locks</strong> — application-level</li>
+          <li><strong>Index locks</strong> — index update ke waqt</li>
+          <li><strong>Table locks</strong> — DDL ke waqt</li>
+        </ul>
+        <p>Har lock acquire/release mein small CPU overhead. <strong>Multiplied by frequency = significant overhead.</strong></p>
+
+        <h4>Redis mein contention</h4>
+        <div class="why-box">
+          <div class="box-label">✅ Redis: contention effectively ZERO</div>
+          <p style="margin:0;">Redis single-threaded — technically ek hi conceptual "lock" hai — <strong>the event loop itself.</strong> 100 clients queue mein hain, Redis serial execute karta. <strong>"Wait" hai lekin waste nahi</strong> — kyunki serial execution mein wait "next iteration" hai, blocked-thread problem nahi. Multi-threaded mein wait = <strong>thread parked, CPU cycles gone.</strong> Single-threaded mein "wait" = <strong>just later in queue, koi CPU waste nahi.</strong></p>
+        </div>
+
+        <!-- ========== Q4.4 Combined ========== -->
+        <h3 style="margin-top:36px;">Q4.4 — 💥 Teeno saath mein — "compound hit" on Postgres</h3>
+        <p><strong>Yeh sabse important insight hai.</strong> Individually ye teeno small overhead hain — <strong>but Postgres 100-client scenario mein teeno ek saath hit karte:</strong></p>
+
+        <div class="compare-grid">
+          <div class="compare-card wrong">
+            <div class="head">❌ Postgres — compound waste</div>
+            <pre style="margin:8px 0;font-size:12.5px;line-height:1.7;"><code>├── Context switching       40% CPU time swapping states
+├── Cache invalidation      Har swap ke baad cache re-warm
+└── Lock contention         Contentious writes wait mein
+
+<span class="bad">Combined: 8-core machine ka effective
+utilization ~30%</span></code></pre>
+          </div>
+          <div class="compare-card right">
+            <div class="head">✅ Redis — elemental clean</div>
+            <pre style="margin:8px 0;font-size:12.5px;line-height:1.7;"><code>├── Context switching       ZERO (single event loop)
+├── Cache invalidation      Minimal (same core, hot data)
+└── Lock contention         ZERO (no locks, single thread)
+
+<span class="ok">Combined: 1-core machine ka effective
+utilization ~95%</span></code></pre>
+          </div>
+        </div>
+
+        <div class="why-box">
+          <div class="box-label">🎯 The math that explains it all</div>
+          <p style="margin:0;"><strong>Redis 1 core = Postgres 8 cores.</strong> Because Postgres 8 cores ka bhaari hissa context switching + cache invalidation + lock contention mein waste hota. Redis 1 core ka pura utilization data crunching mein.</p>
+        </div>
+
+        <!-- ========== Final Analogy ========== -->
+        <h3 style="margin-top:36px;">🍕 Final visualization — restaurant vs fast food counter</h3>
+
+        <div class="compare-grid">
+          <div class="compare-card wrong">
+            <div class="head">❌ Postgres = busy restaurant (8 waiters, 100 tables)</div>
+            <ul class="clean" style="margin:8px 0;font-size:13.5px;">
+              <li>Har waiter multiple tables serve karta</li>
+              <li>Waiter table-to-table jaate baar-baar (<strong>context switch</strong>)</li>
+              <li>Kitchen mein orders queue mein (<strong>lock contention on stoves</strong>)</li>
+              <li>Waiter refresher pauses when returning to table (<strong>cache miss</strong>)</li>
+              <li>Chaos, wait times variable</li>
+            </ul>
+          </div>
+          <div class="compare-card right">
+            <div class="head">✅ Redis = fast food counter (1 cashier, 1 line of 100)</div>
+            <ul class="clean" style="margin:8px 0;font-size:13.5px;">
+              <li>Ek line — ek-ek karke serve</li>
+              <li>Cashier super-fast, cycle mein sab handle</li>
+              <li>Koi table-hopping nahi, koi kitchen queue nahi</li>
+              <li>Har customer bahut jaldi mila</li>
+              <li><strong>Zero coordination overhead</strong></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="concept-box" style="margin-top:14px;border-left-color:var(--qa-accent);">
+          <div class="box-label" style="color:var(--qa-accent);">💡 The one insight</div>
+          <p style="margin:0;">Ek pizzeria mein <strong>8 waiters se busy Sunday lunch handle mushkil.</strong> Ek McDonald's counter ne <strong>500 orders/hour serve kar liye.</strong> Same insight, different architectures. <strong>Coordination cost = the real bottleneck</strong>, not the number of workers.</p>
+        </div>
+
+        <!-- ========== Q4 Interview summary ========== -->
+        <h3 style="margin-top:36px;">🎓 Q4 — Interview-ready summary</h3>
+        <div class="concept-box">
+          <p style="margin:0;font-size:15.5px;">
+            <em>"Multi-threaded server ki teen chhipi overheads hoti hain jo scale pe compound hoti hain: <strong>(1)</strong> context switching — CPU state save/load har OS timer interrupt pe, ~5μs waste per switch × hundreds/sec. <strong>(2)</strong> cache invalidation — CPU L1/L2 cache warm rehta hot data pe, context switch ke baad wo evict ho jata, cache miss = 100x slower RAM access. <strong>(3)</strong> lock contention — shared resources par threads wait mein, actual CPU utilization gir jati. Redis intentionally single-threaded event-loop model chose to eliminate all three. Yehi wajah hai Redis 1 core Postgres 8 cores se tez — cores kam nahi, coordination overhead kam."</em>
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== NEXT SECTION PLACEHOLDER ==================== -->
+    <div class="placeholder-card" id="next-section">
+      <h3 style="margin-top:0;">📖 Section 3 — coming next</h3>
+      <p style="margin:0;font-size:15px;"><strong>"Concurrency defense — 2-tier, deliberately redundant"</strong> — Redis SETNX aur Postgres <code>@Version</code> saath mein kyun. Race conditions ka full mechanism. Day 5 ka concurrent-thread experiment.</p>
+      <p style="margin-top:12px;color:var(--qa-accent);font-weight:600;font-size:14px;">👉 Jarvis se bolna "Section 3 chalu kar" jab tayaar ho.</p>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  <strong>Ticket Study Notes</strong> · Rajat's personal learning journal · <em>seekhne ke liye, showcase ke liye nahi</em> · Companion to <a href="SEAT_LOCK.html">SEAT_LOCK</a> &amp; <a href="SAGA_LAB.html">SAGA_LAB</a>
+</footer>
+</body>
+</html>
