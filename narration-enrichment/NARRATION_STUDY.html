@@ -235,6 +235,11 @@
   </nav>
 
   <nav class="nav-group">
+    <div class="nav-group-title">P3 daily interview Qs</div>
+    <a class="nav-link" href="#iq-p3-d2"><span class="nav-tag">D2</span> API key auth</a>
+  </nav>
+
+  <nav class="nav-group">
     <div class="nav-group-title">Companion</div>
     <a class="nav-link" href="NARRATION_LAB.html">NARRATION_LAB.html</a>
     <a class="nav-link" href="README.md">README.md</a>
@@ -578,6 +583,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> The current <code>run_eval.py</code> doesn't automatically ingest <code>eval/policy_seeds.json</code> before running the 5 policy-driven cases. This was a deliberate choice, not laziness. Explain the trade-off: (a) why NOT auto-ingest on every eval run (think about API quota + what "reliability" the eval is really measuring), (b) what SHOULD trigger a policy-inclusive eval run, and (c) how you'd wire the auto-ingest option in a way that keeps the plain eval cheap.</p>
     <p class="iq-hint">Hint: the interviewer is looking for "you understand what your eval is measuring." An always-ingest eval measures classification+ingest jointly; a never-ingest eval measures classification alone. A flag (<code>--with-policies</code>) that only pre-ingests when asked is one clean answer.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p3-d2">
+    <h3>P3 · Day 2 — API key auth (bearer + hashed at rest + existence-hiding)</h3>
+    <span class="iq-anchor">files: <code>auth.py</code>, <code>db.py</code> (ApiKey table), <code>scripts/create_api_key.py</code>, <code>tests/test_auth.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>auth.py</code>. Explain in one sentence what <code>secrets.token_hex(32)</code> produces (bytes? chars? entropy?) and why we use <code>secrets</code>, not <code>random</code>, to generate an API key. Then: why does <code>generate_raw_key</code> live in <code>auth.py</code> and get called only by the CLI, not by any FastAPI route?</p>
+    <p class="iq-hint">Hint: <code>random</code> is seeded from a predictable source and is fine for shuffling test data; <code>secrets</code> uses the OS's cryptographic RNG. The runtime service never mints keys; that's on purpose (P3_DESIGN §3 bootstrap security).</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> In <code>auth.verify_and_touch</code>, after the DB row is fetched by PK match, we STILL call <code>hmac.compare_digest(row.key_hash, candidate)</code>. The DB already matched by PK equality — why the extra compare? What kind of future bug does it defend against, and how much runtime does it cost per request?</p>
+    <p class="iq-hint">Hint: look at the "belt-and-braces" comment. Also — <code>hmac.compare_digest</code> on two 64-char strings is O(64), effectively free.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> P3_DESIGN §3 argues SHA-256 is enough for API keys — bcrypt / argon2 would be wrong here. Argue the opposite side (why someone reasonable might insist on argon2). Then read the design's threat-model comparison between "protecting a password" and "protecting an API key" and pick which side you'd defend in an interview, with one sentence on the trade-off you're accepting.</p>
+    <p class="iq-hint">Hint: the interviewer's real question is "do you know why the hash choice depends on the SECRET's entropy, not just on 'hashes are hashes'?" Anchor: <code>auth.py</code>'s module docstring second-to-last paragraph.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

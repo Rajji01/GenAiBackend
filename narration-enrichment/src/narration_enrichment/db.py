@@ -308,3 +308,42 @@ def list_policy_chunks_with_embeddings(db: Session) -> list[PolicyChunk]:
     column the same way it consumes EnrichmentRecord.embedding.
     """
     return db.query(PolicyChunk).filter(PolicyChunk.embedding.isnot(None)).all()
+
+
+# ---------------------------------------------------------------------------
+# P3 Day 2 — API keys for the /chat/* routes
+# ---------------------------------------------------------------------------
+
+
+class ApiKey(Base):
+    """One row per issued API key. key_hash is the SHA-256 of the
+    raw key — the DB never stores the raw material. See
+    `auth.hash_key` for the hash function used both at insert and at
+    verify time; a bug in one is a bug in both, which is intentional
+    (immediate detection instead of drift).
+
+    `label` is human-readable (e.g. "rajat-laptop") so an audit query
+    like "which keys have been idle for 90 days" is trivially
+    joinable to a real person or machine. `last_used_at` starts
+    NULL and is stamped on every successful auth — used by the same
+    audit path to spot stale credentials that should be revoked.
+    """
+
+    __tablename__ = "api_keys"
+
+    key_hash = Column(String, primary_key=True)
+    label = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_used_at = Column(DateTime, nullable=True)
+
+
+def insert_api_key(db: Session, *, key_hash: str, label: str) -> ApiKey:
+    """Only ever called from create_api_key.py (the CLI utility).
+    Kept in the repo layer so tests can round-trip inserts +
+    lookups against the same seam the CLI uses, no code duplication.
+    """
+    row = ApiKey(key_hash=key_hash, label=label)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row

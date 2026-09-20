@@ -293,6 +293,12 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">P3 — Knowledge assistant</div>
+      <a class="nav-link" href="#p3-intro"><span class="nav-tag">·</span>The idea</a>
+      <a class="nav-link" href="#p3-day2"><span class="nav-tag">D2</span>API key auth</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -1622,6 +1628,68 @@ Full suite:            128 passed (was 118)</div>
         <div class="why-label" style="color:var(--success);">P2 shipped — the whole 6-day arc in one line</div>
         <p>Day 1 = design. Day 2 = chunker (pure function) + schema (PolicyDoc, PolicyChunk, Citation). Day 3 = <code>/policies/ingest</code> idempotent by checksum. Day 4 = S3 backing with fail-closed 503 if the bucket is set but down. Day 5 = one-embed-two-searches + labeled prompt blocks + earned-not-decorated citations. Day 6 = eval extension + docs closeout. 60 new tests across the six days; full suite 128 passed; the LLM cannot smuggle a fake citation past the code (regression test in place); the whole feature is live behind a config toggle for S3 and works cleanly in the no-S3 dev path.</p>
       </div>
+    </article>
+
+    <!-- ================ P3 — Knowledge assistant (Days 2–…) ================ -->
+
+    <section id="p3-intro" style="margin-top:64px;">
+      <p class="eyebrow">Project 3 · Knowledge assistant</p>
+      <h2>From single-shot enrichment to grounded chat</h2>
+      <p>P1 turned messy narrations into structured JSON. P2 taught <code>/enrich</code> to cite policy rulebooks. P3 puts a natural-language chat surface over the whole thing: the user asks in prose ("how much did I spend on food last month?"), the service retrieves from the enrichment history + policy corpus + the last few chat turns, and the assistant answers grounded — with citations to the records it actually used. Same "earned citations" contract as P2, extended to chat: the LLM chooses the answer; the service chooses the citations.</p>
+      <p style="font-size:14.5px;">Design paper: <code><a href="P3_DESIGN.md">P3_DESIGN.md</a></code>. Six-day plan: <code><a href="ROADMAP.md">ROADMAP.md</a> §3B</code>.</p>
+    </section>
+
+    <article class="card day-card" id="p3-day2">
+      <div class="day-head">
+        <span class="day-stamp">P3 · D2</span>
+        <span class="day-title">API key auth — hashed at rest, timing-safe, existence-hiding</span>
+      </div>
+      <span class="day-files">auth.py (new) · db.py · scripts/create_api_key.py (new) · tests/test_auth.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> stand up the auth layer FIRST, before any /chat route exists. Everything P3 ships from here on depends on this — waiting until Day 4 to bolt it on is how "add auth later" turns into "we shipped an unauthed API to prod."</p>
+
+      <div class="why-box">
+        <div class="why-label">Bearer header, hashed at rest, same-error-for-both-failures</div>
+        <p>Clients send <code>X-API-Key: &lt;raw&gt;</code>. Server computes <code>sha256(raw)</code> and looks it up in the <code>api_keys</code> table — <em>the raw key is never stored anywhere.</em> A leak of the DB gives an attacker hashes to crack, not usable credentials.</p>
+        <p style="margin-top:10px;">Missing header AND wrong key both return <strong>401 with the identical body</strong> <code>{"detail":"API key missing or invalid."}</code> and the same <code>WWW-Authenticate: ApiKey</code> header. Distinguishing them lets an attacker probe for which of two error paths triggered — a classic timing/existence side-channel.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>SHA-256 is enough here (not bcrypt/argon2)</h4>
+          <p>Different threat model from passwords. Passwords are low-entropy human-chosen strings — you need the slow hash to make brute-force cost real time. API keys are 256-bit random from <code>secrets.token_hex</code>. Entropy already stops brute-force; slow-hashing adds ~100ms of CPU per <em>every</em> chat request for zero security gain.</p>
+        </div>
+        <div class="mini-card">
+          <h4>hmac.compare_digest, not ==</h4>
+          <p>The <code>==</code> operator on strings short-circuits — runtime scales with prefix-match length, another side-channel. <code>hmac.compare_digest</code> is constant-time regardless of where the mismatch happens. Used defensively even after the DB PK lookup, so a future refactor that accidentally introduces == is caught by an audit reader.</p>
+        </div>
+        <div class="mini-card">
+          <h4>CLI-only key creation, not an HTTP endpoint</h4>
+          <p><code>scripts/create_api_key.py --label ...</code> mints a key, prints the raw value to stdout ONCE, writes only the hash. Exposing key-creation over HTTP is one of the most common early footholds — keeping it out of the API surface entirely in P3 is the simplest defense. Provisioning-over-HTTP lands in P7 with Secrets Manager.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Rejected keys log the hash PREFIX, never the raw</h4>
+          <p>Server-side observability needs to know which key failed. Logging the full hash lets a leaked log correlate to a leaked key; logging the raw is a live credential in log storage. First 8 chars of the hash is enough to match a specific key without either mistake.</p>
+        </div>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">Not committed, not committable</div>
+        <p>The auth code generates raw keys at runtime with <code>secrets.token_hex(32)</code> — 256 bits of entropy per call. <em>No API key is baked into the codebase.</em> The <code>.env</code> file is gitignored and was never tracked in any commit. The <code>.env.example</code> holds only a truncated placeholder (<code>AIza...</code>) as a comment about shape. Verified in-turn by grepping the full repo history for real key patterns; zero matches.</p>
+      </div>
+
+      <div class="terminal">tests/test_auth.py — 11 passed
+  · 5 unit (hash determinism, key entropy + uniqueness, verify
+            stamps last_used_at, unknown key rejected, generic
+            error detail)
+  · 6 integration (missing → 401, wrong → 401 BYTE-FOR-BYTE
+            identical to missing, empty header treated as
+            missing, valid → 200 + resolved hash returned,
+            last_used_at stamped on success, CLI-created key
+            works through the same verify path)
+Full suite:                139 passed (was 128)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 3): the <code>chat_sessions</code> + <code>chat_turns</code> tables, and four /chat routes — all four of them auth-gated from the moment they exist, with a deterministic echo answer as the stub so the memory-plumbing can be proved before any LLM cost or flakiness gets involved.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
