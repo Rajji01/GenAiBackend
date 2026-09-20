@@ -36,6 +36,7 @@ from narration_enrichment.db import (
 from narration_enrichment.models import TransactionEnrichment
 from narration_enrichment.policy_ingest import ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
+from narration_enrichment import s3_store
 from narration_enrichment.schemas import (
     BatchEnrichRequest,
     BatchEnrichResponse,
@@ -280,6 +281,33 @@ def policies_ingest(
     def _embed(text: str) -> list[float]:
         return rag.embed_text(raw_client, text, task_type="RETRIEVAL_DOCUMENT")
 
+    # P2 Day 4: upload the raw doc to S3 first, then run the ingest
+    # with the resulting URI recorded on the PolicyDoc row. Order
+    # matters:
+    #   S3 first  → if S3 is down, we bail early with 503, no wasted
+    #               embedding budget spent on a doc that would have
+    #               ended up sourceless.
+    #   Embed after → if embed fails after a successful upload, we
+    #               leave at most one orphan S3 object (sweepable
+    #               later); no half-embedded chunks in SQLite.
+    # If S3 isn't configured (POLICY_S3_BUCKET empty), skip the
+    # upload cleanly and record source_uri=None — that's the dev
+    # path, exercised by every test in test_policy_api.py.
+    source_uri: str | None = None
+    if s3_store.is_configured():
+        try:
+            source_uri = s3_store.put_raw_doc(request.doc_id, request.content)
+        except Exception as exc:  # noqa: BLE001
+            # boto3 raises many concrete client-error types (BotoCoreError,
+            # ClientError, EndpointConnectionError, ...). Catch broadly here
+            # and let the S3-specific detail live in the log line; the
+            # client just needs to know "storage layer is down, retry."
+            logger.warning("policy_doc_s3_upload_failed doc_id=%s error=%s", request.doc_id, exc)
+            raise HTTPException(
+                status_code=503,
+                detail="Policy-doc durable storage is temporarily unavailable. Please retry.",
+            ) from exc
+
     try:
         result = ingest_policy_doc(
             db,
@@ -287,6 +315,7 @@ def policies_ingest(
             title=request.title,
             content=request.content,
             embed_fn=_embed,
+            source_uri=source_uri,
         )
     except ValueError as exc:
         # Empty content or a chunker→0 divergence — 400, caller bug.
@@ -334,3 +363,14 @@ def policies_delete(doc_id: str, db: Session = Depends(get_db)) -> None:
     # not 404. Callers running "delete then re-ingest" flows in a
     # loop don't have to special-case first-time-through.
     delete_policy_doc(db, doc_id)
+    # P2 Day 4: also clean up the S3 object if S3 is configured.
+    # Kept best-effort — if S3 is down, the DB row is already gone
+    # and the S3 object becomes a sweep-later orphan rather than
+    # blocking the delete. This is the "durable storage is a cache
+    # of the source of truth for reads, not the write authority"
+    # framing from P2_DESIGN.md sec 4 applied to the delete path.
+    if s3_store.is_configured():
+        try:
+            s3_store.delete_raw_doc(doc_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("policy_doc_s3_delete_failed doc_id=%s error=%s", doc_id, exc)

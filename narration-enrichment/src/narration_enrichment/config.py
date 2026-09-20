@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     enrich_rate_limit_per_minute: int = 5
     enrich_rate_limit_per_day: int = 20
 
+    # P2 Day 4 — S3 backing for raw policy docs. Empty string = S3
+    # disabled (dev default); source_uri on new PolicyDoc rows will
+    # be None. Any non-empty string turns on the S3 code path in
+    # main.py's /policies/ingest and s3_store.py. Real bucket +
+    # credentials are Rajat's per standing rule 3-2; this codebase
+    # only wires boto3, never creates AWS resources.
+    policy_s3_bucket: str = ""
+    policy_s3_prefix: str = "policy-docs/"
+    aws_region: str = "ap-south-1"
+
 
 @lru_cache
 def get_settings() -> Settings:

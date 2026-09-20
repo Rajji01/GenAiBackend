@@ -283,6 +283,14 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">P2 — Policy RAG</div>
+      <a class="nav-link" href="#p2-intro"><span class="nav-tag">·</span>The idea</a>
+      <a class="nav-link" href="#p2-day2"><span class="nav-tag">D2</span>Chunker + schema</a>
+      <a class="nav-link" href="#p2-day3"><span class="nav-tag">D3</span>/policies/ingest</a>
+      <a class="nav-link" href="#p2-day4"><span class="nav-tag">D4</span>S3 backing</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -1360,6 +1368,158 @@ tests/test_rate_limiter.py — +3 for remaining()
 tests/test_api.py — +2 integration against /stats
 
 68 passed total</div>
+    </article>
+
+    <!-- ================ P2 — Policy RAG (Days 2–4) ================ -->
+
+    <section id="p2-intro" style="margin-top:64px;">
+      <p class="eyebrow">Project 2 · Policy RAG</p>
+      <h2>Teaching /enrich a rulebook it can actually cite</h2>
+      <p>Week 3's RAG (rag.py) taught <code>/enrich</code> to look at its own past classifications — same merchant twice, same category twice. P2 goes one layer up: the model now also sees excerpts from a human-maintained <em>policy corpus</em> (merchant→category rules, subscription heuristics, refund/reversal overrides, regulatory notes) and every response can point back to the exact chunk that shaped it. Producer keeps embedding narrations; new consumer path is chunk-a-document, embed-each-chunk, retrieve-alongside, cite-in-code.</p>
+      <p style="font-size:14.5px;">Full design paper lives in <code><a href="P2_DESIGN.md">P2_DESIGN.md</a></code>; day-by-day plan in <code><a href="ROADMAP.md">ROADMAP.md</a></code>. This section is the "easy notes" pass over Days 2–4 as they landed.</p>
+    </section>
+
+    <article class="card day-card" id="p2-day2">
+      <div class="day-head">
+        <span class="day-stamp">P2 · D2</span>
+        <span class="day-title">Chunker (pure) + PolicyDoc/PolicyChunk schema + Citation model</span>
+      </div>
+      <span class="day-files">chunker.py (new) · models.py · db.py · tests/test_chunker.py (new) · tests/test_db.py · commit <code>6fedd43</code></span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> put in place the four boring pieces P2 will glue together — a chunker that splits a document, two tables to hold docs + chunks, and a <code>Citation</code> field on the response so <code>/enrich</code> can point at what it used. Nothing wired into the request path yet; that comes on Day 3 and Day 5.</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>chunker.chunk() is a <em>pure function</em></h4>
+          <p>Takes a string, returns a list of <code>Chunk(index, content)</code>. No file I/O, no network, no DB. That's what lets the ingest orchestrator (Day 3) call it inside a database transaction without worrying about partial state on a raised exception — a pure function has nothing to roll back.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Fixed size + overlap, on purpose</h4>
+          <p>500-char chunks with 50-char overlap. Semantic chunking is more sophisticated and could come later <em>with numbers to justify it</em>. Anti-overengineering rule from P1: SQLite over vector DB, cosine over numpy, and now: fixed-window chunker over semantic. Simplest thing that meets the current bar.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Loud validation at the boundary</h4>
+          <p><code>overlap &gt;= chunk_size</code> would either infinite-loop (step of 0) or emit duplicates (negative step) — so we <code>ValueError</code> immediately instead of hanging or lying. Trust internal callers; validate at the external surface.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Chunks are frozen dataclasses</h4>
+          <p><code>@dataclass(frozen=True)</code> — a chunk is a value, not a container. Once the ingest layer has embedded a chunk, no downstream step can accidentally rewrite its <code>content</code> and desync the embedding.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Two tables + one Pydantic field</div>
+        <p><code>PolicyDoc</code>: <em>one row per ingested doc</em> (doc_id PK, title, source_uri, sha-256 checksum, ingested_at). <code>PolicyChunk</code>: <em>one row per chunk</em>, with a JSON-encoded embedding column (same shape as EnrichmentRecord.embedding — same cosine loop in <code>rag.py</code> can walk both tables on Day 5). FK from PolicyChunk to PolicyDoc uses <strong>ON DELETE CASCADE + passive_deletes=True</strong>: deleting a doc removes its chunks in the database, without SQLAlchemy pre-loading every chunk row just to mark it deleted.</p>
+        <p style="margin-top:10px;"><code>models.TransactionEnrichment.policy_citations: list[Citation]</code> added with <code>default_factory=list</code> — Pydantic shares a class-level <code>[]</code> across instances the same way Python does. Ground truth for citations comes from the retrieval result on Day 5, not from anything the LLM produces.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>SQLite gotcha caught in tests</h4>
+          <p>SQLite ignores <code>ON DELETE CASCADE</code> unless you enable <code>PRAGMA foreign_keys=ON</code> per connection. The test fixture registers a <code>@event.listens_for(engine, "connect")</code> hook that flips it on for every checkout — otherwise the "delete cascades chunks" test would have silently passed for the wrong reason.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Unit-testable in isolation</h4>
+          <p>13 chunker tests use plain string literals. 9 repo tests use real in-memory SQLite (<code>StaticPool</code> + FK pragma). No mocks of the pieces under test — mocking SQL semantics would just test the mock.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_chunker.py — 13 passed
+tests/test_db.py       — +9 policy repo tests (was 4, now 13)
+Full suite:              90 passed (was 68)</div>
+    </article>
+
+    <article class="card day-card" id="p2-day3">
+      <div class="day-head">
+        <span class="day-stamp">P2 · D3</span>
+        <span class="day-title">POST /policies/ingest — idempotent by content-checksum</span>
+      </div>
+      <span class="day-files">policy_ingest.py (new) · schemas.py · main.py · tests/test_policy_ingest.py (new) · tests/test_policy_api.py (new) · commit <code>b72db22</code></span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> hand a policy doc's raw text to the service and have it end up as embedded chunks in the DB — <em>once</em>, no matter how many times the same doc is re-uploaded. The endpoint is the control plane for the policy corpus; the data plane (<code>/enrich</code>) doesn't consume any of this yet.</p>
+
+      <div class="why-box">
+        <div class="why-label">The whole ingest contract, in one flow</div>
+        <ol style="margin:6px 0 0 20px;">
+          <li><code>sha256(content)</code> — if the doc_id already exists with the same checksum, return <code>{unchanged: true}</code> immediately. <em>No embedding budget spent, no chunk work redone.</em></li>
+          <li>Chunk the text (pure function from Day 2).</li>
+          <li>Embed every chunk one by one via <code>rag.embed_text</code> with <code>task_type=RETRIEVAL_DOCUMENT</code> — same asymmetry rule the past-narration RAG already follows.</li>
+          <li>Atomic upsert: delete old chunks for this doc_id + insert the new set + update the doc row's metadata, <em>all in one transaction</em>. A concurrent <code>/enrich</code> sees the old chunk set OR the new — never a half-swapped state.</li>
+        </ol>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>If ANY embed fails, the whole thing aborts</h4>
+          <p>Contract enforced in the ingest service: no partial-embed state ever lands. A half-ingested doc would silently degrade retrieval (some chunks findable, some not, no signal). Losing an embedding budget on the first N chunks of a failed ingest is the cost of that guarantee — worth it.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Three failure codes, chosen deliberately</h4>
+          <p><strong>422</strong> — Pydantic min_length rejects empty body before the service runs. <strong>400</strong> — a whitespace-only body passes Pydantic but the chunker returns [] (a caller bug worth surfacing). <strong>503</strong> — the embed provider is down; abort, tell the caller to retry, same shape as <code>/enrich</code>'s own provider-error path.</p>
+        </div>
+        <div class="mini-card">
+          <h4>No rate limiter on this route</h4>
+          <p>Deliberate. The 20 requests/day cap exists to protect <code>/enrich</code> from being starved. If ingest shared that quota, one big-corpus upload would eat every enrichment slot for the day. Ingest is a rare, planned control-plane op; it's off the shared quota on purpose.</p>
+        </div>
+        <div class="mini-card">
+          <h4>DELETE is idempotent</h4>
+          <p>DELETE /policies/{doc_id} returns 204 whether the doc existed or not. Callers running a "wipe-and-reingest" loop don't have to special-case the first pass. Chunks cascade automatically via the FK from Day 2.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Test-file collision, fixed with a fixture</div>
+        <p>Both <code>test_api.py</code> and <code>test_policy_api.py</code> set <code>app.dependency_overrides[get_db]</code> at module scope. Pytest imports every module before running any test, so whichever loaded last silently stole the other's DB. Fix: install/restore the override in an <em>autouse function-scoped fixture</em> in <code>test_policy_api.py</code>. Now regardless of import order, each test runs against its own module's engine. Small pytest-isolation gotcha, worth remembering.</p>
+      </div>
+
+      <div class="terminal">tests/test_policy_ingest.py — 8 passed (unit, mocked embed_fn)
+tests/test_policy_api.py   — 9 passed (integration through TestClient)
+Full suite:                   107 passed</div>
+    </article>
+
+    <article class="card day-card" id="p2-day4">
+      <div class="day-head">
+        <span class="day-stamp">P2 · D4</span>
+        <span class="day-title">S3 backing for raw docs — the track's first AWS touch</span>
+      </div>
+      <span class="day-files">s3_store.py (new) · config.py · .env.example · main.py · pyproject.toml · tests/test_s3_store.py (new) · tests/test_policy_api.py</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> make the raw policy doc live in a durable, addressable store — S3 — while the chunks + embeddings stay in SQLite for fast retrieval. Losing SQLite is now annoying (rebuild by re-running ingest against each S3 doc); losing S3 is real data loss. The storage split earns its keep here.</p>
+
+      <div class="why-box">
+        <div class="why-label">Standing rule reconfirmed in-turn: AWS resources are Rajat's</div>
+        <p><em>"remote aws services ka kaam mai hi krunga ok jarvis"</em> — 2026-09-20. This day writes real boto3 client code + moto-based tests, but never creates a bucket, never hits real AWS, never uses real credentials. The code is wired and provably correct against moto's in-process S3 fake; the actual bucket comes into existence when Rajat provisions it.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Dev works without S3</h4>
+          <p>Leave <code>POLICY_S3_BUCKET</code> empty in <code>.env</code> and ingest skips the upload cleanly, records <code>source_uri=None</code>. Every existing test still passes without touching AWS. Setting the bucket turns the S3 path on for that deployment; no code changes needed.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Deterministic S3 keys</h4>
+          <p>Same doc_id → same key (<code>policy-docs/{doc_id}.txt</code>). Re-ingest overwrites in place. No orphan versions accumulating on the second, third, tenth re-upload — one doc_id, one durable object.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Upload before embed, on purpose</h4>
+          <p>S3 upload first, then embed calls. If S3 is down we bail early with <strong>503</strong> — no wasted embedding budget on a doc that would have ended up sourceless anyway. If S3 succeeds but embed fails, we've left <em>at most one orphan S3 object</em> per failed ingest (sweepable later); no half-embedded chunks in SQLite.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Delete cleans both stores best-effort</h4>
+          <p>DELETE /policies/{id} removes the DB row (chunks cascade) then attempts the S3 delete. If S3 is down at delete time, the DB row is already gone and the S3 object becomes a sweep-later orphan rather than blocking the delete. Availability of the delete matters more than tidiness of S3.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Testing AWS without AWS — the moto pattern</div>
+        <p><code>@mock_aws</code> (from <code>moto</code>) intercepts every boto3 S3 call inside the decorator and serves it from an in-memory fake. The code under test is real <code>boto3.client('s3').put_object(...)</code>; the network never wakes up. In tests we set fake <code>AWS_ACCESS_KEY_ID=testing</code>/<code>AWS_SECRET_ACCESS_KEY=testing</code> just so botocore's credential resolution stops looking for real ones. The <code>lru_cache</code> on the S3 client needs a <code>_reset_for_tests()</code> hook so a client built before <code>@mock_aws</code> starts doesn't leak into a mocked test.</p>
+      </div>
+
+      <div class="terminal">tests/test_s3_store.py         — 9 passed (moto-mocked S3)
+tests/test_policy_api.py       — +2 integration (bucket set + S3-down)
+Full suite:                       118 passed</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 5): the retrieval side — <code>rag.py</code> gains a <code>retrieve_policy_chunks()</code> parallel to the existing <code>find_similar_examples()</code>, <code>/enrich</code>'s prompt gets a labeled "APPLICABLE POLICY EXCERPTS" block, and <code>policy_citations</code> gets populated from ground truth in service code — never from the LLM's own output, per the "citations are earned, not decorative" contract in <code>P2_DESIGN.md §6</code>.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

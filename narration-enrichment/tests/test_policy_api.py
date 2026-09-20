@@ -191,3 +191,78 @@ def test_delete_missing_policy_is_idempotent_204():
     r = client.delete("/policies/does-not-exist")
 
     assert r.status_code == 204
+
+
+# --- P2 Day 4: S3 backing --------------------------------------------------
+
+
+def test_ingest_records_s3_source_uri_when_bucket_configured(monkeypatch):
+    """When POLICY_S3_BUCKET is set, /policies/ingest uploads the raw
+    doc to S3 (moto-mocked here) and persists the s3:// URI on the
+    PolicyDoc row. When it's unset (all other tests in this file),
+    source_uri stays None. This proves both branches without needing
+    real AWS anywhere."""
+    from moto import mock_aws
+    import boto3
+    from narration_enrichment import config, s3_store
+
+    bucket = "narration-policies-test"
+    monkeypatch.setenv("POLICY_S3_BUCKET", bucket)
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+    config.get_settings.cache_clear()
+    s3_store._reset_for_tests()
+
+    with mock_aws():
+        boto3.client("s3", region_name="us-east-1").create_bucket(Bucket=bucket)
+        s3_store._reset_for_tests()  # rebuild client inside mock
+
+        r = _ingest(doc_id="d1", title="t", content="body")
+
+        assert r.status_code == 200
+
+        # DB row carries the URI
+        with _test_engine.connect() as conn:
+            rows = conn.execute(Base.metadata.tables["policy_docs"].select()).fetchall()
+        assert len(rows) == 1
+        assert rows[0]._mapping["source_uri"] == f"s3://{bucket}/policy-docs/d1.txt"
+
+        # And the object actually landed in the fake S3
+        obj = boto3.client("s3", region_name="us-east-1").get_object(
+            Bucket=bucket, Key="policy-docs/d1.txt",
+        )
+        assert obj["Body"].read().decode("utf-8") == "body"
+
+    # Reset settings cache back for the next test
+    config.get_settings.cache_clear()
+    s3_store._reset_for_tests()
+
+
+def test_ingest_returns_503_when_s3_upload_fails(monkeypatch):
+    """If S3 is configured but the upload raises (bucket missing,
+    creds bad, network down), /policies/ingest returns 503 BEFORE
+    spending any embedding budget — the same fail-fast principle
+    the route applies to the embed-provider failure path."""
+    from narration_enrichment import config, s3_store
+
+    monkeypatch.setenv("POLICY_S3_BUCKET", "narration-policies-test")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+    config.get_settings.cache_clear()
+    s3_store._reset_for_tests()
+
+    # DON'T mock_aws — the put_object call will hit a non-existent
+    # bucket and boto3 raises. Then the route maps that to 503.
+    r = _ingest(doc_id="d1", content="body")
+
+    assert r.status_code == 503
+    # Nothing persisted — the abort-before-embed contract holds.
+    with _test_engine.connect() as conn:
+        assert conn.execute(Base.metadata.tables["policy_docs"].select()).fetchall() == []
+
+    config.get_settings.cache_clear()
+    s3_store._reset_for_tests()
