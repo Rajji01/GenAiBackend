@@ -12,6 +12,7 @@ import json
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     DateTime,
     Float,
@@ -347,3 +348,158 @@ def insert_api_key(db: Session, *, key_hash: str, label: str) -> ApiKey:
     db.commit()
     db.refresh(row)
     return row
+
+
+# ---------------------------------------------------------------------------
+# P3 Day 3 — chat_sessions + chat_turns
+# ---------------------------------------------------------------------------
+
+
+class ChatSession(Base):
+    """One row per chat session (a conversation held with one API
+    key). id is a UUIDv4 string — exposed in URL paths, so an
+    autoincrement int would be enumerable and let an attacker guess
+    valid session ids. 122 bits of unguessable state gets rid of
+    that class of attack.
+
+    api_key_hash FKs to api_keys.key_hash so ownership is durable
+    across key rotations (the row itself carries the identity, not
+    a mutable owner pointer).
+    """
+
+    __tablename__ = "chat_sessions"
+
+    id = Column(String, primary_key=True)
+    api_key_hash = Column(
+        String,
+        ForeignKey("api_keys.key_hash", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_active_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    turns = relationship(
+        "ChatTurn",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ChatTurn.id",
+    )
+
+
+class ChatTurn(Base):
+    """One row per user or assistant utterance in a session.
+    Ordered by autoincrement id — that's what the "last N turns"
+    memory cap iterates over in reverse for the LLM prompt (Day 4).
+
+    retrieved_enrichment_ids + retrieved_policy_chunk_ids are JSON
+    text (SQLite has no native array type). Populated only on
+    assistant turns, only from GROUND TRUTH retrieval — the earned
+    citations rule from P2 §6, applied to chat.
+    """
+
+    __tablename__ = "chat_turns"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(
+        String,
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # CHECK constraint enforces the enum at the DB level so a bug
+    # in one of the write paths can't slip through with a nonsense
+    # role like "system" or an empty string.
+    role = Column(String, nullable=False)
+    content = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    retrieved_enrichment_ids = Column(String, nullable=True)
+    retrieved_policy_chunk_ids = Column(String, nullable=True)
+
+    session = relationship("ChatSession", back_populates="turns")
+
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'assistant')", name="ck_chat_turns_role"),
+    )
+
+
+def create_chat_session(db: Session, *, session_id: str, api_key_hash: str) -> ChatSession:
+    row = ChatSession(id=session_id, api_key_hash=api_key_hash)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def get_chat_session_owned_by(
+    db: Session, *, session_id: str, api_key_hash: str
+) -> ChatSession | None:
+    """Fetch a session ONLY if it's owned by the given key. Returns
+    None for both 'no such session' and 'session owned by a
+    different key' — the route maps both to 404 with the same body,
+    per the existence-hiding contract in P3_DESIGN §8.
+    """
+    return (
+        db.query(ChatSession)
+        .filter(ChatSession.id == session_id)
+        .filter(ChatSession.api_key_hash == api_key_hash)
+        .one_or_none()
+    )
+
+
+def append_chat_turn(
+    db: Session,
+    *,
+    session_id: str,
+    role: str,
+    content: str,
+    retrieved_enrichment_ids: str | None = None,
+    retrieved_policy_chunk_ids: str | None = None,
+) -> ChatTurn:
+    """Append a turn + update the session's last_active_at in one
+    commit — a concurrent /chat/{id}/message reader either sees
+    both the new turn AND the fresh last_active_at, or neither.
+    """
+    turn = ChatTurn(
+        session_id=session_id,
+        role=role,
+        content=content,
+        retrieved_enrichment_ids=retrieved_enrichment_ids,
+        retrieved_policy_chunk_ids=retrieved_policy_chunk_ids,
+    )
+    db.add(turn)
+    # Bump last_active_at atomically with the turn insert.
+    session = db.query(ChatSession).filter(ChatSession.id == session_id).one()
+    session.last_active_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(turn)
+    return turn
+
+
+def list_chat_turns(db: Session, *, session_id: str) -> list[ChatTurn]:
+    """Every turn in the session, oldest first. Used by GET
+    /chat/{id} for the whole history AND by chat_service (Day 4)
+    which slices to the last N turns for the LLM prompt."""
+    return (
+        db.query(ChatTurn)
+        .filter(ChatTurn.session_id == session_id)
+        .order_by(ChatTurn.id.asc())
+        .all()
+    )
+
+
+def delete_chat_session(db: Session, *, session_id: str, api_key_hash: str) -> bool:
+    """Idempotent delete. Returns True if a row was removed under
+    the caller's key, False if either the session didn't exist or
+    it belonged to someone else — the route returns 204 in both
+    cases so an attacker can't distinguish them.
+    """
+    session = get_chat_session_owned_by(
+        db, session_id=session_id, api_key_hash=api_key_hash
+    )
+    if session is None:
+        return False
+    db.delete(session)      # cascades to chat_turns via FK
+    db.commit()
+    return True

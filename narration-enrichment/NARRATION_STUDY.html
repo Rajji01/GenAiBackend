@@ -237,6 +237,7 @@
   <nav class="nav-group">
     <div class="nav-group-title">P3 daily interview Qs</div>
     <a class="nav-link" href="#iq-p3-d2"><span class="nav-tag">D2</span> API key auth</a>
+    <a class="nav-link" href="#iq-p3-d3"><span class="nav-tag">D3</span> Chat plumbing (stubbed)</a>
   </nav>
 
   <nav class="nav-group">
@@ -606,6 +607,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> P3_DESIGN §3 argues SHA-256 is enough for API keys — bcrypt / argon2 would be wrong here. Argue the opposite side (why someone reasonable might insist on argon2). Then read the design's threat-model comparison between "protecting a password" and "protecting an API key" and pick which side you'd defend in an interview, with one sentence on the trade-off you're accepting.</p>
     <p class="iq-hint">Hint: the interviewer's real question is "do you know why the hash choice depends on the SECRET's entropy, not just on 'hashes are hashes'?" Anchor: <code>auth.py</code>'s module docstring second-to-last paragraph.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p3-d3">
+    <h3>P3 · Day 3 — Session + turn schema + /chat routes (LLM stubbed)</h3>
+    <span class="iq-anchor">files: <code>db.py</code> (ChatSession + ChatTurn), <code>main.py</code>, <code>schemas.py</code>, <code>tests/test_chat_api.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>db.py</code>. <code>ChatSession.id</code> is declared as <code>Column(String, primary_key=True)</code> — no <code>autoincrement</code>, no default. Trace where the value actually comes from at row-insert time (hint: look at <code>create_chat_session</code> and the caller in <code>main.py</code>). What would break if <code>ChatSession.id</code> were <code>Column(Integer, autoincrement=True)</code> instead? Give a concrete attack, not just "less unique."</p>
+    <p class="iq-hint">Hint: enumeration. A session_id lives in the URL path. If it's 1, 2, 3, ... anyone can probe them.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Open <code>get_chat_session_owned_by</code>. The query filters on both <code>id ==</code> AND <code>api_key_hash ==</code>. Both conditions must match; the function returns None otherwise. Read the <code>chat_send_message</code> route that calls it. When the function returns None, how does the route respond — and which of these three cases does it INTENTIONALLY treat identically: (a) session doesn't exist, (b) session exists but belongs to a different key, (c) session_id is malformed nonsense? Name the concrete side-channel attack this "collapse to one response" prevents.</p>
+    <p class="iq-hint">Hint: look at <code>test_send_message_to_someone_elses_session_returns_same_404_generic</code>. The whole regression test IS the answer.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> Day 3 uses a deterministic <code>[stub-echo]</code> reply INSTEAD of calling the real LLM. Explain (a) why "just stub the LLM call inline in the route" beats "wire the LLM on Day 3 and add a mock in tests," (b) what class of bug is easier to catch when the plumbing has a fully-tested stub before the LLM lands, and (c) why the stub's response prefix is distinctive on purpose — trace what goes wrong in a demo call if the stub silently leaks past Day 4 into a production response.</p>
+    <p class="iq-hint">Hint: this is "test in production posture, then swap." The interviewer wants "how do you separate plumbing correctness from model correctness so each failure has one plausible source." Anchor: <code>_echo_stub_answer</code>'s comment block.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

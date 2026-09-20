@@ -25,10 +25,18 @@ from narration_enrichment.correlation import (
     set_correlation_id,
 )
 from narration_enrichment.db import (
+    ApiKey,
+    ChatSession,
+    ChatTurn,
+    append_chat_turn,
+    create_chat_session,
+    delete_chat_session,
     delete_policy_doc,
     get_category_counts,
+    get_chat_session_owned_by,
     get_db,
     get_total_and_average_confidence,
+    list_chat_turns,
     list_enrichments,
     list_policy_docs,
     save_enrichment,
@@ -36,12 +44,17 @@ from narration_enrichment.db import (
 from narration_enrichment.models import Citation, TransactionEnrichment
 from narration_enrichment.policy_ingest import ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
-from narration_enrichment import s3_store
+from narration_enrichment import auth, s3_store
 from narration_enrichment.schemas import (
     BatchEnrichRequest,
     BatchEnrichResponse,
     BatchItemResult,
     CategoryCount,
+    ChatMessageRequest,
+    ChatReply,
+    ChatSessionHistory,
+    ChatSessionResponse,
+    ChatTurnResponse,
     EnrichmentRecordResponse,
     PolicyDocSummary,
     PolicyIngestRequest,
@@ -49,6 +62,8 @@ from narration_enrichment.schemas import (
     StatsResponse,
 )
 from narration_enrichment.service import enrich_narration, get_raw_client
+
+import uuid as _uuid
 
 logging.basicConfig(
     level=logging.INFO,
@@ -390,6 +405,106 @@ def policies_list(db: Session = Depends(get_db)) -> list[PolicyDocSummary]:
         )
         for doc, count in list_policy_docs(db)
     ]
+
+
+# --- P3 chat routes ------------------------------------------------------
+#
+# All four routes below require X-API-Key (Depends(require_api_key))
+# and resolve to a key_hash the route uses for ownership attribution.
+# Missing or wrong keys are rejected identically per auth.py's
+# existence-hiding rule.
+#
+# Day 3 ships the plumbing with a DETERMINISTIC ECHO answer as the
+# stub for POST /chat/{id}/message -- proves the memory-write path,
+# the ownership check, and the response schema before Day 4 swaps
+# in the real LLM call and its cost / flakiness. If a bug shows up
+# after Day 4, we know from this day's tests that it's an LLM-side
+# problem, not a plumbing bug.
+
+
+@app.post("/chat/session", response_model=ChatSessionResponse, status_code=201)
+def chat_create_session(
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> ChatSessionResponse:
+    session_id = str(_uuid.uuid4())
+    session = create_chat_session(db, session_id=session_id, api_key_hash=key_hash)
+    return ChatSessionResponse(session_id=session.id, created_at=session.created_at)
+
+
+@app.post("/chat/{session_id}/message", response_model=ChatReply)
+def chat_send_message(
+    session_id: str,
+    request: ChatMessageRequest,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> ChatReply:
+    # Existence-hiding: 'no such session' and 'session belongs to a
+    # different key' both return 404 with the same body. An attacker
+    # who could distinguish them would enumerate valid session ids
+    # by watching status codes.
+    session = get_chat_session_owned_by(db, session_id=session_id, api_key_hash=key_hash)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    # Persist the user turn first — the response is derived FROM the
+    # session state (post user turn), so the user turn has to land
+    # in the DB before the assistant turn is generated.
+    append_chat_turn(db, session_id=session_id, role="user", content=request.message.strip())
+
+    # Day 3 stub: deterministic echo. Day 4 replaces this call site
+    # with chat_service.answer_message(db, session_id, request.message)
+    # which will build the real prompt (memory + retrieved evidence
+    # + retrieved policy) and populate cited_* from ground truth.
+    stub_answer = _echo_stub_answer(request.message.strip())
+    reply = ChatReply(answer=stub_answer, cited_enrichment_ids=[], cited_policy_chunk_ids=[])
+
+    append_chat_turn(
+        db, session_id=session_id, role="assistant", content=reply.answer,
+        # Both retrieved_* fields NULL on the stub path — Day 4 will
+        # populate them from actual retrieval hits.
+        retrieved_enrichment_ids=None,
+        retrieved_policy_chunk_ids=None,
+    )
+    return reply
+
+
+def _echo_stub_answer(user_message: str) -> str:
+    """Deterministic Day-3 stub. Proves the round-trip works
+    without any LLM cost / flakiness. Distinctive prefix so if
+    this stub ever leaks past Day 4's swap into a production
+    response, it's obvious in logs."""
+    return f"[stub-echo] Received {len(user_message)} chars — Day 4 will wire the real LLM."
+
+
+@app.get("/chat/{session_id}", response_model=ChatSessionHistory)
+def chat_get_history(
+    session_id: str,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> ChatSessionHistory:
+    session = get_chat_session_owned_by(db, session_id=session_id, api_key_hash=key_hash)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    turns = list_chat_turns(db, session_id=session_id)
+    return ChatSessionHistory(
+        session_id=session.id,
+        created_at=session.created_at,
+        last_active_at=session.last_active_at,
+        turns=[ChatTurnResponse.model_validate(t) for t in turns],
+    )
+
+
+@app.delete("/chat/{session_id}", status_code=204)
+def chat_delete_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> None:
+    # Idempotent: 204 whether the session existed under this key or
+    # not. Same "don't leak existence" rule -- distinguishing 'not
+    # found' from 'not yours' would enumerate valid session ids.
+    delete_chat_session(db, session_id=session_id, api_key_hash=key_hash)
 
 
 @app.delete("/policies/{doc_id}", status_code=204)

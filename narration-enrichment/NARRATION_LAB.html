@@ -296,6 +296,7 @@
       <div class="nav-group-title">P3 — Knowledge assistant</div>
       <a class="nav-link" href="#p3-intro"><span class="nav-tag">·</span>The idea</a>
       <a class="nav-link" href="#p3-day2"><span class="nav-tag">D2</span>API key auth</a>
+      <a class="nav-link" href="#p3-day3"><span class="nav-tag">D3</span>Session/turn plumbing (LLM stubbed)</a>
     </div>
 
     <div class="nav-group">
@@ -1690,6 +1691,62 @@ Full suite:            128 passed (was 118)</div>
 Full suite:                139 passed (was 128)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 3): the <code>chat_sessions</code> + <code>chat_turns</code> tables, and four /chat routes — all four of them auth-gated from the moment they exist, with a deterministic echo answer as the stub so the memory-plumbing can be proved before any LLM cost or flakiness gets involved.</p>
+    </article>
+
+    <article class="card day-card" id="p3-day3">
+      <div class="day-head">
+        <span class="day-stamp">P3 · D3</span>
+        <span class="day-title">Session + turn schema + /chat routes (LLM stubbed)</span>
+      </div>
+      <span class="day-files">db.py · schemas.py · main.py · tests/test_chat_api.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> stand up the full chat plumbing — session lifecycle, turn history, auth gate on every route, ownership check that hides existence — with a deterministic echo answer as the stub for <code>POST /message</code>. Prove the round-trip works BEFORE Day 4 introduces LLM cost + flakiness. If any bug shows up after Day 4, we know from this day's tests it's an LLM-side problem, not a plumbing one.</p>
+
+      <div class="why-box">
+        <div class="why-label">Four routes, all auth-gated from the moment they exist</div>
+        <ul style="margin:6px 0 0 20px;">
+          <li><code>POST /chat/session</code> → mints a UUIDv4 session_id, attributes it to the calling key's hash, returns 201.</li>
+          <li><code>POST /chat/{session_id}/message</code> → validates ownership (existence-hiding), persists user turn + assistant turn atomically, returns <code>ChatReply</code>.</li>
+          <li><code>GET /chat/{session_id}</code> → full history, oldest turn first.</li>
+          <li><code>DELETE /chat/{session_id}</code> → 204 idempotent, cascades to <code>chat_turns</code> via FK.</li>
+        </ul>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>UUIDv4 session_ids, not autoincrement ints</h4>
+          <p>Session ids are exposed in URL paths (<code>/chat/{id}/message</code>). An autoincrement int would let an attacker enumerate valid ids by trying 1, 2, 3, ...; UUIDv4 gives ~122 bits of unguessable state, so guessing is not a practical attack anymore. The regression test <code>test_create_session_returns_uuid_and_persists_row</code> asserts on the 36-char hyphenated shape — a future refactor to int ids fails it.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Same 404 for "not there" and "not yours"</h4>
+          <p><code>get_chat_session_owned_by</code> returns None for BOTH cases, and the route surfaces the same 404 body <code>{"detail":"Session not found."}</code> either way. Distinguishing the two lets an attacker who knows any session id (from a leaked log) enumerate other keys' access by watching status codes. The regression test <code>test_send_message_to_someone_elses_session_returns_same_404_generic</code> encodes this rule byte-for-byte.</p>
+        </div>
+        <div class="mini-card">
+          <h4>DB-level CHECK on the role enum</h4>
+          <p><code>chat_turns.role</code> has a <code>CHECK(role IN ('user', 'assistant'))</code> constraint. Enforcing the enum at the DB level means a bug in one of the write paths CAN'T silently write "system" or an empty string — SQLite rejects it. Same defense-in-depth as P2's <code>payments.status</code> and <code>payments.method</code> CHECK constraints on the ticketing track.</p>
+        </div>
+        <div class="mini-card">
+          <h4>User turn persists BEFORE assistant turn is generated</h4>
+          <p>Order: user message → persist user turn → compute assistant reply (stub echo today, LLM tomorrow) → persist assistant turn + bump <code>last_active_at</code> — all in the same request handler. Turns get sequentially ascending ids, so <code>ORDER BY id</code> in <code>list_chat_turns</code> is a real chronological order, not a heuristic on timestamps.</p>
+        </div>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">The stub answer has a distinctive prefix on purpose</div>
+        <p>The Day-3 echo returns strings like <code>"[stub-echo] Received 24 chars — Day 4 will wire the real LLM."</code> If this stub ever leaks past Day 4's swap into a production response, the prefix makes it obvious in logs immediately. A less distinctive placeholder ("thanks for your message") could plausibly pass QA on a demo call.</p>
+      </div>
+
+      <div class="terminal">tests/test_chat_api.py — 14 passed
+  · 4 auth-gate (each of the 4 routes rejects missing key)
+  · 5 lifecycle (session create, message round-trip, trim, history
+                 ordering, cascade-delete, delete-idempotent)
+  · 3 existence-hiding (missing → 404, wrong-owner → SAME 404,
+                        delete-under-wrong-owner → 204)
+  · 2 misc (Pydantic empty-body rejects to 422, last_active_at
+            bumps on message)
+Full suite:               153 passed (was 139)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 4): swap the stub for a real LLM call in a new <code>chat_service.answer_message</code>. Build the prompt from (last N turns + retrieved past enrichments + retrieved policy chunks); return a <code>ChatReply</code> with <code>cited_*</code> populated from ground-truth retrieval, overwriting anything Instructor writes there — same earned-citations rule P2 established.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

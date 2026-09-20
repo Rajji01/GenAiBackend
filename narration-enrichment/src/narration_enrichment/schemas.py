@@ -93,3 +93,49 @@ class PolicyDocSummary(BaseModel):
     ingested_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- P3 chat endpoints -----------------------------------------------------
+
+class ChatSessionResponse(BaseModel):
+    session_id: str
+    created_at: datetime
+
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000,
+                         description="One user message. Trimmed silently on save.")
+
+
+class ChatReply(BaseModel):
+    """The response shape for POST /chat/{session_id}/message.
+
+    `cited_*` are populated from GROUND TRUTH retrieval by the
+    service layer, never from the LLM's own output — same rule as
+    P2's `policy_citations` on TransactionEnrichment. On the Day-3
+    stubbed path both lists are empty (no retrieval wired yet).
+    """
+    answer: str
+    cited_enrichment_ids: list[int] = Field(default_factory=list)
+    cited_policy_chunk_ids: list[int] = Field(default_factory=list)
+
+
+class ChatTurnResponse(BaseModel):
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+    # Deliberately kept as raw JSON text — the shape ("list[int]" vs
+    # "list[objects]") may evolve as citations grow richer; a
+    # loose text field keeps old readers working when it does.
+    retrieved_enrichment_ids: str | None = None
+    retrieved_policy_chunk_ids: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class ChatSessionHistory(BaseModel):
+    session_id: str
+    created_at: datetime
+    last_active_at: datetime
+    turns: list[ChatTurnResponse]

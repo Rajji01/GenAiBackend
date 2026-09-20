@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE**, **P3 in progress** — Days 1–2 shipped |
-| **Next work unit** | P3 Day 3 — session + turn schema + basic /chat routes (LLM stubbed) |
+| **Current position** | **P2 DONE**, **P3 in progress** — Days 1–3 shipped |
+| **Next work unit** | P3 Day 4 — real LLM chat integration + grounding (earned citations for chat) |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -270,9 +270,11 @@ This section is the day plan; that file is the *why*.
 - [x] `X-API-Key` bearer auth + `api_keys` table + `require_api_key`
       FastAPI dependency + CLI to mint a dev key *(Day 2 — commit
       pending push; 11 auth tests, full suite 139 green)*
-- [ ] `chat_sessions` + `chat_turns` tables with FK CASCADE +
+- [x] `chat_sessions` + `chat_turns` tables with FK CASCADE +
       `POST /chat/session`, `POST /chat/{id}/message` (LLM stubbed),
-      `GET /chat/{id}`, `DELETE /chat/{id}`, all auth-gated *(Day 3)*
+      `GET /chat/{id}`, `DELETE /chat/{id}`, all auth-gated *(Day 3
+      — 14 chat_api tests + role CHECK constraint at DB level; full
+      suite 153 green)*
 - [ ] Real LLM chat integration: `chat_service.py` builds the prompt
       from (last-N turns + retrieved enrichments + retrieved policy
       chunks), returns `ChatReply` Pydantic with `cited_*` fields
