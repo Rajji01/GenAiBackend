@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE**, **P3 in progress** — Days 1–5 shipped |
-| **Next work unit** | P3 Day 6 — closeout (docs + LAB banner + ROADMAP DoD + AGENTS + memory sync) |
+| **Current position** | **P2 DONE**, **P3 DONE** — all 6 days shipped + committed + pushed |
+| **Next work unit** | P4 — Async doc-processing pipeline (SQS + DLQ + S3 + ECS/Lambda; first genuine microservice split). AWS bucket/queue creation is Rajat's per rule 3-2. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -56,8 +56,8 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 |---|---------|----------------|-----|---------------|--------|
 | P1 | Transaction Enrichment API | Structured output | — | Modular monolith | ✅ **DONE** |
 | P2 | Transaction + policy RAG | Embeddings, retrieval, citations | S3 (docs) | Modular monolith | ✅ **DONE** |
-| **P3** | **Knowledge assistant** | **Auth, memory, eval pipeline** | **S3** | **Modular monolith** | 📍 **IN PROGRESS** |
-| P4 | Async doc-processing pipeline | Event-driven, idempotency, retries | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | future |
+| P3 | Knowledge assistant | Auth, memory, eval pipeline | S3 | Modular monolith | ✅ **DONE** |
+| **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | 📍 **NEXT** |
 | P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | future |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
 | P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | future |
@@ -288,10 +288,10 @@ This section is the day plan; that file is the *why*.
       atomic write, JOIN-ordered history, pass-rate aggregation,
       cascade delete, and two response modes on one endpoint. Eval
       trigger stays manual on purpose.)*
-- [ ] Docs closeout: README "Knowledge assistant (P3)" section,
+- [x] Docs closeout: README "Knowledge assistant (P3)" section,
       LAB cards D2–D6 + "P3 shipped" banner, STUDY interview Qs
       (2 easy + 1 conceptual × 5 days), ROADMAP boxes ticked,
-      AGENTS §4 synced, memory synced *(Day 6)*
+      AGENTS §4 synced, memory synced *(Day 6, this commit)*
 
 ### Daily plan
 

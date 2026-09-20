@@ -132,6 +132,95 @@ out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
 `AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
 would misleadingly imply there's data behind it.
 
+## Knowledge assistant (P3) — chat over the enrichment history + policy corpus
+
+P3 puts a natural-language chat surface over what P1 + P2 already
+built. The user asks in prose ("how much did I spend on food
+delivery last month?"), the service retrieves from
+`enrichment_records` + `policy_chunks` + the last few chat turns,
+and answers grounded — with citations that **the LLM cannot
+invent** (same earned-citations rule as P2's `policy_citations`,
+extended to chat).
+
+### Auth (bearer API key, hashed at rest)
+
+The `/chat/*` and `/policies/*` routes are **not** auth-gated in P3
+(dev flow untouched); only the four new `/chat/*` routes require
+`X-API-Key`. Missing or wrong key both return 401 with the same
+generic body — existence-hiding by design.
+
+Mint a dev key with the CLI utility (raw key printed to stdout ONCE,
+the DB only stores the SHA-256 hash):
+
+```bash
+python narration-enrichment/scripts/create_api_key.py --label rajat-laptop
+# → prints the raw hex key. Copy it now; it can NEVER be recovered.
+```
+
+### The four /chat endpoints
+
+```bash
+# 1. Create a session
+curl -X POST http://localhost:8000/chat/session \
+  -H "X-API-Key: $KEY"
+# → { "session_id": "0e1e...", "created_at": "..." }
+
+# 2. Ask a question
+curl -X POST http://localhost:8000/chat/0e1e.../message \
+  -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{ "message": "how much did I spend on food last month?" }'
+# → { "answer": "You spent ₹1,230...", "cited_enrichment_ids": [42, 57],
+#     "cited_policy_chunk_ids": [4] }
+
+# 3. Read the whole conversation
+curl http://localhost:8000/chat/0e1e... -H "X-API-Key: $KEY"
+
+# 4. Delete the session (idempotent, cascades to turns)
+curl -X DELETE http://localhost:8000/chat/0e1e... -H "X-API-Key: $KEY"
+```
+
+**Existence hiding:** a session_id that doesn't exist AND a session
+that exists under a different key BOTH return 404 with the same
+body `{"detail": "Session not found."}`. An attacker who knew any
+valid session id from a leaked log otherwise could enumerate other
+keys' access by watching status codes; this defense is regression-
+tested.
+
+**Memory cap:** each `/chat/{id}/message` sees the last 6 chat
+turns as context (older turns stay in the DB, they just don't
+bloat the prompt). Set via `CHAT_MEMORY_MAX_TURNS` in
+`chat_service.py`.
+
+**Earned citations:** the response's `cited_*` lists come from
+GROUND TRUTH retrieval, not from the LLM's function-call output.
+The service overwrites both fields with the actual retrieved ids
+before returning; a regression test proves the LLM cannot smuggle
+a hallucinated citation past the code.
+
+### Eval-as-a-system (`GET /eval/history`)
+
+`eval/run_eval.py` now writes each run to `eval_runs` +
+`eval_results` alongside the dated JSON report. `GET
+/eval/history` surfaces the persisted history:
+
+```bash
+# per-case pass-rate rollup across every persisted run
+curl http://localhost:8000/eval/history
+# → { "per_case_rollup": [{"case_id":"swiggy_upi","passed":10,"total":10}, ...],
+#     "details": [] }
+
+# per-case history newest-first for one case
+curl http://localhost:8000/eval/history?case_id=uber_policy
+# → { "per_case_rollup": [],
+#     "details": [{"case_id":"uber_policy","passed":false,"run_started_at":"...",...}] }
+```
+
+Eval trigger stays manual — auto-running the eval on every commit
+would burn the 20/day Gemini free tier without a proportional
+signal gain. The pytest suite catches code/prompt/retry-policy
+regressions at zero cost; the eval measures model-behavior drift
+on 12 golden cases, and those numbers matter but not per-commit.
+
 ## Policy RAG (P2) — ingest policy docs, cite them in every response
 
 The Week-3 RAG ("retrieval-augmented consistency" below) taught

@@ -114,7 +114,23 @@ User instruction 2026-09-20: **do not commit, keep implementing to 2M token budg
 - 128 tests green, up from 68 at P1 close. Zero regressions.
 - Along the way: rule 3-11 added ("every day ships easy-notes card in LAB + 3 interview Qs in STUDY alongside the code commit"), 18 interview Qs authored across Days 2-6 in NARRATION_STUDY.html.
 
-**Next work unit — P3 (Knowledge assistant).** First auth layer, first multi-turn conversation memory, eval-as-a-system beyond a golden dataset. See `Jarvis_GenAI_Path.md` for the strategic framing; a P3-specific ROADMAP + DESIGN pass will land when Rajat greenlights P3 start. **P3 not yet started** — nothing coded.
+**P3 (Knowledge assistant) — DONE 2026-09-20** through Day 6. Shipped in six day-specific commits:
+- Day 1: P3_DESIGN.md + ROADMAP §3B (11-section design paper + 6 interview Qs) — commit `0d200b8`.
+- Day 2: API-key auth (X-API-Key bearer, sha256 hashed at rest, hmac.compare_digest, missing/wrong both 401 same body, CLI-only key creation) — commit `5fbe346`.
+- Day 3: chat_sessions + chat_turns tables (UUIDv4 session ids, FK CASCADE, role CHECK constraint) + four auth-gated /chat routes with a `[stub-echo]` LLM stub proving plumbing before Day 4's swap — commit `732198d`.
+- Day 4: real LLM chat via new `chat_service.py` — memory cap N=6, retrieval-grounded prompt (one embed → two searches), **earned citations overwrite in code** (regression test `test_llm_provided_citations_get_overwritten_from_ground_truth` proves the LLM cannot smuggle a hallucinated id past the service) — commit `d7a8e81`.
+- Day 5: eval-as-a-system — eval_runs + eval_results tables, `run_eval.py` persistence non-fatal, `GET /eval/history` two-mode (rollup / per-case details) — commit `7eed5d7`.
+- Day 6: closeout — README first-class "Knowledge assistant (P3)" section, NARRATION_LAB "P3 shipped" banner + Day-6 card documenting the four invariants P3 leaves for P4, 18 daily interview Qs total on P3 in NARRATION_STUDY, ROADMAP DoD flipped, this AGENTS.md synced, local memory synced.
+- **168 tests green** (was 128 at P2 close). 45 new tests across Days 2–5 (auth timing-safety, session ownership, existence-hiding, earned citations, memory-cap, retrieval degrade path, eval persistence + query). Zero P1/P2 regressions.
+- Rule 3-11 (per-day easy-notes card + 3 interview Qs) held across every P3 code day.
+
+**Four invariants P3 leaves on the codebase for P4 to inherit:**
+1. **Auth-first is the default posture.** Any new user-facing route gets `Depends(auth.require_api_key)` from the moment it exists.
+2. **Existence-hiding on 404 is uniform.** "Not there" and "not yours" return the same body across `/policies/{id}` and `/chat/{id}`.
+3. **Earned citations enforced in code.** `/enrich.policy_citations` (P2 D5) and `/chat.cited_*` (P3 D4) both overwrite from ground truth. Regression-tested on both surfaces.
+4. **Observability persisted alongside expensive ops.** P3 D5's eval_runs pattern; P4 will replicate for SQS queue depth + DLQ persistence.
+
+**Next work unit — P4 (Async doc-processing pipeline).** **AWS ka asli ghar per the master plan.** First genuine microservice split: API service (queue and return) + Worker service (embedding/LLM heavy). SQS + DLQ + S3 + ECS/Lambda + CloudWatch. **AWS bucket/queue creation is Rajat's per standing rule 3-2** (reconfirmed live during P2 D4 and again during P3 D2 "isme koi api kye to ni jo hmne commit kr di ho"). Claude pairs on Terraform + boto3 + moto-based tests; user provisions real resources. See `Jarvis_GenAI_Path.md` for strategic framing; a P4-specific ROADMAP + DESIGN pass lands when Rajat greenlights P4 start. **P4 not yet started.**
 
 **Cross-track parallels worth remembering** (these keep the two tracks reinforcing each other):
 - Ticketing's `CorrelationIdFilter` (Java thread-local MDC) ↔ narration's `correlation.py` (Python `ContextVar`).

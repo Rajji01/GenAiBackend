@@ -299,6 +299,7 @@
       <a class="nav-link" href="#p3-day3"><span class="nav-tag">D3</span>Session/turn plumbing (LLM stubbed)</a>
       <a class="nav-link" href="#p3-day4"><span class="nav-tag">D4</span>Real LLM + grounding + earned cites</a>
       <a class="nav-link" href="#p3-day5"><span class="nav-tag">D5</span>Eval-as-a-system</a>
+      <a class="nav-link" href="#p3-day6"><span class="nav-tag">D6</span>Docs closeout (P3 shipped)</a>
     </div>
 
     <div class="nav-group">
@@ -1872,6 +1873,40 @@ ORDER BY run.started_at DESC;</pre>
 Full suite:               168 passed (was 158)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 6): P3 closeout — first-class "Knowledge assistant (P3)" section in README, "P3 shipped" banner in this LAB, interview Qs for Day 5, ROADMAP DoD boxes ticked, AGENTS §4 synced with the six P3 commits, local memory bumped.</p>
+    </article>
+
+    <article class="card day-card" id="p3-day6">
+      <div class="day-head">
+        <span class="day-stamp">P3 · D6</span>
+        <span class="day-title">P3 closeout — docs + ROADMAP + AGENTS + memory sync</span>
+      </div>
+      <span class="day-files">README.md · NARRATION_LAB.html · NARRATION_STUDY.html · ROADMAP.md · AGENTS.md · memory</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> close out P3. No new endpoints or tables — the whole surface has been usable since Day 5's push. Day 6 is the discipline layer: bring every doc + memory in sync so a fresh agent (or a fresh you six months from now) can pick up P4 without spelunking git log.</p>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">P3 shipped — the whole 6-day arc in one line</div>
+        <p>Day 1 = design paper + ROADMAP extension. Day 2 = bearer API-key auth with existence-hiding + CLI-only issuance. Day 3 = session/turn plumbing + four auth-gated <code>/chat</code> routes with a deterministic echo stub (plumbing proved before LLM). Day 4 = real chat via new <code>chat_service.py</code>, memory cap N=6, retrieval-grounded prompts, and citations the LLM cannot invent (regression test in place). Day 5 = eval-as-a-system with two SQL-backed tables, a two-mode <code>GET /eval/history</code>, and <code>run_eval.py</code> persistence that never fails the run. Day 6 = docs + ROADMAP DoD flipped + AGENTS §4 + memory synced.</p>
+        <p style="margin-top:8px;"><strong>168 tests green</strong> (was 128 at P2 close). <strong>45 new tests</strong> across P3 Days 2–5 covering auth timing-safety, session ownership, existence-hiding, earned citations, memory-cap, retrieval-degrades-not-fails, eval persistence + query. Zero regressions on P1 + P2 tests.</p>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">The invariants P3 leaves on the codebase for P4 onward</div>
+        <ul style="margin:6px 0 0 20px;">
+          <li><strong>Auth-first is the default posture.</strong> Any new user-facing route gets <code>Depends(auth.require_api_key)</code> from the moment it exists. Adding auth as a follow-up is how "add auth later" turns into "we shipped an unauthed API to prod."</li>
+          <li><strong>Existence-hiding on 404 is uniform.</strong> Both <code>/policies/{id}</code> (P2) and <code>/chat/{id}</code> (P3) treat "not there" and "not yours" identically. New routes hosting user-owned resources follow the same rule.</li>
+          <li><strong>Earned citations are enforced in code, on both surfaces.</strong> <code>/enrich.policy_citations</code> (P2 D5) and <code>/chat.cited_*</code> (P3 D4) both overwrite from ground truth. Any new "cite what you used" field on any future route MUST follow this pattern.</li>
+          <li><strong>Observability under expensive ops.</strong> P3 D5 added eval-run persistence. P4's async pipeline will add SQS queue-depth + DLQ persistence in the same shape — one row per run, one row per per-case outcome, GROUP BY in the DB.</li>
+        </ul>
+      </div>
+
+      <div class="terminal">P3 commits, in chronological order:
+  0d200b8  P3 Day 1  design paper + ROADMAP sec 3B
+  5fbe346  P3 Day 2  API-key auth + CLI issuance (11 tests)
+  732198d  P3 Day 3  chat sessions/turns + stubbed routes (14 tests)
+  d7a8e81  P3 Day 4  real LLM chat + grounding + earned cites (5 tests)
+  7eed5d7  P3 Day 5  eval-as-a-system (10 tests)
+  &lt;this commit&gt;  P3 Day 6  docs + ROADMAP + AGENTS + memory sync</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

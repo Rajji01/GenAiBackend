@@ -240,6 +240,7 @@
     <a class="nav-link" href="#iq-p3-d3"><span class="nav-tag">D3</span> Chat plumbing (stubbed)</a>
     <a class="nav-link" href="#iq-p3-d4"><span class="nav-tag">D4</span> LLM + grounding + cites</a>
     <a class="nav-link" href="#iq-p3-d5"><span class="nav-tag">D5</span> Eval-as-a-system</a>
+    <a class="nav-link" href="#iq-p3-d6"><span class="nav-tag">D6</span> P3 closeout + invariants</a>
   </nav>
 
   <nav class="nav-group">
@@ -678,6 +679,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> Day 5 adds persistence WITHOUT wiring the eval into CI to run automatically per commit. Argue both sides: (a) the ops-engineer view that says "auto-run on every deploy or you don't really have regression protection," and (b) the ML-ops view that says "auto-running an LLM eval per commit is a bad signal-to-cost ratio." Pick the side you'd defend in an interview and give ONE concrete change to the design that would let you have both (auto-run selectively).</p>
     <p class="iq-hint">Hint: think about which failures the pytest suite catches (code changed, prompt string changed, retry policy changed, schema changed) vs which ones ONLY the eval catches (model behavior drift on the exact 12 golden cases). The eval is measuring the intersection.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p3-d6">
+    <h3>P3 · Day 6 — Closeout, invariants, and what P3 leaves for P4</h3>
+    <span class="iq-anchor">files: README.md · NARRATION_LAB.html · ROADMAP.md · AGENTS.md · memory · full-P3 review</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Look across P3 Days 2–4. In three separate files (<code>auth.py</code>, <code>chat_service.py</code>, <code>db.py</code>), we see <em>deferred imports</em> — imports done inside a function body rather than at the top of the file. Name at least two reasons this pattern shows up in this codebase, then pick one function that uses it and explain why removing the deferral would be a regression.</p>
+    <p class="iq-hint">Hint: startup cost / circular-import avoidance / test-time isolation. See <code>_persist_run_to_db</code> in <code>eval/run_eval.py</code> for a very concrete example.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Open the two overwrite blocks — <code>_enrich_and_persist</code> in <code>main.py</code> (P2 D5) and <code>chat_service.answer_message</code> (P3 D4). Both do essentially the same thing after the LLM call: build a new response object whose <code>cited_*</code> fields come from the retrieval result. Trace the SIX lines that make up the overwrite in each file and identify exactly which one is the "earned citation" line — the one whose removal would let a hallucination through.</p>
+    <p class="iq-hint">Hint: it's the line that constructs <code>Citation(...)</code> or the <code>ChatReply(cited_*=[...])</code> from the retrieval list. Everything else is plumbing.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> P3 introduced four invariants that P4 (async doc-processing pipeline) inherits: (a) auth-first on any user-facing route, (b) existence-hiding on 404, (c) earned citations, (d) observability persisted alongside expensive ops (like eval_runs). Pick ONE and explain (i) how P3 enforces it in code today, (ii) exactly which class of production bug it prevents, (iii) what specific P4-shape work (SQS/DLQ/S3) would violate it if a fresh developer implemented P4 without knowing about the rule. Argue the case for making the rule automated in some way (a linter, a base class, a CI check) rather than relying on humans to remember.</p>
+    <p class="iq-hint">Hint: the interviewer's real question is "do you see engineering as 'don't do the thing' vs 'make the thing structurally impossible'?" Anchor: the four bullet points in P3 D6's "invariants P3 leaves for P4" why-box.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">
