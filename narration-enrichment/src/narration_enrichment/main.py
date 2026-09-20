@@ -35,6 +35,8 @@ from narration_enrichment.db import (
     get_category_counts,
     get_chat_session_owned_by,
     get_db,
+    get_eval_history_for_case,
+    get_eval_pass_rate_by_case,
     get_total_and_average_confidence,
     list_chat_turns,
     list_enrichments,
@@ -56,6 +58,9 @@ from narration_enrichment.schemas import (
     ChatSessionResponse,
     ChatTurnResponse,
     EnrichmentRecordResponse,
+    EvalCasePassRate,
+    EvalHistoryResponse,
+    EvalResultDetail,
     PolicyDocSummary,
     PolicyIngestRequest,
     PolicyIngestResponse,
@@ -307,6 +312,45 @@ def get_stats(db: Session = Depends(get_db)) -> StatsResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# --- P3 Day 5: eval-as-a-system ------------------------------------------
+#
+# Read-only observability layer for the eval pipeline. No LLM code
+# changes here; run_eval.py writes into eval_runs + eval_results
+# alongside the existing JSON report, and this endpoint surfaces
+# the persisted history for trend analysis. Not auth-gated in P3
+# (dev-only visibility); a real deployment would put an admin gate
+# on it.
+
+
+@app.get("/eval/history", response_model=EvalHistoryResponse)
+def eval_history(
+    case_id: str | None = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+) -> EvalHistoryResponse:
+    if case_id:
+        results = get_eval_history_for_case(db, case_id=case_id, limit=limit)
+        details = [
+            EvalResultDetail(
+                case_id=r.case_id,
+                passed=bool(r.passed),
+                expected=r.expected,
+                actual=r.actual,
+                latency_ms=r.latency_ms,
+                error=r.error,
+                run_started_at=r.run.started_at,
+            )
+            for r in results
+        ]
+        return EvalHistoryResponse(details=details, per_case_rollup=[])
+
+    rollup = [
+        EvalCasePassRate(case_id=cid, passed=int(p or 0), total=int(t or 0))
+        for cid, p, t in get_eval_pass_rate_by_case(db, limit_per_case=limit)
+    ]
+    return EvalHistoryResponse(per_case_rollup=rollup, details=[])
 
 
 # --- P2: policy corpus management ---------------------------------------

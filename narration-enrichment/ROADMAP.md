@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE**, **P3 in progress** — Days 1–4 shipped |
-| **Next work unit** | P3 Day 5 — eval-as-a-system (persistent runs + history) |
+| **Current position** | **P2 DONE**, **P3 in progress** — Days 1–5 shipped |
+| **Next work unit** | P3 Day 6 — closeout (docs + LAB banner + ROADMAP DoD + AGENTS + memory sync) |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -282,9 +282,12 @@ This section is the day plan; that file is the *why*.
       — 5 chat_llm tests including LLM-invented-citations regression
       + audit-trail snapshot + memory cap + degrade path; full suite
       158 green)*
-- [ ] Eval-as-a-system: `eval_runs` + `eval_results` tables + extend
+- [x] Eval-as-a-system: `eval_runs` + `eval_results` tables + extend
       `run_eval.py` to persist per-run + per-case history + new route
-      `GET /eval/history` for trends *(Day 5)*
+      `GET /eval/history` for trends *(Day 5 — 10 tests including
+      atomic write, JOIN-ordered history, pass-rate aggregation,
+      cascade delete, and two response modes on one endpoint. Eval
+      trigger stays manual on purpose.)*
 - [ ] Docs closeout: README "Knowledge assistant (P3)" section,
       LAB cards D2–D6 + "P3 shipped" banner, STUDY interview Qs
       (2 easy + 1 conceptual × 5 days), ROADMAP boxes ticked,

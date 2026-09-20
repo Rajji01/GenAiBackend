@@ -239,6 +239,7 @@
     <a class="nav-link" href="#iq-p3-d2"><span class="nav-tag">D2</span> API key auth</a>
     <a class="nav-link" href="#iq-p3-d3"><span class="nav-tag">D3</span> Chat plumbing (stubbed)</a>
     <a class="nav-link" href="#iq-p3-d4"><span class="nav-tag">D4</span> LLM + grounding + cites</a>
+    <a class="nav-link" href="#iq-p3-d5"><span class="nav-tag">D5</span> Eval-as-a-system</a>
   </nav>
 
   <nav class="nav-group">
@@ -654,6 +655,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> P3 D4 has an audit-trail column <code>chat_turns.retrieved_enrichment_ids</code> that stores the SAME ground-truth citation list on the assistant turn row as what's returned in the response. Explain why storing this on the row (as opposed to reconstructing it from a re-run of retrieval) matters — three separate arguments, ideally: (a) auditability, (b) reproducibility, (c) what happens if the underlying enrichment record gets deleted after the turn was answered. Then read <code>test_assistant_turn_persists_with_ground_truth_citation_snapshot</code> and describe in one line what specific bug the test prevents.</p>
     <p class="iq-hint">Hint: think about "what did the assistant tell the user at 3pm on Tuesday?" — the answer should be reproducible in 6 months, even if some rows have been GDPR-deleted since. Persisting citations = persisting evidence.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p3-d5">
+    <h3>P3 · Day 5 — Eval-as-a-system (persistent runs + per-case history)</h3>
+    <span class="iq-anchor">files: <code>db.py</code> (EvalRun+EvalResult), <code>eval/run_eval.py</code>, <code>main.py</code>, <code>tests/test_eval_history.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>eval/run_eval.py</code>. <code>_persist_run_to_db</code> imports <code>SessionLocal</code> + <code>record_eval_run</code> INSIDE the function, not at the top of the file. Why? Two reasons the code comments actually name — write them out, then say what would break if the import moved to the top.</p>
+    <p class="iq-hint">Hint: `--help` speed and pure-compare tests that never hit a DB. If the imports were at the top, both would pay the SQLAlchemy engine construction cost.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Read <code>get_eval_pass_rate_by_case</code> in <code>db.py</code>. It uses <code>func.sum(EvalResult.passed)</code> in a GROUP BY. But <code>passed</code> is declared as an <code>Integer</code> column with a <code>CHECK IN (0, 1)</code> constraint — not a native BOOLEAN. Why store bool-as-int here, and how does that let SUM() give a useful "how many times did this case pass" number?</p>
+    <p class="iq-hint">Hint: SQLite has no native BOOLEAN. And SUM over integer 0/1 IS the count of passes.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> Day 5 adds persistence WITHOUT wiring the eval into CI to run automatically per commit. Argue both sides: (a) the ops-engineer view that says "auto-run on every deploy or you don't really have regression protection," and (b) the ML-ops view that says "auto-running an LLM eval per commit is a bad signal-to-cost ratio." Pick the side you'd defend in an interview and give ONE concrete change to the design that would let you have both (auto-run selectively).</p>
+    <p class="iq-hint">Hint: think about which failures the pytest suite catches (code changed, prompt string changed, retry policy changed, schema changed) vs which ones ONLY the eval catches (model behavior drift on the exact 12 golden cases). The eval is measuring the intersection.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

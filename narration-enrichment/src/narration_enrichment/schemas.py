@@ -139,3 +139,38 @@ class ChatSessionHistory(BaseModel):
     created_at: datetime
     last_active_at: datetime
     turns: list[ChatTurnResponse]
+
+
+# --- P3 Day 5 eval-as-a-system --------------------------------------------
+
+class EvalResultDetail(BaseModel):
+    """One case's outcome from one run. Same shape whether it comes
+    back from GET /eval/history?case_id=... or from a full run's
+    detail listing."""
+
+    case_id: str
+    passed: bool
+    expected: str      # JSON text, forwarded as-is
+    actual: str        # JSON text, forwarded as-is
+    latency_ms: int | None = None
+    error: str | None = None
+    run_started_at: datetime      # bubbled up via the JOIN so a
+                                  # caller can build a timeline
+
+    model_config = {"from_attributes": True}
+
+
+class EvalCasePassRate(BaseModel):
+    case_id: str
+    passed: int
+    total: int
+
+
+class EvalHistoryResponse(BaseModel):
+    """Either the per-case detail history (when case_id is passed)
+    or the pass-rate rollup across every case (when it isn't). Two
+    top-level lists rather than a discriminated union because
+    consumers can render each independently without unwrapping."""
+
+    per_case_rollup: list[EvalCasePassRate] = Field(default_factory=list)
+    details: list[EvalResultDetail] = Field(default_factory=list)

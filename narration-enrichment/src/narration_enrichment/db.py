@@ -503,3 +503,158 @@ def delete_chat_session(db: Session, *, session_id: str, api_key_hash: str) -> b
     db.delete(session)      # cascades to chat_turns via FK
     db.commit()
     return True
+
+
+# ---------------------------------------------------------------------------
+# P3 Day 5 — eval-as-a-system (persistent run + per-case history)
+# ---------------------------------------------------------------------------
+
+
+class EvalRun(Base):
+    """One row per eval invocation (i.e. one `python eval/run_eval.py`
+    run). id is a UUID chosen at run start; started_at + finished_at
+    bracket the actual measurement window; totals + a free-form
+    `notes` field capture the aggregate + human tag ("post-P3-policy-
+    tune", "pre-prompt-refactor").
+    """
+
+    __tablename__ = "eval_runs"
+
+    id = Column(String, primary_key=True)
+    started_at = Column(DateTime, nullable=False)
+    finished_at = Column(DateTime, nullable=True)
+    model_name = Column(String, nullable=False)
+    total_cases = Column(Integer, nullable=False)
+    passed = Column(Integer, nullable=False)
+    failed = Column(Integer, nullable=False)
+    notes = Column(String, nullable=True)
+
+    results = relationship(
+        "EvalResult",
+        back_populates="run",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class EvalResult(Base):
+    """One row per (run, case) — the per-case outcome.
+
+    `expected` + `actual` are JSON text so the shape can evolve
+    without a schema migration; today they're the same dicts the
+    JSON report file carries. `error` is populated only for
+    call-failure cases (timeout / quota / provider outage) —
+    reliability failures kept separate from correctness failures
+    is the same rule the existing print-summary applies.
+    """
+
+    __tablename__ = "eval_results"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(
+        String,
+        ForeignKey("eval_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    case_id = Column(String, nullable=False, index=True)
+    passed = Column(Integer, nullable=False)   # bool as int for CHECK
+    expected = Column(String, nullable=False)
+    actual = Column(String, nullable=False)
+    latency_ms = Column(Integer, nullable=True)
+    error = Column(String, nullable=True)
+
+    run = relationship("EvalRun", back_populates="results")
+
+    __table_args__ = (
+        CheckConstraint("passed IN (0, 1)", name="ck_eval_results_passed_bool"),
+    )
+
+
+def record_eval_run(
+    db: Session,
+    *,
+    run_id: str,
+    started_at: datetime,
+    finished_at: datetime,
+    model_name: str,
+    outcomes: list[dict],
+    notes: str | None = None,
+) -> EvalRun:
+    """Persist one eval run + all its per-case results atomically.
+
+    Called from `eval/run_eval.py` after the run finishes AND from
+    the tests directly (the tests bypass the LLM by passing a
+    hand-built outcomes list). `outcomes` uses the same dict shape
+    `run_eval.compare_result` already returns, so the extension
+    doesn't force a rewrite of that pipeline.
+    """
+    passed_count = sum(1 for o in outcomes if o.get("all_correct"))
+    run = EvalRun(
+        id=run_id,
+        started_at=started_at,
+        finished_at=finished_at,
+        model_name=model_name,
+        total_cases=len(outcomes),
+        passed=passed_count,
+        failed=len(outcomes) - passed_count,
+        notes=notes,
+    )
+    db.add(run)
+
+    for outcome in outcomes:
+        db.add(EvalResult(
+            run_id=run_id,
+            case_id=outcome["id"],
+            passed=1 if outcome.get("all_correct") else 0,
+            expected=json.dumps(outcome.get("expected", {})),
+            actual=json.dumps(outcome.get("got", {})),
+            latency_ms=outcome.get("latency_ms"),
+            error=outcome.get("error"),
+        ))
+
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+def list_eval_runs(db: Session, limit: int = 20) -> list[EvalRun]:
+    return (
+        db.query(EvalRun)
+        .order_by(EvalRun.started_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def get_eval_history_for_case(
+    db: Session, *, case_id: str, limit: int = 20
+) -> list[EvalResult]:
+    """Every historical result for one case, newest first. Joined
+    to EvalRun for the started_at timestamp so the caller can
+    render a "when did case X start failing" timeline."""
+    return (
+        db.query(EvalResult)
+        .join(EvalRun, EvalResult.run_id == EvalRun.id)
+        .filter(EvalResult.case_id == case_id)
+        .order_by(EvalRun.started_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def get_eval_pass_rate_by_case(db: Session, limit_per_case: int = 20) -> list[tuple[str, int, int]]:
+    """(case_id, passed_count, total_count) rollup across the most
+    recent `limit_per_case` runs per case. GROUP BY in the DB, not
+    "fetch every result and Counter() them in Python."
+    """
+    return (
+        db.query(
+            EvalResult.case_id,
+            func.sum(EvalResult.passed),
+            func.count(EvalResult.id),
+        )
+        .group_by(EvalResult.case_id)
+        .order_by(EvalResult.case_id)
+        .all()
+    )

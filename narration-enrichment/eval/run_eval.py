@@ -19,6 +19,7 @@ Run: uv run python eval/run_eval.py
 import json
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -67,13 +68,58 @@ def compare_result(case: dict, result: TransactionEnrichment) -> dict:
 
 
 def check_one(case: dict) -> dict:
+    started_at = time.monotonic()
     result = enrich_narration(case["narration"])
-    return compare_result(case, result)
+    latency_ms = int((time.monotonic() - started_at) * 1000)
+    outcome = compare_result(case, result)
+    outcome["latency_ms"] = latency_ms
+    return outcome
+
+
+def _persist_run_to_db(outcomes: list[dict], started_at: datetime, finished_at: datetime,
+                       model_name: str, notes: str | None = None) -> str | None:
+    """P3 Day 5: write the run + per-case outcomes to eval_runs +
+    eval_results alongside the existing JSON report. Wrapped in
+    try/except so a DB-side failure never blocks the eval itself —
+    the JSON file is still the source of truth for one-off checks,
+    the DB is the "how has case X trended" observability layer.
+
+    Returns the run_id on success, None on failure. Prints the
+    failure message to stderr so a broken DB path shows up without
+    causing the eval script itself to exit non-zero.
+    """
+    try:
+        # Deferred import so `--help` and the pure-compare tests
+        # don't need a DB engine.
+        from narration_enrichment.db import SessionLocal, record_eval_run
+    except Exception as exc:      # noqa: BLE001
+        print(f"[eval-history] DB layer unavailable, skipping persistence: {exc}", file=sys.stderr)
+        return None
+
+    run_id = str(uuid.uuid4())
+    db = SessionLocal()
+    try:
+        record_eval_run(
+            db,
+            run_id=run_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            model_name=model_name,
+            outcomes=outcomes,
+            notes=notes,
+        )
+        return run_id
+    except Exception as exc:      # noqa: BLE001
+        print(f"[eval-history] persistence failed, JSON report still written: {exc}", file=sys.stderr)
+        return None
+    finally:
+        db.close()
 
 
 def main() -> None:
     dataset = json.loads(DATASET_PATH.read_text())
     outcomes = []
+    started_at = datetime.now(timezone.utc)
 
     print(f"Running eval against {len(dataset)} golden examples...\n")
 
@@ -127,10 +173,27 @@ def main() -> None:
     else:
         print("No calls completed — nothing to measure accuracy on.")
 
+    finished_at = datetime.now(timezone.utc)
+
     RESULTS_DIR.mkdir(exist_ok=True)
-    report_path = RESULTS_DIR / f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    report_path = RESULTS_DIR / f"{finished_at.strftime('%Y%m%dT%H%M%SZ')}.json"
     report_path.write_text(json.dumps({"total": total, "completed": len(completed), "outcomes": outcomes}, indent=2))
     print(f"\nFull report saved to {report_path}")
+
+    # P3 Day 5: also persist to eval_runs + eval_results so
+    # GET /eval/history can surface trends. Non-fatal on failure —
+    # the JSON file above is unchanged and remains the primary
+    # artifact.
+    from narration_enrichment.config import get_settings  # deferred, same reason
+    settings = get_settings()
+    run_id = _persist_run_to_db(
+        outcomes=outcomes,
+        started_at=started_at,
+        finished_at=finished_at,
+        model_name=settings.model_name,
+    )
+    if run_id:
+        print(f"Eval run persisted to DB with run_id={run_id}")
 
 
 if __name__ == "__main__":

@@ -298,6 +298,7 @@
       <a class="nav-link" href="#p3-day2"><span class="nav-tag">D2</span>API key auth</a>
       <a class="nav-link" href="#p3-day3"><span class="nav-tag">D3</span>Session/turn plumbing (LLM stubbed)</a>
       <a class="nav-link" href="#p3-day4"><span class="nav-tag">D4</span>Real LLM + grounding + earned cites</a>
+      <a class="nav-link" href="#p3-day5"><span class="nav-tag">D5</span>Eval-as-a-system</a>
     </div>
 
     <div class="nav-group">
@@ -1811,6 +1812,66 @@ tests/test_chat_api.py — 14 passed (chat_service now mocked at
 Full suite:               158 passed (was 153)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 5): eval-as-a-system. New <code>eval_runs</code> + <code>eval_results</code> tables, <code>run_eval.py</code> writes per-run + per-case history alongside the existing JSON report, new <code>GET /eval/history</code> route for trends. No LLM code changes — the observability layer for the eval pipeline itself.</p>
+    </article>
+
+    <article class="card day-card" id="p3-day5">
+      <div class="day-head">
+        <span class="day-stamp">P3 · D5</span>
+        <span class="day-title">Eval-as-a-system — persistent runs + per-case history</span>
+      </div>
+      <span class="day-files">db.py · schemas.py · main.py · eval/run_eval.py · tests/test_eval_history.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> put an observability layer under the eval pipeline. Every <code>python eval/run_eval.py</code> now writes into <code>eval_runs</code> + <code>eval_results</code> alongside the dated JSON report; a new <code>GET /eval/history</code> surfaces per-case trends and per-run aggregates without a manual dig through timestamped files.</p>
+
+      <div class="why-box">
+        <div class="why-label">What the JSON file couldn't answer</div>
+        <p>The old JSON-file-per-run setup was fine for "did I regress this week." Questions it couldn't answer cheaply: <em>"How has case X trended over the last 10 runs? Which cases have flaked ≥3 times this month? When did case Y start failing?"</em> — those all need a JOIN across timestamps. Day 5 turns that "grep six JSON files with jq" chore into one SQL SELECT.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Two tables, cascade-linked</h4>
+          <p><code>eval_runs(id UUID PK, started_at, finished_at, model_name, total_cases, passed, failed, notes)</code> is one row per invocation. <code>eval_results(id PK, run_id FK CASCADE, case_id, passed BOOL, expected JSON, actual JSON, latency_ms, error)</code> is one row per (run × case). <strong>ON DELETE CASCADE</strong> so removing a stale run also removes its results — no orphan-row cleanup script needed.</p>
+        </div>
+        <div class="mini-card">
+          <h4>run_eval.py persistence is non-fatal</h4>
+          <p>The DB write sits in a try/except. If the DB is missing or misconfigured, the eval script prints a warning to stderr and still exits zero — the JSON file is unchanged, still the primary artifact. The DB is the "how did this trend" layer; it doesn't block the "did this pass right now" check.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Two response modes on ONE endpoint</h4>
+          <p><code>GET /eval/history</code> (no params) → <code>per_case_rollup</code> across every case (pass/total counts, GROUP BY in the DB). <code>GET /eval/history?case_id=uber_policy</code> → <code>details</code> with the per-run outcome for that one case, newest first. Two response fields (<code>per_case_rollup</code>, <code>details</code>) each returning either its data or an empty list — no discriminated union to unwrap.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Eval trigger STAYS manual</h4>
+          <p>Adding this layer doesn't wire eval into CI. Every eval run burns real Gemini quota (5/min, 20/day); auto-running it per commit would exhaust the daily cap without a proportional signal-clarity gain. The observability layer answers "when things trend," not "when things break RIGHT NOW" — the pytest suite already does that at zero cost.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">The SQL that used to be "read six JSON files"</div>
+<pre class="terminal" style="color:var(--term-ink); font-size:12.5px;">-- pass rate for every case, across every run in the DB
+SELECT case_id, SUM(passed), COUNT(*)
+FROM eval_results
+GROUP BY case_id
+ORDER BY case_id;
+
+-- history for one case, newest first
+SELECT er.case_id, er.passed, er.latency_ms, er.error, run.started_at
+FROM eval_results er JOIN eval_runs run ON er.run_id = run.id
+WHERE er.case_id = 'uber_policy'
+ORDER BY run.started_at DESC;</pre>
+      </div>
+
+      <div class="terminal">tests/test_eval_history.py — 10 passed
+  · 6 unit against real in-memory SQLite (record_eval_run atomic,
+    error field preserved for call-failure outcomes, list ordering,
+    per-case history with JOIN + DESC, pass-rate aggregation
+    across runs, cascade delete)
+  · 4 integration through TestClient (empty tables → empty lists,
+    no case_id → rollup, with case_id → details, limit passthrough)
+Full suite:               168 passed (was 158)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 6): P3 closeout — first-class "Knowledge assistant (P3)" section in README, "P3 shipped" banner in this LAB, interview Qs for Day 5, ROADMAP DoD boxes ticked, AGENTS §4 synced with the six P3 commits, local memory bumped.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
