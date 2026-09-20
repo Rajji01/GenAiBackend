@@ -59,6 +59,11 @@ These have been established across many sessions. Break them and the user will c
 
 10. **Schema evolution = Flyway, never Hibernate `ddl-auto: update` (added 2026-09-20 hardening).** Every service in `ticketing-platform/` uses `spring.jpa.hibernate.ddl-auto: validate` + Flyway migrations in `src/main/resources/db/migration/`. Bug 4 (Postgres init-script skipped on populated volume) and Bug 7 (Hibernate silently skipped adding a NOT-NULL column without DEFAULT on a populated table) are both permanently defused by this. `baseline-on-migrate: true` + `baseline-version: 0` lets Flyway adopt already-populated volumes (V1 skipped as baseline) while running V1 normally on fresh volumes — same terminal schema either way. **Add a new migration as `V<N+1>__<snake_desc>.sql` — never edit V1 after it's shipped.** Spring Boot 3 needs `flyway-database-postgresql` as a separate dep alongside `flyway-core`.
 
+11. **Per-day easy-notes + interview-Q blocks (added 2026-09-20).** Every implemented "Day N" of a Week (ticketing) or "P#·Day N" of a Project (narration) MUST ship, alongside the code commit, two artifacts:
+    - **Easy-notes card** in that track's showcase HTML (`<Week-N>_<theme>.html` / `NARRATION_LAB.html`) — descriptive, eye-catching, mini-cards format: WHAT the day built + WHY + one gotcha + test count. Written so Rajat re-reads at revision time and understands the code without opening the source.
+    - **3 interview Qs** in that track's `*_STUDY.html` — 2 easy (Python/Java basics or trace-this-code) + 1 conceptual (practical + theory + hands-on, the interview-signature one). Each Q anchors to a real file/function/commit in *this* project so reading the Q, jumping to the code, then answering is the intended loop. Kept small — a single Q is not a whole topic. Stored in a "Daily interview questions" section per project/week.
+    - Purpose: implement + revise + interview-prep from one commit, no separate write-up pass. If a day's code lands without both, the day isn't done.
+
 ---
 
 ## 4. Current state (as of 2026-09-18)
