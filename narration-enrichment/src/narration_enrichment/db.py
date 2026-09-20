@@ -11,8 +11,18 @@ function, one list function.
 import json
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine, func
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    create_engine,
+    func,
+)
+from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
 
 from narration_enrichment.config import get_settings
 from narration_enrichment.models import TransactionEnrichment
@@ -36,6 +46,77 @@ class EnrichmentRecord(Base):
     # production-scale version would reach for a vector index; this
     # project's actual row count doesn't justify one yet.
     embedding = Column(String, nullable=True)
+
+
+class PolicyDoc(Base):
+    """P2 — one row per ingested policy document.
+
+    `doc_id` is caller-chosen and stable across re-ingests: a
+    re-upload of the same doc with the same id replaces the chunk
+    set atomically (see policy_ingest service, Day 3). `checksum` is
+    the SHA-256 of the raw text — a re-ingest with the same checksum
+    returns "unchanged", no embedding work spent. `source_uri` is the
+    S3 URI of the raw doc (Day 4); nullable for now so Day 2's tests
+    can seed rows before S3 wiring lands.
+    """
+
+    __tablename__ = "policy_docs"
+
+    doc_id = Column(String, primary_key=True)
+    title = Column(String, nullable=False)
+    source_uri = Column(String, nullable=True)
+    checksum = Column(String, nullable=False)
+    ingested_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    chunks = relationship(
+        "PolicyChunk",
+        back_populates="doc",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class PolicyChunk(Base):
+    """P2 — one row per chunk of a policy doc, with its embedding.
+
+    Chunks + embeddings are a *cache* rebuildable from the raw doc in
+    S3 (P2_DESIGN.md §4). Deleting a PolicyDoc cascades and removes
+    all its chunks — atomic re-ingest depends on that cascade
+    behaving as advertised, which is why the relationship above sets
+    `cascade="all, delete-orphan"` and `passive_deletes=True`
+    together (the second one is what lets the DB do the delete
+    rather than SQLAlchemy pre-loading every chunk into the session
+    just to mark it deleted).
+
+    (doc_id, chunk_index) is unique — a re-ingest that produces the
+    same chunk_index twice would be a chunker bug worth catching at
+    the boundary.
+    """
+
+    __tablename__ = "policy_chunks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    doc_id = Column(
+        String,
+        ForeignKey("policy_docs.doc_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    chunk_index = Column(Integer, nullable=False)
+    content = Column(String, nullable=False)
+    # Same JSON-encoded shape as EnrichmentRecord.embedding — same
+    # rag.py cosine code reads both. Kept nullable so a failed embed
+    # can be repaired later without a schema change; the ingest
+    # service refuses to persist a chunk with a NULL embedding today,
+    # but a future backfill flow might.
+    embedding = Column(String, nullable=True)
+    embedded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    doc = relationship("PolicyDoc", back_populates="chunks")
+
+    __table_args__ = (
+        UniqueConstraint("doc_id", "chunk_index", name="uq_policy_chunks_doc_index"),
+    )
 
 
 _settings = get_settings()
@@ -114,3 +195,116 @@ def get_total_and_average_confidence(db: Session) -> tuple[int, float | None]:
     # rather than a misleading 0.0 average with nothing behind it.
     average_confidence = db.query(func.avg(EnrichmentRecord.confidence)).scalar()
     return total, average_confidence
+
+
+# ---------------------------------------------------------------------------
+# P2 — policy docs + chunks
+# ---------------------------------------------------------------------------
+
+
+def get_policy_doc(db: Session, doc_id: str) -> PolicyDoc | None:
+    return db.query(PolicyDoc).filter(PolicyDoc.doc_id == doc_id).one_or_none()
+
+
+def list_policy_docs(db: Session) -> list[tuple[PolicyDoc, int]]:
+    """Every ingested policy doc, paired with its chunk count.
+
+    One aggregate query, GROUP BY in the DB — same rule as
+    get_category_counts: aggregation belongs where the data lives.
+    LEFT OUTER JOIN so a doc that somehow has zero chunks (should
+    never happen post-ingest, but we don't hide the state) still
+    shows up with count=0.
+    """
+    rows = (
+        db.query(PolicyDoc, func.count(PolicyChunk.id))
+        .outerjoin(PolicyChunk, PolicyChunk.doc_id == PolicyDoc.doc_id)
+        .group_by(PolicyDoc.doc_id)
+        .order_by(PolicyDoc.ingested_at.desc())
+        .all()
+    )
+    return [(doc, count or 0) for doc, count in rows]
+
+
+def upsert_policy_doc_with_chunks(
+    db: Session,
+    *,
+    doc_id: str,
+    title: str,
+    checksum: str,
+    source_uri: str | None,
+    chunks: list[tuple[int, str, list[float]]],
+) -> PolicyDoc:
+    """Atomic replace of a doc + its chunks.
+
+    Called by the ingest service (Day 3). The whole thing runs inside
+    ONE commit — a concurrent /enrich that reads policy_chunks
+    mid-re-ingest either sees the old chunk set or the new, never a
+    half-swapped state. This is what earns the citation contract at
+    read time (P2_DESIGN.md §7): the read path can trust that the
+    chunks it sees belong to a single coherent version of the doc.
+
+    `chunks` is a list of (chunk_index, content, embedding). The
+    embedding is stored JSON-encoded to match the read path in
+    rag.py's cosine loop over both tables.
+    """
+    existing = get_policy_doc(db, doc_id)
+    if existing is not None:
+        # cascade="all, delete-orphan" on PolicyDoc.chunks would
+        # remove the chunk rows when the doc is deleted, but here we
+        # want to KEEP the doc row (same PK, replace metadata + new
+        # chunks). Explicit delete of just the chunk rows keeps the
+        # transaction one commit and avoids re-INSERT/PK-collision on
+        # the doc row.
+        db.query(PolicyChunk).filter(PolicyChunk.doc_id == doc_id).delete(
+            synchronize_session=False
+        )
+        existing.title = title
+        existing.checksum = checksum
+        existing.source_uri = source_uri
+        existing.ingested_at = datetime.now(timezone.utc)
+        doc = existing
+    else:
+        doc = PolicyDoc(
+            doc_id=doc_id,
+            title=title,
+            source_uri=source_uri,
+            checksum=checksum,
+        )
+        db.add(doc)
+
+    for chunk_index, content, embedding in chunks:
+        db.add(
+            PolicyChunk(
+                doc_id=doc_id,
+                chunk_index=chunk_index,
+                content=content,
+                embedding=json.dumps(embedding),
+            )
+        )
+
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def delete_policy_doc(db: Session, doc_id: str) -> bool:
+    """Idempotent delete — returns True if a row was removed, False if
+    the doc didn't exist. Chunks cascade automatically via the FK.
+    """
+    doc = get_policy_doc(db, doc_id)
+    if doc is None:
+        return False
+    db.delete(doc)
+    db.commit()
+    return True
+
+
+def list_policy_chunks_with_embeddings(db: Session) -> list[PolicyChunk]:
+    """The read path for policy-side RAG.
+
+    Same shape as list_records_with_embeddings (past-narration side):
+    every chunk that has an embedding, no LIMIT at this project's
+    scale. rag.py's cosine loop consumes the JSON-encoded embedding
+    column the same way it consumes EnrichmentRecord.embedding.
+    """
+    return db.query(PolicyChunk).filter(PolicyChunk.embedding.isnot(None)).all()
