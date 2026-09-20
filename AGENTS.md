@@ -46,7 +46,7 @@ These have been established across many sessions. Break them and the user will c
 5. **Companion "easy notes" HTML artifacts** are kept per track, in sync with the code:
    - Java track uses "Corner Notes" styling (cream/amber palette) — files: `backend/CORNER_NOTES.html`, `ticketing-platform/SEAT_LOCK.html`, `ticketing-platform/SAGA_LAB.html`, `ticketing-platform/PAYMENT_LAB.html`.
    - Python track uses "Narration Lab" styling (mint/teal) — file: `narration-enrichment/NARRATION_LAB.html`.
-   - Learning-companion (Rajat's Q&A) — `ticketing-platform/TICKET_STUDY.html` (added 2026-09-18).
+   - Learning-companion (Rajat's Q&A) — `ticketing-platform/TICKET_STUDY.html` (added 2026-09-18) and `narration-enrichment/NARRATION_STUDY.html` (added 2026-09-20, scaffolded, empty of Q&A until teaching-mode sessions begin on this track). Companion pattern: each track's *_STUDY.html uses that track's base palette + a *contrasting* accent for Q&A blocks (teal on Corner Notes cream for ticketing; amber on Narration Lab mint for narration) so a fresh reader can tell "explained content" from "questions asked" at a glance.
    - **One showcase HTML per Week** (confirmed 2026-09-20). Don't grow SAGA_LAB to cover Week 3; spawn PAYMENT_LAB. Rule: `<Week-N>_<theme>.html` for each week's headline focus. Prevents any one file from overloading, keeps concerns cleanly separated per week's arc.
 
 6. **Live verification, no cherry-picking.** Real API calls, real Docker containers, real DB. When a live result is "boring" or null, report it honestly rather than swapping for a flattering example.
@@ -89,9 +89,23 @@ User instruction 2026-09-20: **do not commit, keep implementing to 2M token budg
 - User answers 7 more interview questions in `WEEK3_DESIGN.md §9`
 - Eventual commit + push (needs user OK)
 
-### Narration (Track B)
+### Narration (Track B) — P1 done, P2 up next
 
-- Weeks 1–4 done, last commit `20cb3c6`. See `narration-enrichment/LEARNING_NOTES.md` for the full journey. **Next direction not committed to** — options: multi-provider fallback, observability, or P2 (document RAG per `Jarvis_GenAI_Path.md`).
+**Status:** P1 (Transaction Enrichment API) ✅ **DONE + committed + pushed** through last narration commit `20cb3c6` (Week 4 `/stats`). 68 tests green, no network in the suite.
+
+**P1 shipped across four "weeks" (phases):**
+- **Week 1** — base `POST /enrich`: Instructor + Pydantic + Gemini + FastAPI + Dockerfile + docker-compose with healthcheck. Commit `4cb3d86`.
+- **Week 2** — evaluation (`eval/run_eval.py` + 12-example golden dataset, discovered 5rpm/20rpd live), batch + persistence (`db.py`, SQLite `StaticPool` fix), retry-with-backoff via `tenacity` (only 429/503/504). Commit `7b92cbe`.
+- **Week 3** — a real live-caught bug (`InstructorRetryException` wraps every failure, exhausted 503 reported as misleading 422; fix inspects `exc.__cause__`) commit `516ccce`. Then RAG for consistency (`rag.py`, `gemini-embedding-001` 256-dim, cosine over own persisted enrichments, `task_type` asymmetry, live-proved via UBER case) commit `8fea40d`.
+- **Week 4** — sliding-window rate limiter (`rate_limiter.py`) commit `4899753`. Correlation IDs via `contextvars.ContextVar` + a live-caught `Logger.addFilter` vs `Handler.addFilter` bug commit `3f8985d`. `/stats` endpoint (DB aggregation + non-mutating rate-limiter peek, `null` not fake-`0.0` on empty table) commit `20cb3c6`.
+
+**Next work unit — P2 (Transaction + policy RAG).** First genuine RAG-over-documents build; first AWS touch on this track (S3 for raw policy docs). See `narration-enrichment/ROADMAP.md` for the day-by-day plan and `narration-enrichment/P2_DESIGN.md` for the design paper. **P2 not yet started** — nothing coded, no `policy_chunks` table, no S3 bucket. Waiting on Rajat to greenlight the switch from ticketing (currently active track).
+
+**Cross-track parallels worth remembering** (these keep the two tracks reinforcing each other):
+- Ticketing's `CorrelationIdFilter` (Java thread-local MDC) ↔ narration's `correlation.py` (Python `ContextVar`).
+- Ticketing's Bug 5 rule (whitelist-only, no ignore-exceptions with parent classes on Resilience4j) ↔ narration's rule that retry only fires on 429/503/504 (whitelist), never on Instructor's `InstructorRetryException` blanket.
+- Ticketing's outbox pattern (dual-write defeated by atomic state + outbox row) ↔ future P4 target on this track (async doc-processing pipeline uses the same shape in Python + SQS).
+- Both tracks apply the "degrade-not-fail" rule to RAG/retrieval paths — a broken embedding never turns a 200 into a 500.
 
 ### Java baseline (Track A)
 
@@ -162,8 +176,13 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 
 ### GenAI track (Python)
 - `Jarvis_GenAI_Path.md` — master plan (P1 → P8)
-- `narration-enrichment/README.md` + `LEARNING_NOTES.md` + `NARRATION_LAB.html`
-- `narration-enrichment/src/` — Weeks 1–4 code
+- `narration-enrichment/ROADMAP.md` — **narration-specific ordered plan** (P1 done recap + P2 day-by-day + P3-P8 outline)
+- `narration-enrichment/P2_DESIGN.md` — Day 1 design paper for the next work unit (RAG over policy docs) + 6 interview Qs
+- `narration-enrichment/README.md` — full build log (Weeks 1–4 prose)
+- `narration-enrichment/LEARNING_NOTES.md` — prose revision with self-check Qs (no answers)
+- `narration-enrichment/NARRATION_LAB.html` — showcase HTML (mint/teal design)
+- `narration-enrichment/NARRATION_STUDY.html` — **Rajat's Q&A journal** for this track, scaffolded, empty of Q&A until teaching-mode begins here
+- `narration-enrichment/src/` — Weeks 1–4 code (P1 complete)
 
 ### Java baseline (reference)
 - `backend/LEARNING_NOTES.md` + `CORNER_NOTES.html`

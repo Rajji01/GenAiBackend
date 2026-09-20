@@ -12,10 +12,10 @@ For a **new agent**, read in this exact order. Each step is short and unlocks th
 2. **`AGENTS.md`** — the rules, current state, standing conventions, environment quirks. **Non-negotiable rules live here.**
 3. **`README.md`** (root) — welcome, one-liner, links back to the above two.
 4. **`ticketing-platform/ROADMAP.md`** — the master plan for the ticketing track (10 phases).
-5. **`Jarvis_GenAI_Path.md`** — the master plan for the GenAI (Python) track (P1→P8).
+5. **`Jarvis_GenAI_Path.md`** (strategy) + **`narration-enrichment/ROADMAP.md`** (execution) — the two-layer plan for the GenAI (Python) track. Master strategy at repo root; day-by-day for the next work unit inside the track folder.
 6. **`NEXT_PATH.md`** — synthesized cross-track forward plan, week-by-week.
 
-After that, drop into whichever track you're working on and read that track's `README.md` + `LEARNING_NOTES.md` + `*_LAB.html`.
+After that, drop into whichever track you're working on and read that track's `README.md` + `LEARNING_NOTES.md` + `*_LAB.html` (+ `*_STUDY.html` if you're picking up Rajat's learning journal).
 
 ---
 
@@ -101,19 +101,22 @@ Each service directory has the standard Maven layout:
 
 ### 🐍 Narration track (`narration-enrichment/`)
 
-Python/FastAPI/Gemini/Instructor/RAG track. Weeks 1–4 done.
+Python/FastAPI/Gemini/Instructor/RAG track. **P1 done (Weeks 1–4, last commit `20cb3c6`); P2 up next (see `ROADMAP.md` + `P2_DESIGN.md`).**
 
 | File | Category | Purpose |
 |---|---|---|
-| `README.md` | 📖 Build log | Week-by-week daily entries |
+| `README.md` | 📖 Build log | Week-by-week daily entries + engineering-decisions section |
+| `ROADMAP.md` | 🗺️ Track roadmap | **Narration-specific ordered plan** — P1 done recap with commit refs + P2 day-by-day plan + P3-P8 outline. Complements the generic `Jarvis_GenAI_Path.md` at repo root (2026-09-20) |
+| `P2_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for the next work unit (Transaction + policy RAG) — data model, chunking strategy, S3+SQLite split, citation contract, failure matrix, sequence diagrams + 6 interview Qs (2026-09-20) |
 | `LEARNING_NOTES.md` | 📖 Prose revision | Self-check Qs, no answers |
 | `NARRATION_LAB.html` | 🔨 Showcase HTML | Deep concept HTML — **Narration Lab design (mint/teal)**, distinct from Java-track's Corner Notes |
+| `NARRATION_STUDY.html` | 📘 Personal learning | **Rajat's Q&A journal** for the narration track. Scaffolded with 6 empty sections (structured output / RAG / retry / rate limiter / correlation IDs / degrade-not-fail), each section anchored to files + commits, waiting for teaching-mode sessions to fill Q&A blocks. Uses Narration Lab mint/teal base + amber Q&A accent (parallel to TICKET_STUDY's teal-on-cream) (2026-09-20) |
 | `Dockerfile`, `docker-compose.yml` | Config | Local run |
 | `pyproject.toml`, `uv.lock` | Config | Python deps (uv-managed) |
-| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py |
-| `tests/**` | Tests | pytest (LLM boundary mocked, real DB via in-memory SQLite + StaticPool) |
-| `eval/**` | Eval | Golden dataset + run_eval.py |
-| `narration_enrichment.db` | Runtime | SQLite persistence (gitignored likely) |
+| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py, schemas.py + 3 dayN scratch scripts kept as historical record |
+| `tests/**` | Tests | 68 tests, pytest (LLM + embedding boundaries mocked, real DB via in-memory SQLite + StaticPool) |
+| `eval/**` | Eval | 12-example golden dataset + run_eval.py — costs real API quota, run manually |
+| `narration_enrichment.db` | Runtime | SQLite persistence (gitignored) |
 
 ### ☕ Original Java baseline (`backend/`)
 
@@ -136,8 +139,9 @@ UFC/betting Spring Boot backend. Reference architecture. Treated as largely comp
 | **Corner Notes** | Cream `#F5F1E8` bg, amber `#A9761F` accent | `CORNER_NOTES.html`, `SEAT_LOCK.html`, `SAGA_LAB.html` | Warm, notebook, boxing/UFC |
 | **Narration Lab** | Mint `#EDF1F2` bg, teal `#0E8B8D` accent | `NARRATION_LAB.html` | Cool, scientific, lab-notebook |
 | **Ticket Study** | Corner Notes cream base + teal Q&A accent | `TICKET_STUDY.html` | Hybrid — same as Corner Notes but Q&A blocks visually distinct via teal borders |
+| **Narration Study** | Narration Lab mint/teal base + amber Q&A accent | `NARRATION_STUDY.html` | Hybrid — same as Narration Lab but Q&A blocks visually distinct via amber borders |
 
-**Deliberate:** Java tracks use Corner Notes for visual continuity. Python track uses Narration Lab so at a glance you can tell which track you're viewing. TICKET_STUDY overlays teal on Corner Notes to distinguish concept blocks (amber) from Q&A blocks (teal).
+**Deliberate:** Java tracks use Corner Notes for visual continuity. Python track uses Narration Lab so at a glance you can tell which track you're viewing. Each track's `*_STUDY.html` uses that track's base palette + the *contrasting* accent for Q&A blocks — teal-on-cream for ticketing, amber-on-mint for narration — so a fresh reader can tell "explained content" from "questions asked" at a glance in either track.
 
 ---
 
@@ -174,9 +178,12 @@ backend/CORNER_NOTES.html (original)
         │
         ├──► ticketing-platform/SEAT_LOCK.html    (copied styling, Week 1)
         ├──► ticketing-platform/SAGA_LAB.html     (copied styling, Week 2)
+        ├──► ticketing-platform/PAYMENT_LAB.html  (copied styling, Week 3)
         └──► ticketing-platform/TICKET_STUDY.html (copied styling + teal Q&A extension)
 
 narration-enrichment/NARRATION_LAB.html (separate, mint/teal design system)
+        │
+        └──► narration-enrichment/NARRATION_STUDY.html (copied styling + amber Q&A extension)
 ```
 
 ---
@@ -224,13 +231,17 @@ Some information intentionally does NOT live in a repo file:
 | The rules of engagement | `AGENTS.md` §3 (Standing rules) |
 | Current work state | `AGENTS.md` §4 (Current state) |
 | What's next on the ticketing track | `ticketing-platform/ROADMAP.md` |
-| What's next on the GenAI track | `Jarvis_GenAI_Path.md` |
+| What's next on the GenAI track (strategy) | `Jarvis_GenAI_Path.md` |
+| What's next on the GenAI track (execution + P2 day plan) | `narration-enrichment/ROADMAP.md` |
 | Combined next steps | `NEXT_PATH.md` |
 | Deep understanding of Week 1 (ticketing) | `ticketing-platform/SEAT_LOCK.html` |
 | Deep understanding of Week 2 (ticketing) | `ticketing-platform/SAGA_LAB.html` |
-| Deep understanding of narration | `narration-enrichment/NARRATION_LAB.html` |
-| Rajat's active learning progress | `ticketing-platform/TICKET_STUDY.html` + `AGENTS.md` §5 |
-| Interview questions to answer | `ticketing-platform/WEEK1_REVIEW.md` + `WEEK2_DESIGN.md` |
+| Deep understanding of Week 3 (ticketing) | `ticketing-platform/PAYMENT_LAB.html` |
+| Deep understanding of narration P1 | `narration-enrichment/NARRATION_LAB.html` |
+| Design paper for narration P2 (next work unit) | `narration-enrichment/P2_DESIGN.md` |
+| Rajat's active learning progress (ticketing) | `ticketing-platform/TICKET_STUDY.html` + `AGENTS.md` §5 |
+| Rajat's active learning progress (narration) | `narration-enrichment/NARRATION_STUDY.html` (scaffolded, empty until teaching-mode begins here) |
+| Interview questions to answer | `ticketing-platform/WEEK1_REVIEW.md` + `WEEK2_DESIGN.md` + `WEEK3_DESIGN.md` + `narration-enrichment/P2_DESIGN.md` §10 |
 | Code for the booking flow | `ticketing-platform/booking-service/src/**` |
 | Code for the seat/hold logic | `ticketing-platform/inventory-service/src/**` |
 | How to run everything locally | `ticketing-platform/README.md` "Run locally" section |

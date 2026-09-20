@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Narration Study</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#EDF1F2;
+    --surface:#FAFCFC;
+    --surface-alt:#E1E8E9;
+    --ink:#0F1A1D;
+    --ink-soft:#4B5D61;
+    --border:#CBD8DA;
+    --accent:#0E8B8D;
+    --accent-soft:#D3ECEC;
+    /* Q&A accent — warm amber against the mint base, so answered
+       questions read as visually distinct from concept blocks.
+       Same relationship TICKET_STUDY has to SAGA_LAB (teal Q&A on
+       cream base), just inverted for this palette. */
+    --qa:#B8722A;
+    --qa-soft:#F4E4CE;
+    --qa-border:#E4C58F;
+    --danger:#C1442E;
+    --success:#1E8A5C;
+    --mono-bg:#E2E9EA;
+    --term-bg:#101A1C;
+    --term-ink:#D8EDEA;
+    --shadow: 0 1px 2px rgba(10,20,22,.06), 0 6px 20px -8px rgba(10,20,22,.14);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0C1315;
+      --surface:#121B1E;
+      --surface-alt:#1A262A;
+      --ink:#E4EDEE;
+      --ink-soft:#93A9AD;
+      --border:#263539;
+      --accent:#4FD4D6;
+      --accent-soft:#153436;
+      --qa:#E9B972;
+      --qa-soft:#332413;
+      --qa-border:#5E4520;
+      --danger:#E17A61;
+      --success:#55C08A;
+      --mono-bg:#182226;
+      --term-bg:#080F10;
+      --term-ink:#BFEAE4;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 30px -10px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0C1315;
+    --surface:#121B1E;
+    --surface-alt:#1A262A;
+    --ink:#E4EDEE;
+    --ink-soft:#93A9AD;
+    --border:#263539;
+    --accent:#4FD4D6;
+    --accent-soft:#153436;
+    --qa:#E9B972;
+    --qa-soft:#332413;
+    --qa-border:#5E4520;
+    --danger:#E17A61;
+    --success:#55C08A;
+    --mono-bg:#182226;
+    --term-bg:#080F10;
+    --term-ink:#BFEAE4;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 30px -10px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans","Segoe UI",Arial,sans-serif;
+    font-size:16px;
+    line-height:1.62;
+  }
+  h1,h2,h3{ font-family:"IBM Plex Sans",sans-serif; font-weight:600; margin:0; }
+  code,.mono{ font-family:"IBM Plex Mono",ui-monospace,monospace; }
+  a{ color:var(--accent); }
+
+  .layout{
+    display:grid;
+    grid-template-columns:244px minmax(0,1fr);
+    max-width:1180px;
+    margin:0 auto;
+  }
+  @media (max-width:820px){
+    .layout{ grid-template-columns:1fr; }
+    .sidebar{ position:static; height:auto; border-right:none; border-bottom:1px solid var(--border); }
+    main{ padding:24px 16px 64px; }
+  }
+
+  .sidebar{
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    padding:26px 16px 26px 22px;
+    border-right:1px solid var(--border);
+  }
+  .brand-eyebrow{ font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); }
+  .brand-name{ font-size:21px; font-weight:700; margin-top:3px; }
+  .brand-sub{ font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .nav-group{ margin-top:24px; }
+  .nav-group-title{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 8px 2px; }
+  .nav-link{ display:flex; gap:9px; align-items:baseline; padding:6px 8px; border-radius:6px; font-size:14px; color:var(--ink-soft); text-decoration:none; }
+  .nav-link:hover{ background:var(--surface-alt); color:var(--ink); }
+  .nav-tag{ font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--accent); min-width:30px; }
+  .nav-status{ font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ink-soft); }
+  .nav-status.done{ color:var(--success); }
+  .nav-status.qd { color:var(--ink-soft); }
+
+  main{ padding:44px 46px 100px; min-width:0; }
+  section{ margin-bottom:58px; }
+  p{ max-width:70ch; }
+  .eyebrow{ font-size:12px; letter-spacing:.15em; text-transform:uppercase; color:var(--accent); margin:0 0 6px; }
+  h1.title{ font-size:34px; }
+  h2{ font-size:26px; margin-top:8px; }
+  .lede{ font-size:17px; color:var(--ink-soft); max-width:64ch; }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:20px 22px; margin-top:18px; }
+
+  .qa{
+    border-left:4px solid var(--qa);
+    background:var(--qa-soft);
+    border:1px solid var(--qa-border);
+    border-left-width:4px;
+    border-radius:8px;
+    padding:16px 18px;
+    margin-top:14px;
+  }
+  .qa .qa-label{
+    display:inline-block; padding:2px 8px; border-radius:4px;
+    background:var(--qa); color:#fff;
+    font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.06em;
+    text-transform:uppercase;
+  }
+  .qa .q{ margin-top:8px; font-weight:600; }
+  .qa .a{ margin-top:10px; color:var(--ink); }
+  .qa.empty .a{ color:var(--ink-soft); font-style:italic; }
+
+  .status-pill{
+    display:inline-block; padding:3px 10px; border-radius:99px;
+    font-family:"IBM Plex Mono",monospace; font-size:11px;
+    background:var(--surface-alt); color:var(--ink-soft);
+  }
+  .status-pill.done   { background:var(--success); color:#fff; }
+  .status-pill.next   { background:var(--accent);  color:#fff; }
+  .status-pill.queued { background:var(--qa);      color:#fff; }
+
+  .kv{ display:grid; grid-template-columns: 200px 1fr; gap:8px 18px; margin:14px 0 0; font-size:14.5px; }
+  .kv .k{ color:var(--ink-soft); }
+  .kv code{ background:var(--mono-bg); padding:1px 6px; border-radius:4px; font-size:13.5px; }
+
+  .callout{ background:var(--accent-soft); border-left:4px solid var(--accent); padding:14px 18px; border-radius:6px; margin-top:14px; }
+  .callout .callout-label{ font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--accent); letter-spacing:.08em; text-transform:uppercase; }
+  .callout .callout-body{ margin-top:6px; }
+
+  hr.rule{ border:none; border-top:1px dashed var(--border); margin:34px 0; }
+
+  .files{ font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--ink-soft); margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="brand-eyebrow">Personal study</div>
+  <div class="brand-name">Narration Study</div>
+  <div class="brand-sub">Rajat's Q&amp;A journal for the Python / GenAI track</div>
+
+  <nav class="nav-group">
+    <div class="nav-group-title">Sections</div>
+    <a class="nav-link" href="#s1"><span class="nav-tag">S1</span> Structured output <span class="nav-status qd">queued</span></a>
+    <a class="nav-link" href="#s2"><span class="nav-tag">S2</span> RAG for consistency <span class="nav-status qd">queued</span></a>
+    <a class="nav-link" href="#s3"><span class="nav-tag">S3</span> Retry &amp; exception mapping <span class="nav-status qd">queued</span></a>
+    <a class="nav-link" href="#s4"><span class="nav-tag">S4</span> Rate limiter design <span class="nav-status qd">queued</span></a>
+    <a class="nav-link" href="#s5"><span class="nav-tag">S5</span> Correlation IDs &amp; the filter bug <span class="nav-status qd">queued</span></a>
+    <a class="nav-link" href="#s6"><span class="nav-tag">S6</span> Degrade-not-fail patterns <span class="nav-status qd">queued</span></a>
+  </nav>
+
+  <nav class="nav-group">
+    <div class="nav-group-title">Companion</div>
+    <a class="nav-link" href="NARRATION_LAB.html">NARRATION_LAB.html</a>
+    <a class="nav-link" href="README.md">README.md</a>
+    <a class="nav-link" href="LEARNING_NOTES.md">LEARNING_NOTES.md</a>
+    <a class="nav-link" href="ROADMAP.md">ROADMAP.md</a>
+  </nav>
+</aside>
+
+<main>
+
+<div class="eyebrow">Personal learning journal · narration-enrichment</div>
+<h1 class="title">Narration Study</h1>
+<p class="lede">
+  Rajat's own Q&amp;A journal for the narration-enrichment (Python / GenAI)
+  track — distinct from <a href="NARRATION_LAB.html">NARRATION_LAB.html</a>,
+  which is the portfolio/showcase deep-concept file. This one is study:
+  each section captures a concept, then the questions Rajat asked while
+  learning it and the answers in his own words.
+</p>
+
+<div class="callout">
+  <div class="callout-label">Current state</div>
+  <div class="callout-body">
+    <span class="status-pill queued">learning mode not yet started for this track</span><br><br>
+    Sections below are <strong>scaffolded, not yet filled</strong>. The
+    narration track shipped Weeks 1–4 in implementation-first mode;
+    the equivalent of the ticketing track's TICKET_STUDY.html arc
+    hasn't begun here. When Rajat says <em>"narration section 1
+    chalu kr"</em> (or equivalent) the assistant fills S1 in the same
+    shape as ticketing's Section 1: concept, code snippet, and any
+    Q&amp;A that arises.
+  </div>
+</div>
+
+<div class="callout" style="background:var(--qa-soft); border-color:var(--qa);">
+  <div class="callout-label" style="color:var(--qa);">Design cue</div>
+  <div class="callout-body">
+    This file uses Narration Lab's mint/teal base (so it visually
+    belongs to this track), with a warm amber accent for
+    <strong class="mono" style="color:var(--qa);">Q&amp;A</strong> blocks —
+    parallel to how <code>TICKET_STUDY.html</code> uses a teal accent
+    against Corner Notes cream. The rule: <em>concept</em> blocks
+    inherit the track's own accent; <em>Q&amp;A</em> blocks use the
+    contrasting accent, so a fresh reader can tell "explained content"
+    from "Rajat's questions" at a glance.
+  </div>
+</div>
+
+<hr class="rule">
+
+<section id="s1">
+  <div class="eyebrow">Section 1</div>
+  <h2>Structured output via Instructor + Pydantic</h2>
+  <p class="lede">Why <code>json.loads()</code> on LLM output is a foot-gun even with a careful prompt, and what <code>Mode.TOOLS</code> actually does under the hood.</p>
+
+  <div class="card">
+    <span class="status-pill">queued · not yet taught</span>
+    <div class="kv">
+      <div class="k">Anchor files</div>       <div><code>src/narration_enrichment/day2_naive_json.py</code>, <code>day3_structured_output.py</code>, <code>models.py</code></div>
+      <div class="k">Commits</div>            <div><code>4cb3d86</code></div>
+      <div class="k">README pointer</div>     <div>§"Day 2" + §"Day 3"</div>
+      <div class="k">What this section will cover when taught</div>
+      <div>
+        • The three real failure shapes Day 2 caught live (markdown fence, string-not-float, nested object) — <em>reproduced against a real model, not hypothetical.</em><br>
+        • Why "write a better prompt" isn't a fix — what Instructor's <code>Mode.TOOLS</code> does that prompt-only can't.<br>
+        • <code>Literal[...]</code> vs <code>str</code> for the <code>category</code> field — the "confidence as nested object" trap through the side door.<br>
+        • <code>max_retries=3</code> is a safety net, not the primary defense.
+      </div>
+    </div>
+  </div>
+
+  <div class="qa empty">
+    <span class="qa-label">Q · queued</span>
+    <div class="q">(Questions Rajat asks during teaching land here — mirrors TICKET_STUDY's Q1 / Q2 blocks.)</div>
+    <div class="a">Empty until learning-mode session covers Section 1.</div>
+  </div>
+</section>
+
+<section id="s2">
+  <div class="eyebrow">Section 2</div>
+  <h2>RAG for consistency — retrieval-augmented, not retrieval-added-on</h2>
+  <p class="lede">Using the service's own persisted enrichments as the retrieval corpus, and the <code>RETRIEVAL_DOCUMENT</code> vs <code>RETRIEVAL_QUERY</code> asymmetry that quietly degrades similarity if skipped.</p>
+
+  <div class="card">
+    <span class="status-pill">queued · not yet taught</span>
+    <div class="kv">
+      <div class="k">Anchor files</div>       <div><code>src/narration_enrichment/rag.py</code>, <code>service.py</code> (retrieval integration)</div>
+      <div class="k">Commit</div>             <div><code>8fea40d</code> (RAG for Week 3)</div>
+      <div class="k">Live proof</div>         <div>seeded past "UBER TRIP" as <code>category="transfer"</code> → fresh identical narration flipped <code>"other"</code> → <code>"transfer"</code>. Documented in README §"Week 3".</div>
+      <div class="k">What this section will cover when taught</div>
+      <div>
+        • Why the service's own persisted data is the RAG corpus (vs a separate vector DB) — the same anti-overengineering rule that keeps this project on SQLite.<br>
+        • The <code>task_type</code> asymmetry: <code>RETRIEVAL_DOCUMENT</code> for what's stored, <code>RETRIEVAL_QUERY</code> for what's searched. Skipping it doesn't error — it just quietly scores worse.<br>
+        • Similarity floor (0.70) + top-3 cap: how these two knobs together prevent junk context.<br>
+        • Bridge to <a href="P2_DESIGN.md">P2_DESIGN.md</a>: extending this to <em>document</em> retrieval (policy chunks) is the next work unit — same mechanism, new corpus.
+      </div>
+    </div>
+  </div>
+
+  <div class="qa empty">
+    <span class="qa-label">Q · queued</span>
+    <div class="q">(Empty until taught.)</div>
+    <div class="a">—</div>
+  </div>
+</section>
+
+<section id="s3">
+  <div class="eyebrow">Section 3</div>
+  <h2>Retry-with-backoff + exception mapping</h2>
+  <p class="lede">Two retries in the same call path, doing different jobs, and the live-caught bug where every wrapped exception looked like a validation failure.</p>
+
+  <div class="card">
+    <span class="status-pill">queued · not yet taught</span>
+    <div class="kv">
+      <div class="k">Anchor files</div>       <div><code>service.py</code> (tenacity retry + exception mapping), <code>main.py</code> (status code mapping)</div>
+      <div class="k">Commits</div>            <div><code>7b92cbe</code> (Week 2 retry), <code>516ccce</code> (Week 3 Day 1 bug)</div>
+      <div class="k">What this section will cover when taught</div>
+      <div>
+        • Two retries in the same call path: Instructor's own retry (fixes bad <em>shape</em>) vs tenacity's outer retry (fixes bad <em>call</em>). Deliberately separate, not stacked without thought.<br>
+        • Whitelist of transient codes (429/503/504) — anything else fails fast. Same rule Bug 5 in the ticketing bug museum enforces.<br>
+        • The live-caught bug: <code>InstructorRetryException</code> wraps <em>every</em> underlying failure. An exhausted 503 was reported to callers as a misleading 422. Fix: inspect <code>exc.__cause__</code> before choosing status code.<br>
+        • Test lesson: mock the actual API boundary (<code>_raw_client.models.generate_content</code>), not <code>_client.create</code> — the wrapped-exception shape only reproduces at the real boundary.
+      </div>
+    </div>
+  </div>
+
+  <div class="qa empty">
+    <span class="qa-label">Q · queued</span>
+    <div class="q">(Empty until taught.)</div>
+    <div class="a">—</div>
+  </div>
+</section>
+
+<section id="s4">
+  <div class="eyebrow">Section 4</div>
+  <h2>Rate limiter — reject locally, don't retry into a wall</h2>
+  <p class="lede">A sliding-window limiter over the two live-measured caps (5/min, 20/day), checked <em>before</em> the network call. And why the tests use an injectable clock, not real sleeps.</p>
+
+  <div class="card">
+    <span class="status-pill">queued · not yet taught</span>
+    <div class="kv">
+      <div class="k">Anchor file</div>        <div><code>src/narration_enrichment/rate_limiter.py</code></div>
+      <div class="k">Commit</div>             <div><code>4899753</code></div>
+      <div class="k">What this section will cover when taught</div>
+      <div>
+        • Why reject-locally beats waiting for the provider's own 429: the <em>daily</em> cap doesn't recover inside any retry window, so retrying is guaranteed-fail plus quota burn.<br>
+        • Sliding window as arithmetic on a deque of timestamps — pure Python, no Redis. Same "smallest infra" rule as SQLite-for-RAG.<br>
+        • Injectable <code>time_fn</code>: tests prove a 60-second window reset without a real 60-second sleep. The mechanism under test is arithmetic, not LLM behavior — mocking the clock is the right tool.<br>
+        • <code>remaining()</code> vs <code>acquire()</code>: the former is non-mutating (used by <code>/stats</code>) so a status peek doesn't itself consume a slot.
+      </div>
+    </div>
+  </div>
+
+  <div class="qa empty">
+    <span class="qa-label">Q · queued</span>
+    <div class="q">(Empty until taught.)</div>
+    <div class="a">—</div>
+  </div>
+</section>
+
+<section id="s5">
+  <div class="eyebrow">Section 5 · has a bug story worth studying</div>
+  <h2>Correlation IDs + the logging-filter bug caught live</h2>
+  <p class="lede">Python's <code>contextvars.ContextVar</code> as the async-safe MDC, and a subtle <code>Logger.addFilter()</code> vs <code>Handler.addFilter()</code> difference that silently makes the filter never run.</p>
+
+  <div class="card">
+    <span class="status-pill">queued · not yet taught</span>
+    <div class="kv">
+      <div class="k">Anchor file</div>        <div><code>src/narration_enrichment/correlation.py</code></div>
+      <div class="k">Commit</div>             <div><code>3f8985d</code></div>
+      <div class="k">Cross-track parallel</div><div>ticketing's <code>CorrelationIdFilter</code> (same shape, Java thread-local MDC)</div>
+      <div class="k">What this section will cover when taught</div>
+      <div>
+        • Why <code>ContextVar</code> works cleanly in async Python without the <code>finally { MDC.remove() }</code> Java's thread-local needs — Starlette runs each request in its own Task, and a <code>ContextVar</code> set inside a Task is invisible to every concurrently running Task.<br>
+        • The bug: attaching the filter via <code>logging.getLogger().addFilter(...)</code> looked right, but <code>Logger.filter()</code> is only invoked by the logger that <em>originates</em> a record — propagation to ancestors calls the ancestor's <em>handlers</em>, bypassing its own filter. Fix: <code>handler.addFilter(...)</code>.<br>
+        • The <em>test</em> lesson: pin the bug in an isolated logger tree, not the real root. The real root already carries the fix by the time <code>main.py</code> imports, which would silently mask the very bug being tested for.
+      </div>
+    </div>
+  </div>
+
+  <div class="qa empty">
+    <span class="qa-label">Q · queued</span>
+    <div class="q">(Empty until taught.)</div>
+    <div class="a">—</div>
+  </div>
+</section>
+
+<section id="s6">
+  <div class="eyebrow">Section 6</div>
+  <h2>Degrade-not-fail — the pattern that runs through everything</h2>
+  <p class="lede">RAG, embeddings, `/stats` on an empty table — all designed so a failure in a <em>support</em> path never turns the request path into an outage.</p>
+
+  <div class="card">
+    <span class="status-pill">queued · not yet taught</span>
+    <div class="kv">
+      <div class="k">Anchor files</div>       <div><code>rag.py</code> (both embed calls in try/except), <code>db.py</code> (aggregation returns null not fake-0.0), <code>main.py</code> (exception mapping)</div>
+      <div class="k">Commits</div>            <div><code>8fea40d</code> (RAG degrade), <code>20cb3c6</code> (<code>/stats</code> null-not-zero)</div>
+      <div class="k">What this section will cover when taught</div>
+      <div>
+        • The rule stated concretely: a broken embedding call should cost that one row's future retrievability, not turn <code>/enrich</code> into a 500.<br>
+        • <code>/stats</code> returns <code>average_confidence: null</code> (not <code>0.0</code>) on an empty table — SQL's <code>AVG()</code> over zero rows is <code>NULL</code>, and reporting a fake <code>0.0</code> average would misleadingly imply there's data behind it.<br>
+        • Exception mapping by <em>type</em>, not by string-matching messages — <code>InstructorRetryException</code> → 422, <code>httpx.TimeoutException</code> → 504, anything else → generic 500 that never echoes the exception message to the caller.<br>
+        • Same pattern lives on the ticketing track — same principle, different language. This section is the place to make that parallel explicit.
+      </div>
+    </div>
+  </div>
+
+  <div class="qa empty">
+    <span class="qa-label">Q · queued</span>
+    <div class="q">(Empty until taught.)</div>
+    <div class="a">—</div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<div class="callout">
+  <div class="callout-label">How this file grows</div>
+  <div class="callout-body">
+    <ol>
+      <li>Rajat says <em>"narration S1 chalu kr"</em> (or equivalent) in a
+        session.</li>
+      <li>Assistant fills S1's card with a mentored walkthrough (concept +
+        anchor code snippet), same shape as ticketing's Section 1.</li>
+      <li>Any Q Rajat asks lands in a new Q&amp;A block under that section,
+        <em>with the answer in his own words captured back</em>.</li>
+      <li>Section's status pill flips <code>queued</code> →
+        <code>DONE</code>; sidebar tag updates.</li>
+      <li>Local memory (<code>~/.claude/projects/.../memory/</code>) tracks
+        the same progress in a <code>teaching_arc_narration_study.md</code>
+        file — parallel to the existing
+        <code>teaching_arc_ticket_study.md</code>.</li>
+    </ol>
+  </div>
+</div>
+
+</main>
+</div>
+
+</body>
+</html>
