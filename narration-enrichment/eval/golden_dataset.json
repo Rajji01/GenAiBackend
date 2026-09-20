@@ -82,5 +82,50 @@
     "expected_merchant_contains": "reliance",
     "expected_category": "shopping",
     "expected_transaction_type": "POS"
+  },
+  {
+    "id": "uber_policy",
+    "narration": "UPI/P2M/667788990/UBER TRIP PAYMENT/Payment",
+    "expected_merchant_contains": "uber",
+    "expected_category": "transfer",
+    "expected_transaction_type": "UPI",
+    "requires_policy_doc": "uber_transfer_policy",
+    "note": "Without the uber_transfer_policy chunk in the corpus, base P1 classification returns 'other' — this case tests the P2 override path."
+  },
+  {
+    "id": "dominos_food",
+    "narration": "UPI/P2M/554433221/DOMINOS PIZZA ORDER/Payment",
+    "expected_merchant_contains": "dominos",
+    "expected_category": "food_delivery",
+    "expected_transaction_type": "UPI",
+    "requires_policy_doc": "dominos_food_policy",
+    "note": "Base P1 may or may not know Dominos as food_delivery. The policy makes the classification deterministic + citable."
+  },
+  {
+    "id": "refund_case",
+    "narration": "REFUND-UPI/P2M/667788990/AMAZON PAY REVERSAL/2026-09-15",
+    "expected_merchant_contains": "amazon",
+    "expected_category": "transfer",
+    "expected_transaction_type": "UPI",
+    "requires_policy_doc": "refund_reversal_policy",
+    "note": "Refund override supersedes merchant + rail signals — should classify as transfer, not shopping."
+  },
+  {
+    "id": "fnf_monthly_transfer",
+    "narration": "IMPS/812345678901/RAHUL SHARMA/F&F MONTHLY",
+    "expected_merchant_contains": "rahul",
+    "expected_category": "transfer",
+    "expected_transaction_type": "IMPS",
+    "requires_policy_doc": "friends_family_transfer_policy",
+    "note": "The word MONTHLY could pull a base classifier toward 'salary'; the F&F policy explicitly overrides that."
+  },
+  {
+    "id": "lic_premium",
+    "narration": "NEFT-N445566-LIC OF INDIA PREMIUM MAY2026",
+    "expected_merchant_contains": "lic",
+    "expected_category": "other",
+    "expected_transaction_type": "NEFT",
+    "requires_policy_doc": "insurance_premium_policy",
+    "note": "Insurance premiums map to 'other' pending a first-class insurance category. The policy also drives merchant name normalization."
   }
 ]

@@ -104,7 +104,17 @@ User instruction 2026-09-20: **do not commit, keep implementing to 2M token budg
 - **Week 3** — a real live-caught bug (`InstructorRetryException` wraps every failure, exhausted 503 reported as misleading 422; fix inspects `exc.__cause__`) commit `516ccce`. Then RAG for consistency (`rag.py`, `gemini-embedding-001` 256-dim, cosine over own persisted enrichments, `task_type` asymmetry, live-proved via UBER case) commit `8fea40d`.
 - **Week 4** — sliding-window rate limiter (`rate_limiter.py`) commit `4899753`. Correlation IDs via `contextvars.ContextVar` + a live-caught `Logger.addFilter` vs `Handler.addFilter` bug commit `3f8985d`. `/stats` endpoint (DB aggregation + non-mutating rate-limiter peek, `null` not fake-`0.0` on empty table) commit `20cb3c6`.
 
-**Next work unit — P2 (Transaction + policy RAG).** First genuine RAG-over-documents build; first AWS touch on this track (S3 for raw policy docs). See `narration-enrichment/ROADMAP.md` for the day-by-day plan and `narration-enrichment/P2_DESIGN.md` for the design paper. **P2 not yet started** — nothing coded, no `policy_chunks` table, no S3 bucket. Waiting on Rajat to greenlight the switch from ticketing (currently active track).
+**P2 (Transaction + policy RAG) — DONE 2026-09-20** through Day 6. Shipped in six day-specific commits:
+- Day 1: bootstrap layer (ROADMAP + P2_DESIGN + NARRATION_STUDY scaffold) — commit `f6b504b`.
+- Day 2: chunker (pure function) + PolicyDoc/PolicyChunk models + Citation schema — commit `6fedd43`.
+- Day 3: `POST /policies/ingest` idempotent-by-checksum + GET /policies + DELETE — commit `b72db22`.
+- Day 4: S3 backing for raw docs (boto3 + moto, bucket creation deferred to Rajat per rule 3-2) — commit `b5906ae`.
+- Day 5: policy retrieval + prompt weaving + **earned-not-decorated citations** (LLM-invented citations get overwritten from ground truth in `_enrich_and_persist` — regression test `test_llm_provided_citations_are_overwritten_not_appended` proves the LLM can never smuggle a hallucinated citation past the code) — commit `2d9a5fc`.
+- Day 6: eval extension (5 policy-driven cases + `eval/policy_seeds.json`) + README first-class "Policy RAG (P2)" section + LAB wrap-up banner. Live end-to-end proof deferred to a Rajat-driven run since it burns Gemini quota; mocked contract test covers the code-side invariant in the meantime.
+- 128 tests green, up from 68 at P1 close. Zero regressions.
+- Along the way: rule 3-11 added ("every day ships easy-notes card in LAB + 3 interview Qs in STUDY alongside the code commit"), 18 interview Qs authored across Days 2-6 in NARRATION_STUDY.html.
+
+**Next work unit — P3 (Knowledge assistant).** First auth layer, first multi-turn conversation memory, eval-as-a-system beyond a golden dataset. See `Jarvis_GenAI_Path.md` for the strategic framing; a P3-specific ROADMAP + DESIGN pass will land when Rajat greenlights P3 start. **P3 not yet started** — nothing coded.
 
 **Cross-track parallels worth remembering** (these keep the two tracks reinforcing each other):
 - Ticketing's `CorrelationIdFilter` (Java thread-local MDC) ↔ narration's `correlation.py` (Python `ContextVar`).

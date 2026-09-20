@@ -132,6 +132,72 @@ out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
 `AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
 would misleadingly imply there's data behind it.
 
+## Policy RAG (P2) — ingest policy docs, cite them in every response
+
+The Week-3 RAG ("retrieval-augmented consistency" below) taught
+`/enrich` to look at its own past classifications. **P2 adds a second
+retrieval layer: a human-maintained corpus of policy documents**
+(merchant→category rules, refund overrides, subscription heuristics)
+that gets folded into the same prompt alongside past classifications.
+
+Every `/enrich` and `/enrich/batch` response now carries a
+`policy_citations` list — the exact chunks that were placed in the
+prompt for that call, with document id, chunk index, snippet, and
+retrieval similarity score. **Citations are earned by the code, never
+authored by the model:** `_enrich_and_persist` overwrites
+`policy_citations` from the ground-truth retrieval result even if the
+LLM's function-calling wrote its own list, so "cited a chunk that
+never landed in the prompt" is not a failure mode this service can
+produce.
+
+### Ingest a policy doc
+
+```bash
+curl -X POST http://localhost:8000/policies/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "doc_id": "merchant_map_v1",
+    "title": "Merchant → category rulebook",
+    "content": "SWIGGY, ZOMATO, DOMINOS → food_delivery. UBER → transfer."
+  }'
+
+# {"doc_id":"merchant_map_v1","chunks_ingested":1,"unchanged":false,
+#  "checksum":"3a1..."}
+```
+
+Idempotent by content checksum — re-ingesting the same doc_id + same
+bytes returns `{"unchanged": true}` and spends no embedding budget.
+
+### List / delete the corpus
+
+```bash
+curl http://localhost:8000/policies                 # array of {doc_id, title, chunk_count, ingested_at}
+curl -X DELETE http://localhost:8000/policies/merchant_map_v1  # idempotent 204
+```
+
+### S3 backing (optional, off by default)
+
+Set `POLICY_S3_BUCKET` in `.env` and the ingest route uploads the raw
+doc to S3 before chunking; the resulting `s3://...` URI is stored on
+the `PolicyDoc` row. Chunks + embeddings always live in SQLite for
+fast retrieval; S3 is durable storage of the source of truth so the
+corpus can be rebuilt from S3 if the local DB is lost. Leave the
+bucket empty and the whole S3 path is skipped cleanly — the ingest
+route works exactly the same way, just without durable raw-doc
+storage. AWS bucket creation and credentials are out of band; boto3
+reads them from the environment or `~/.aws/credentials`. Never put
+`AWS_SECRET_ACCESS_KEY` in `.env`.
+
+### Evaluating with policy cases
+
+`eval/golden_dataset.json` now includes five `requires_policy_doc`
+cases whose expected classification only lands correctly if the
+matching policy doc from `eval/policy_seeds.json` is ingested first.
+The `run_eval.py` harness runs the plain 12 cases as-is; the extended
+5 are documented in the dataset for manual runs where an ingest step
+is done first, or for a future harness change that reads
+`policy_seeds.json` automatically.
+
 ## RAG (retrieval-augmented consistency)
 
 No separate endpoint — it's transparent inside `/enrich` and

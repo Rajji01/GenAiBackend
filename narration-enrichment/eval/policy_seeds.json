@@ -1,0 +1,32 @@
+[
+  {
+    "doc_id": "uber_transfer_policy",
+    "title": "UBER prefix classification override",
+    "content": "For the purpose of this bank's rulebook: any narration whose text contains 'UBER' as a merchant prefix — 'UBER TRIP PAYMENT', 'UBER RIDES', 'UBERAUTO' — must be classified with category 'transfer' rather than 'other'. Ride-hailing merchant charges are treated as intra-account transfers under this bank's internal accounting mapping, not miscellaneous. This override applies even when the payment rail is UPI/P2M.",
+    "affects_case_ids": ["uber_policy"]
+  },
+  {
+    "doc_id": "dominos_food_policy",
+    "title": "Merchant-to-category rules — food delivery",
+    "content": "The following merchant tokens, when they appear anywhere in a narration, must be classified as category 'food_delivery' with high confidence: SWIGGY, ZOMATO, EATCLUB, DOMINOS, PIZZA HUT, DUNZO FOOD, MCDONALDS DELIVERY, BIRYANI BLUES DELIVERY. This mapping is maintained by the finance team's merchant-taxonomy owner.",
+    "affects_case_ids": ["dominos_food"]
+  },
+  {
+    "doc_id": "refund_reversal_policy",
+    "title": "Refund / reversal / chargeback classification override",
+    "content": "Any narration whose payload starts with the tokens 'REFUND', 'REVERSAL', or 'CHARGEBACK' — case-insensitive — must be classified as category 'transfer'. This override supersedes all other classification signals, including merchant name and payment rail. Reason: refunds are money moving back to the customer's account, structurally a transfer of the original outbound entry, not an independent transaction.",
+    "affects_case_ids": ["refund_case"]
+  },
+  {
+    "doc_id": "friends_family_transfer_policy",
+    "title": "F&F / Friends-and-Family transfer classification",
+    "content": "Any narration that contains the marker 'F&F' (case-insensitive) or the literal text 'FRIENDS AND FAMILY' MUST be classified as category 'transfer' with transaction_type of whichever rail was actually used (UPI/IMPS/NEFT). Do not classify as 'salary' even when the note contains 'MONTHLY' — F&F is a personal transfer and the monthly cadence is coincidental.",
+    "affects_case_ids": ["fnf_monthly_transfer"]
+  },
+  {
+    "doc_id": "insurance_premium_policy",
+    "title": "Insurance premium classification override",
+    "content": "Any narration containing merchant tokens 'LIC', 'HDFC LIFE', 'ICICI PRUDENTIAL', 'MAX LIFE', 'SBI LIFE' — with or without additional descriptors like 'PREMIUM' — must be classified with category 'other' (insurance premiums are not yet a first-class category in TransactionEnrichment). Merchant name should be normalized to the insurer's canonical form ('LIC' not 'LIFE INSURANCE CORP OF INDIA').",
+    "affects_case_ids": ["lic_premium"]
+  }
+]

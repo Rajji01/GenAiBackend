@@ -231,6 +231,7 @@
     <a class="nav-link" href="#iq-p2-d3"><span class="nav-tag">D3</span> /policies/ingest</a>
     <a class="nav-link" href="#iq-p2-d4"><span class="nav-tag">D4</span> S3 backing</a>
     <a class="nav-link" href="#iq-p2-d5"><span class="nav-tag">D5</span> Retrieval + earned cites</a>
+    <a class="nav-link" href="#iq-p2-d6"><span class="nav-tag">D6</span> Eval + P2 closeout</a>
   </nav>
 
   <nav class="nav-group">
@@ -554,6 +555,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> <code>_enrich_and_persist</code> does <code>result.policy_citations = [...ground truth...]</code> AFTER the LLM call, unconditionally overwriting anything Instructor's function-calling wrote there. Explain what class of hallucination this defeats, why "just ask the model nicely to cite accurately" doesn't fix the same problem, and — if an interviewer pushes — what performance / correctness cost the overwrite pays. Then read <code>test_llm_provided_citations_are_overwritten_not_appended</code> and describe in one line what specific hallucination that test proves the code catches.</p>
     <p class="iq-hint">Hint: the interviewer's real question is "how do you defeat citation hallucination architecturally, not with prompt tricks." Anchor: <code>models.Citation</code>, <code>_enrich_and_persist</code>'s comment block starting "EARN the citations."</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p2-d6">
+    <h3>P2 · Day 6 — Eval extension + P2 closeout</h3>
+    <span class="iq-anchor">files: <code>eval/golden_dataset.json</code>, <code>eval/policy_seeds.json</code>, <code>README.md</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>eval/golden_dataset.json</code>. The five new P2 cases have a field <code>"requires_policy_doc": "..."</code> that the original 12 cases don't have. What does JSON's schema-less nature give you here (compared to a strict Python dataclass), and what does it cost you? Look at <code>run_eval.py</code> — does it currently read this field? What would you add to make it read the field safely?</p>
+    <p class="iq-hint">Hint: think about "additive dataset changes" that don't break old readers vs "strict schemas" that force every consumer to update at once. <code>dict.get(key, default)</code> is your friend.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> The <code>uber_policy</code> case has <code>expected_category: "transfer"</code> and <code>requires_policy_doc: "uber_transfer_policy"</code>. If you run this case through <code>/enrich</code> WITHOUT first ingesting the policy doc, what would you expect the base P1 classification to return? Then explain — using files you already know — how the same narration flips to "transfer" after <code>POST /policies/ingest</code> with the seed doc.</p>
+    <p class="iq-hint">Hint: trace the path in <code>_enrich_and_persist</code> — retrieval → prompt block → LLM sees the rule → classifies accordingly. Anchor: <code>eval/policy_seeds.json</code>'s <code>uber_transfer_policy</code> content.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The current <code>run_eval.py</code> doesn't automatically ingest <code>eval/policy_seeds.json</code> before running the 5 policy-driven cases. This was a deliberate choice, not laziness. Explain the trade-off: (a) why NOT auto-ingest on every eval run (think about API quota + what "reliability" the eval is really measuring), (b) what SHOULD trigger a policy-inclusive eval run, and (c) how you'd wire the auto-ingest option in a way that keeps the plain eval cheap.</p>
+    <p class="iq-hint">Hint: the interviewer is looking for "you understand what your eval is measuring." An always-ingest eval measures classification+ingest jointly; a never-ingest eval measures classification alone. A flag (<code>--with-policies</code>) that only pre-ingests when asked is one clean answer.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

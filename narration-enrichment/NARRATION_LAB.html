@@ -289,6 +289,7 @@
       <a class="nav-link" href="#p2-day3"><span class="nav-tag">D3</span>/policies/ingest</a>
       <a class="nav-link" href="#p2-day4"><span class="nav-tag">D4</span>S3 backing</a>
       <a class="nav-link" href="#p2-day5"><span class="nav-tag">D5</span>Retrieval + earned citations</a>
+      <a class="nav-link" href="#p2-day6"><span class="nav-tag">D6</span>Eval + docs (P2 shipped)</a>
     </div>
 
     <div class="nav-group">
@@ -1575,6 +1576,52 @@ Full suite:                       118 passed</div>
                    no match → empty citations)
 tests/test_api.py — 2 signature updates (kwarg addition)
 Full suite:            128 passed (was 118)</div>
+    </article>
+
+    <article class="card day-card" id="p2-day6">
+      <div class="day-head">
+        <span class="day-stamp">P2 · D6</span>
+        <span class="day-title">Eval extension + docs — P2 shipped</span>
+      </div>
+      <span class="day-files">eval/golden_dataset.json · eval/policy_seeds.json (new) · README.md · NARRATION_LAB.html · NARRATION_STUDY.html · ROADMAP.md · AGENTS.md</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> close out P2. Extend the golden eval dataset with 5 policy-driven cases (documented; run manually or by a future harness change), refresh the docs so the P2 surface reads as first-class, mark P2 done in ROADMAP + AGENTS, and drop a wrap-up note here.</p>
+
+      <div class="why-box">
+        <div class="why-label">Five golden cases the policy layer changes</div>
+        <p>Each case in <code>golden_dataset.json</code> now optionally names a <code>requires_policy_doc</code>; the matching doc lives in a new <code>eval/policy_seeds.json</code>. The cases are chosen so each one exercises a distinct policy behavior:</p>
+        <ol style="margin-top:6px;">
+          <li><strong>uber_policy</strong> — merchant override that flips category from "other" to "transfer" (P2_DESIGN's canonical example).</li>
+          <li><strong>dominos_food</strong> — merchant-to-category rulebook where base classification may or may not know Dominos; policy makes it deterministic + citable.</li>
+          <li><strong>refund_case</strong> — REFUND prefix supersedes merchant + rail signals; classification comes from the policy, not the merchant name.</li>
+          <li><strong>fnf_monthly_transfer</strong> — F&amp;F marker overrides an otherwise-plausible "salary" pull from the word MONTHLY.</li>
+          <li><strong>lic_premium</strong> — insurance premium mapped to "other" pending a first-class category; policy also drives merchant name normalization.</li>
+        </ol>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>README got a first-class P2 section</h4>
+          <p>New <em>"Policy RAG (P2)"</em> block above the Week-3 RAG section explains: ingest, list, delete; the earned-citations contract; the optional S3 backing (with the "AWS creds never in .env" warning right at the top); and how to use the extended eval dataset.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Run harness intentionally unchanged</h4>
+          <p><code>run_eval.py</code> still runs the base 12 cases. The 5 policy cases are documented in the dataset with a <code>requires_policy_doc</code> field so a future harness change can pre-ingest them; adding that now would burn API quota on every eval run just to prove the wiring, which isn't the interesting signal.</p>
+        </div>
+        <div class="mini-card">
+          <h4>ROADMAP + AGENTS synced</h4>
+          <p>Track ROADMAP flipped to "P2 done, P3 next." AGENTS §4 narration block now reads "P1 done + P2 done through Day 6, P3 (knowledge assistant) up next." Local memory (<code>narration_track_state.md</code>) updated to match.</p>
+        </div>
+        <div class="mini-card">
+          <h4>What P3 changes on this track</h4>
+          <p>Auth (first auth layer), conversation memory (first multi-turn state), and eval-as-a-system beyond a golden dataset. P4 is where AWS really lives per the master plan — SQS, DLQ, first genuine microservice split.</p>
+        </div>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">P2 shipped — the whole 6-day arc in one line</div>
+        <p>Day 1 = design. Day 2 = chunker (pure function) + schema (PolicyDoc, PolicyChunk, Citation). Day 3 = <code>/policies/ingest</code> idempotent by checksum. Day 4 = S3 backing with fail-closed 503 if the bucket is set but down. Day 5 = one-embed-two-searches + labeled prompt blocks + earned-not-decorated citations. Day 6 = eval extension + docs closeout. 60 new tests across the six days; full suite 128 passed; the LLM cannot smuggle a fake citation past the code (regression test in place); the whole feature is live behind a config toggle for S3 and works cleanly in the no-S3 dev path.</p>
+      </div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

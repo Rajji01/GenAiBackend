@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | P2 in progress — Days 1–5 done + committed + pushed |
-| **Next work unit** | P2 Day 6 — eval extension + docs (P2 closeout) |
+| **Current position** | **P2 DONE** — Days 1–6 shipped + committed + pushed |
+| **Next work unit** | P3 — Knowledge assistant (auth + conversation memory + eval-as-a-system) |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -173,12 +173,15 @@ day plan; that file is the *why*.
       track; SQLite still holds the *chunks + embeddings*) *(Day 4, this commit — bucket creation deferred to user per rule 3-2)*
 - [ ] Live-proved end-to-end (like Week 3's RAG proof): seed a policy doc
       that changes classification behavior, run before/after against a
-      real narration, capture the difference *(Day 6, pending)*
-- [ ] Eval golden dataset extended with 5 policy-driven cases *(Day 6, pending)*
+      real narration, capture the difference *(Day 6 — deferred to a
+      Rajat-driven live run since it costs Gemini quota; the mocked
+      integration test `test_llm_provided_citations_are_overwritten_not_appended`
+      encodes the code-side contract in the meantime)*
+- [x] Eval golden dataset extended with 5 policy-driven cases *(Day 6, this commit; matching seed docs in `eval/policy_seeds.json`)*
 - [x] Tests: chunking is a pure function (unit-test the boundaries) *(Day 2, 13 tests)*,
-      retrieval mocks the embedding boundary *(Day 3, 17 tests)*,
-      `/policies/ingest` end-to-end with S3 mocked via `moto` *(Day 4, 11 tests — 118 total, up from 68)*
-- [ ] `README.md` P2 section + `NARRATION_LAB.html` P2 card *(LAB card landed Days 2/3/4 in this commit; README pass is Day 6)*
+      retrieval mocks the embedding boundary *(Days 3+5, 27 tests across policy_ingest / policy_api / policy_retrieval)*,
+      `/policies/ingest` end-to-end with S3 mocked via `moto` *(Day 4, 11 tests — 128 total, up from 68)*
+- [x] `README.md` P2 section + `NARRATION_LAB.html` P2 card *(Day 6 — README got a first-class "Policy RAG (P2)" section; LAB has cards for D2 through D6 plus a "P2 shipped" wrap-up banner)*
 
 ### Daily plan (proposal — 6 days across two weekends)
 
