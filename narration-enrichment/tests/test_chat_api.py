@@ -12,6 +12,8 @@ Every test:
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
@@ -24,10 +26,12 @@ from narration_enrichment.db import (
     Base,
     ChatSession,
     ChatTurn,
+    append_chat_turn,
     get_db,
     insert_api_key,
 )
 from narration_enrichment.main import app
+from narration_enrichment.schemas import ChatReply
 
 
 _test_engine = create_engine(
@@ -81,6 +85,39 @@ def _clean_chat_tables():
         conn.execute(Base.metadata.tables["chat_sessions"].delete())
         conn.execute(Base.metadata.tables["api_keys"].delete())
     yield
+
+
+@pytest.fixture(autouse=True)
+def _mock_chat_service():
+    """P3 Day 4: main.chat_send_message now calls the real
+    chat_service.answer_message, which fires an LLM request.
+    Every /chat/{id}/message test below is really testing the
+    ROUTE (auth, ownership, plumbing) not the LLM behavior --
+    so we mock the boundary that fires the network call and
+    return a deterministic reply + persist the assistant turn
+    ourselves, mirroring what chat_service.answer_message would
+    do minus the network.
+    """
+
+    def _fake_answer(db, *, session_id, user_message):
+        reply = ChatReply(
+            answer="[mocked-chat] "
+                   f"session={session_id[:8]} chars={len(user_message)}",
+            cited_enrichment_ids=[],
+            cited_policy_chunk_ids=[],
+        )
+        append_chat_turn(
+            db, session_id=session_id, role="assistant", content=reply.answer,
+            retrieved_enrichment_ids=None,
+            retrieved_policy_chunk_ids=None,
+        )
+        return reply
+
+    with patch(
+        "narration_enrichment.main.chat_service.answer_message",
+        side_effect=_fake_answer,
+    ):
+        yield
 
 
 def _mint_key(label: str = "test-key") -> str:
@@ -159,11 +196,12 @@ def test_send_message_persists_user_and_assistant_turns_and_echoes():
 
     assert r.status_code == 200
     body = r.json()
-    # Day-3 stub: the answer body has a distinctive prefix so a leak
-    # of this stub past Day 4 is obvious in prod logs.
-    assert body["answer"].startswith("[stub-echo]")
-    # Both cited_* lists empty on the stub path — Day 4 wires the
-    # real retrieval + ground-truth citations.
+    # Post Day 4: LLM boundary mocked, deterministic prefix per fixture.
+    assert body["answer"].startswith("[mocked-chat]")
+    # cited_* lists still empty because the fixture returns none;
+    # the earned-citations behavior is exercised in test_chat_llm.py
+    # where chat_service.answer_message runs for real (against a
+    # mocked _client.create underneath).
     assert body["cited_enrichment_ids"] == []
     assert body["cited_policy_chunk_ids"] == []
 

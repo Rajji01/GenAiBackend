@@ -238,6 +238,7 @@
     <div class="nav-group-title">P3 daily interview Qs</div>
     <a class="nav-link" href="#iq-p3-d2"><span class="nav-tag">D2</span> API key auth</a>
     <a class="nav-link" href="#iq-p3-d3"><span class="nav-tag">D3</span> Chat plumbing (stubbed)</a>
+    <a class="nav-link" href="#iq-p3-d4"><span class="nav-tag">D4</span> LLM + grounding + cites</a>
   </nav>
 
   <nav class="nav-group">
@@ -630,6 +631,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> Day 3 uses a deterministic <code>[stub-echo]</code> reply INSTEAD of calling the real LLM. Explain (a) why "just stub the LLM call inline in the route" beats "wire the LLM on Day 3 and add a mock in tests," (b) what class of bug is easier to catch when the plumbing has a fully-tested stub before the LLM lands, and (c) why the stub's response prefix is distinctive on purpose — trace what goes wrong in a demo call if the stub silently leaks past Day 4 into a production response.</p>
     <p class="iq-hint">Hint: this is "test in production posture, then swap." The interviewer wants "how do you separate plumbing correctness from model correctness so each failure has one plausible source." Anchor: <code>_echo_stub_answer</code>'s comment block.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p3-d4">
+    <h3>P3 · Day 4 — Real LLM chat + memory + grounding + earned citations</h3>
+    <span class="iq-anchor">files: <code>chat_service.py</code>, <code>main.py</code>, <code>tests/test_chat_llm.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>chat_service.py</code>. <code>_ChatLLMReply</code> has a leading underscore in its name. What does the underscore signal (Python convention, not enforcement)? Given that <code>ChatReply</code> in <code>schemas.py</code> looks structurally identical to <code>_ChatLLMReply</code>, why are they two separate classes instead of one? Look at where each is used.</p>
+    <p class="iq-hint">Hint: <code>_ChatLLMReply</code> is the shape Instructor forces the LLM output to conform to. <code>ChatReply</code> is what the CLIENT receives — with <code>cited_*</code> overwritten from ground truth. Two names for two different contracts, on purpose.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> In <code>chat_service.answer_message</code>, the memory-cap logic is: <code>prior_turns = all_turns[:-1] if all_turns and all_turns[-1].role == "user" else all_turns</code>. Trace WHY that slice exists — what would go wrong in the prompt if we just used <code>all_turns[-CHAT_MEMORY_MAX_TURNS:]</code> directly? (Hint: what does the route do BEFORE calling <code>answer_message</code>?)</p>
+    <p class="iq-hint">Hint: the route persists the CURRENT user turn before calling the service. If we don't slice it off, it appears both in the "conversation so far" memory block AND in the "Current question:" line at the bottom of the prompt.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> P3 D4 has an audit-trail column <code>chat_turns.retrieved_enrichment_ids</code> that stores the SAME ground-truth citation list on the assistant turn row as what's returned in the response. Explain why storing this on the row (as opposed to reconstructing it from a re-run of retrieval) matters — three separate arguments, ideally: (a) auditability, (b) reproducibility, (c) what happens if the underlying enrichment record gets deleted after the turn was answered. Then read <code>test_assistant_turn_persists_with_ground_truth_citation_snapshot</code> and describe in one line what specific bug the test prevents.</p>
+    <p class="iq-hint">Hint: think about "what did the assistant tell the user at 3pm on Tuesday?" — the answer should be reproducible in 6 months, even if some rows have been GDPR-deleted since. Persisting citations = persisting evidence.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

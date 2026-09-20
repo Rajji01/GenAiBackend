@@ -297,6 +297,7 @@
       <a class="nav-link" href="#p3-intro"><span class="nav-tag">·</span>The idea</a>
       <a class="nav-link" href="#p3-day2"><span class="nav-tag">D2</span>API key auth</a>
       <a class="nav-link" href="#p3-day3"><span class="nav-tag">D3</span>Session/turn plumbing (LLM stubbed)</a>
+      <a class="nav-link" href="#p3-day4"><span class="nav-tag">D4</span>Real LLM + grounding + earned cites</a>
     </div>
 
     <div class="nav-group">
@@ -1747,6 +1748,69 @@ Full suite:                139 passed (was 128)</div>
 Full suite:               153 passed (was 139)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 4): swap the stub for a real LLM call in a new <code>chat_service.answer_message</code>. Build the prompt from (last N turns + retrieved past enrichments + retrieved policy chunks); return a <code>ChatReply</code> with <code>cited_*</code> populated from ground-truth retrieval, overwriting anything Instructor writes there — same earned-citations rule P2 established.</p>
+    </article>
+
+    <article class="card day-card" id="p3-day4">
+      <div class="day-head">
+        <span class="day-stamp">P3 · D4</span>
+        <span class="day-title">Real LLM chat + memory + grounding + earned citations</span>
+      </div>
+      <span class="day-files">chat_service.py (new) · main.py · tests/test_chat_llm.py (new) · tests/test_chat_api.py</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> replace Day 3's <code>[stub-echo]</code> answer with a real LLM call that (a) sees the last N turns as memory, (b) sees retrieved past enrichments as evidence, (c) sees retrieved policy chunks as rules, (d) returns a natural-language answer with citations that <em>the LLM cannot invent</em>. Every failure surface degrades cleanly — the chat responds even if retrieval falls over.</p>
+
+      <div class="why-box">
+        <div class="why-label">One embed call, three retrieval uses</div>
+        <p>Per message: one <code>rag.embed_text(user_message, RETRIEVAL_QUERY)</code>, reused for BOTH the past-enrichment cosine search AND the policy-chunk cosine search. Same "one embed, two searches" rule P2's <code>/enrich</code> follows. Memory (last N turns) needs no embedding — it's a straight <code>ORDER BY id DESC LIMIT N</code>.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Prompt reads context → history → data → rules → question</h4>
+          <p>Order matters. Header explains the task and the "don't invent transactions" rule. Then memory (older turns), then evidence (retrieved enrichments as tabular rows with id | merchant | category | rail | narration), then policy (labeled "treat as rules"), then <em>current question at the very bottom</em> — the model's recency bias means what's closest to the answer generation gets weighed most.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Memory cap N=6, older turns stay in the DB</h4>
+          <p>Only the last 6 turns get resent to the LLM per message. Older turns still show up in <code>GET /chat/{id}</code> for the UI, they just don't bloat the prompt. Regression test: seed 4 old pairs, current message doesn't see turn #0 in the prompt, but sees the most recent old-answer. If the cap ever drifts from 6, the test catches it.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Degrade path — embed dies, chat still runs</h4>
+          <p>Every retrieval call sits in its own <code>try/except</code>. If <code>rag.embed_text</code> raises (provider outage), retrieval returns empty and the prompt tells the model "no records were retrieved for this question" — the assistant answers from prior turns only, with empty <code>cited_*</code>. The chat response IS returned; no 500. Same rule as <code>/enrich</code>'s "RAG is enhancement, not critical path."</p>
+        </div>
+        <div class="mini-card">
+          <h4>Error mapping mirrors /enrich, with one deliberate tweak</h4>
+          <p><code>InstructorRetryException</code> → 503 on chat, always. Unlike <code>/enrich</code>'s 422-vs-503 split, the chat surface has no "your input was unprocessable" case: the user's message already passed Pydantic. So all Instructor failures on chat funnel to 503 with Retry-After. Timeouts → 504. APIError → 503. Generic 500 catch-all as usual.</p>
+        </div>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">Earned citations, again — enforced in code, not in prose</div>
+        <p>Instructor forces the LLM output to conform to <code>_ChatLLMReply</code>, which HAS <code>cited_enrichment_ids</code> + <code>cited_policy_chunk_ids</code> fields the model can populate. The service <em>overwrites both</em> with the actual ids from retrieval before returning:</p>
+<pre class="terminal" style="color:var(--term-ink); font-size:12.5px;">reply = ChatReply(
+    answer=llm_reply.answer,
+    cited_enrichment_ids=[r.id for r in evidence],
+    cited_policy_chunk_ids=[c.id for _score, c in policy],
+)</pre>
+        <p style="margin-top:8px;">Regression test <code>test_llm_provided_citations_get_overwritten_from_ground_truth</code> encodes this: the LLM returns cited_enrichment_ids=[9999, 8888] (neither exists) — the response contains ONLY the real retrieval id. Parallel to P2 D5's <code>test_llm_provided_citations_are_overwritten_not_appended</code>; the earned-citations rule is now uniformly true across both <code>/enrich</code> AND <code>/chat</code>.</p>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Audit trail on every assistant turn row</div>
+        <p><code>chat_turns.retrieved_enrichment_ids</code> + <code>chat_turns.retrieved_policy_chunk_ids</code> are populated with the SAME ground-truth JSON on the assistant turn row. An ops query "what did the assistant use to answer turn #5?" is one SQL SELECT — provably correct, no reconstruction needed. Test <code>test_assistant_turn_persists_with_ground_truth_citation_snapshot</code> encodes this invariant.</p>
+      </div>
+
+      <div class="terminal">tests/test_chat_llm.py — 5 passed
+  · answer uses retrieved enrichments as evidence (prompt content
+    asserted)
+  · LLM-invented citations get overwritten from ground truth
+  · assistant turn persists with ground-truth citation snapshot
+  · memory cap only last N turns reach the prompt
+  · embed failure degrades to empty context but chat still runs
+tests/test_chat_api.py — 14 passed (chat_service now mocked at
+    the boundary since Day 4 makes real LLM calls)
+Full suite:               158 passed (was 153)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 5): eval-as-a-system. New <code>eval_runs</code> + <code>eval_results</code> tables, <code>run_eval.py</code> writes per-run + per-case history alongside the existing JSON report, new <code>GET /eval/history</code> route for trends. No LLM code changes — the observability layer for the eval pipeline itself.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

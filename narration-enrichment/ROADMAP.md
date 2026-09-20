@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE**, **P3 in progress** — Days 1–3 shipped |
-| **Next work unit** | P3 Day 4 — real LLM chat integration + grounding (earned citations for chat) |
+| **Current position** | **P2 DONE**, **P3 in progress** — Days 1–4 shipped |
+| **Next work unit** | P3 Day 5 — eval-as-a-system (persistent runs + history) |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -275,10 +275,13 @@ This section is the day plan; that file is the *why*.
       `GET /chat/{id}`, `DELETE /chat/{id}`, all auth-gated *(Day 3
       — 14 chat_api tests + role CHECK constraint at DB level; full
       suite 153 green)*
-- [ ] Real LLM chat integration: `chat_service.py` builds the prompt
+- [x] Real LLM chat integration: `chat_service.py` builds the prompt
       from (last-N turns + retrieved enrichments + retrieved policy
       chunks), returns `ChatReply` Pydantic with `cited_*` fields
-      populated from GROUND TRUTH — LLM invention overwritten *(Day 4)*
+      populated from GROUND TRUTH — LLM invention overwritten *(Day 4
+      — 5 chat_llm tests including LLM-invented-citations regression
+      + audit-trail snapshot + memory cap + degrade path; full suite
+      158 green)*
 - [ ] Eval-as-a-system: `eval_runs` + `eval_results` tables + extend
       `run_eval.py` to persist per-run + per-case history + new route
       `GET /eval/history` for trends *(Day 5)*

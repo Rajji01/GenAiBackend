@@ -44,7 +44,7 @@ from narration_enrichment.db import (
 from narration_enrichment.models import Citation, TransactionEnrichment
 from narration_enrichment.policy_ingest import ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
-from narration_enrichment import auth, s3_store
+from narration_enrichment import auth, chat_service, s3_store
 from narration_enrichment.schemas import (
     BatchEnrichRequest,
     BatchEnrichResponse,
@@ -452,29 +452,50 @@ def chat_send_message(
     # in the DB before the assistant turn is generated.
     append_chat_turn(db, session_id=session_id, role="user", content=request.message.strip())
 
-    # Day 3 stub: deterministic echo. Day 4 replaces this call site
-    # with chat_service.answer_message(db, session_id, request.message)
-    # which will build the real prompt (memory + retrieved evidence
-    # + retrieved policy) and populate cited_* from ground truth.
-    stub_answer = _echo_stub_answer(request.message.strip())
-    reply = ChatReply(answer=stub_answer, cited_enrichment_ids=[], cited_policy_chunk_ids=[])
-
-    append_chat_turn(
-        db, session_id=session_id, role="assistant", content=reply.answer,
-        # Both retrieved_* fields NULL on the stub path — Day 4 will
-        # populate them from actual retrieval hits.
-        retrieved_enrichment_ids=None,
-        retrieved_policy_chunk_ids=None,
-    )
-    return reply
-
-
-def _echo_stub_answer(user_message: str) -> str:
-    """Deterministic Day-3 stub. Proves the round-trip works
-    without any LLM cost / flakiness. Distinctive prefix so if
-    this stub ever leaks past Day 4's swap into a production
-    response, it's obvious in logs."""
-    return f"[stub-echo] Received {len(user_message)} chars — Day 4 will wire the real LLM."
+    # P3 Day 4: real LLM call via chat_service. Failure semantics
+    # mirror /enrich exactly -- InstructorRetryException wraps
+    # transient provider errors in __cause__, so map those to 503.
+    # Non-transient failures map to 503 too here (unlike /enrich's
+    # 422 for validation failures) because the chat surface has no
+    # meaningful "your input was unprocessable" case -- the user's
+    # message already passed Pydantic min_length. Anything the LLM
+    # can't process is a provider-side thing.
+    try:
+        return chat_service.answer_message(
+            db, session_id=session_id, user_message=request.message.strip()
+        )
+    except InstructorRetryException as exc:
+        cause = exc.__cause__
+        if isinstance(cause, APIError) and cause.code in {429, 503, 504}:
+            logger.warning("chat_provider_error code=%s status=%s", cause.code, cause.status)
+            raise HTTPException(
+                status_code=503,
+                detail="The chat provider is temporarily unavailable. Please retry.",
+            ) from exc
+        # Any other InstructorRetryException on chat is still
+        # "provider layer couldn't produce a valid reply" -- kick
+        # it back as a 503 rather than trying to distinguish
+        # validation vs transient at the chat surface.
+        logger.warning("chat_llm_reply_invalid error=%s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail="The chat provider is temporarily unavailable. Please retry.",
+        ) from exc
+    except httpx.TimeoutException as exc:
+        logger.warning("chat_timeout error=%s", exc)
+        raise HTTPException(
+            status_code=504,
+            detail="The chat provider took too long to respond.",
+        ) from exc
+    except APIError as exc:
+        logger.warning("chat_provider_error code=%s status=%s", exc.code, exc.status)
+        raise HTTPException(
+            status_code=503,
+            detail="The chat provider is temporarily unavailable. Please retry.",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.error("chat_unexpected_error", exc_info=exc)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 @app.get("/chat/{session_id}", response_model=ChatSessionHistory)
