@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE** — Days 1–6 shipped + committed + pushed |
-| **Next work unit** | P3 — Knowledge assistant (auth + conversation memory + eval-as-a-system) |
+| **Current position** | **P2 DONE**, **P3 in progress** — Day 1 (design) shipped |
+| **Next work unit** | P3 Day 2 — API key auth + `api_keys` table |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -40,7 +40,8 @@ after it's proven against a real Gemini call, real SQLite, real HTTP.
 1. [The P1-P8 map](#1-the-p1-p8-map)
 2. [P1 build log — what actually shipped](#2-p1-build-log--what-actually-shipped)
 3. [P2 daily plan — Transaction + policy RAG](#3-p2-daily-plan--transaction--policy-rag)
-4. [P3-P8 outline (from Jarvis_GenAI_Path.md)](#4-p3-p8-outline)
+3b. [P3 daily plan — Knowledge assistant](#3b-p3-daily-plan--knowledge-assistant)
+4. [P4-P8 outline (from Jarvis_GenAI_Path.md)](#4-p4-p8-outline)
 5. [Companion files — which is which](#5-companion-files)
 6. [How to use this file](#6-how-to-use-this-file)
 
@@ -54,8 +55,8 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 | # | Project | New capability | AWS | Microservices | Status |
 |---|---------|----------------|-----|---------------|--------|
 | P1 | Transaction Enrichment API | Structured output | — | Modular monolith | ✅ **DONE** |
-| **P2** | **Transaction + policy RAG** | **Embeddings, retrieval, citations** | **S3 (docs)** | **Modular monolith** | 📍 **NEXT** |
-| P3 | Knowledge assistant | Auth, memory, eval pipeline | S3 | Modular monolith | future |
+| P2 | Transaction + policy RAG | Embeddings, retrieval, citations | S3 (docs) | Modular monolith | ✅ **DONE** |
+| **P3** | **Knowledge assistant** | **Auth, memory, eval pipeline** | **S3** | **Modular monolith** | 📍 **IN PROGRESS** |
 | P4 | Async doc-processing pipeline | Event-driven, idempotency, retries | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | future |
 | P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | future |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
@@ -252,14 +253,126 @@ day plan; that file is the *why*.
 
 ---
 
-## 4. P3-P8 outline
+---
+
+## 3B. P3 daily plan — Knowledge assistant
+
+**Goal:** put a natural-language chat surface over P1's enrichment
+history and P2's policy corpus. First auth layer on this track;
+first multi-turn conversation memory; first persistent eval history.
+
+**Design paper:** [`P3_DESIGN.md`](P3_DESIGN.md) — read it first.
+This section is the day plan; that file is the *why*.
+
+### DoD (Definition of Done)
+
+- [x] `P3_DESIGN.md` shipped as Day 1 deliverable *(this commit)*
+- [ ] `X-API-Key` bearer auth + `api_keys` table + `require_api_key`
+      FastAPI dependency + CLI to mint a dev key *(Day 2)*
+- [ ] `chat_sessions` + `chat_turns` tables with FK CASCADE +
+      `POST /chat/session`, `POST /chat/{id}/message` (LLM stubbed),
+      `GET /chat/{id}`, `DELETE /chat/{id}`, all auth-gated *(Day 3)*
+- [ ] Real LLM chat integration: `chat_service.py` builds the prompt
+      from (last-N turns + retrieved enrichments + retrieved policy
+      chunks), returns `ChatReply` Pydantic with `cited_*` fields
+      populated from GROUND TRUTH — LLM invention overwritten *(Day 4)*
+- [ ] Eval-as-a-system: `eval_runs` + `eval_results` tables + extend
+      `run_eval.py` to persist per-run + per-case history + new route
+      `GET /eval/history` for trends *(Day 5)*
+- [ ] Docs closeout: README "Knowledge assistant (P3)" section,
+      LAB cards D2–D6 + "P3 shipped" banner, STUDY interview Qs
+      (2 easy + 1 conceptual × 5 days), ROADMAP boxes ticked,
+      AGENTS §4 synced, memory synced *(Day 6)*
+
+### Daily plan
+
+**Day 1 — Design (this commit)** — `P3_DESIGN.md` written; ToC 11
+sections + 6 interview Qs; every subsequent day's code lands with
+its shape justified against this paper.
+
+**Day 2 — Auth first, because everything else depends on it**
+- `auth.py`: `hash_key()`, `verify_and_touch(db, raw_key) → key_hash`,
+  `require_api_key` FastAPI dependency (401 with SAME generic detail
+  on missing and wrong, per §3 of the design).
+- `api_keys` SQLAlchemy table.
+- `create_api_key.py` — CLI utility: takes a `--label`, prints the
+  raw key ONCE, stores only the hash. NOT an HTTP endpoint (per §3
+  bootstrap security).
+- Tests: unit (hash roundtrip, wrong-key rejected, missing-header
+  rejected, `last_used_at` gets touched on success) + integration
+  (mount a test route with `Depends(require_api_key)`, prove 401 and
+  200 paths).
+
+**Day 3 — Session + turn plumbing, LLM stubbed**
+- `chat_sessions` + `chat_turns` SQLAlchemy models with FK CASCADE +
+  passive_deletes=True (same pattern as PolicyChunk).
+- Repo functions: `create_session`, `get_session_owned_by`,
+  `append_turn`, `list_turns`, `delete_session`.
+- Routes `POST /chat/session`, `POST /chat/{id}/message` (returns a
+  deterministic echo answer that PROVES the memory-plumbing works
+  before LLM cost/flakiness is added), `GET /chat/{id}`,
+  `DELETE /chat/{id}`. All four auth-gated.
+- Tests: session ownership check (session belonging to a different
+  key returns 404 not 403 per §8), memory-cap default N=6 exposed,
+  concurrent-session isolation, cascade-on-delete.
+
+**Day 4 — Real LLM chat integration + grounding + earned citations**
+- `chat_service.py`: `answer_message(db, session_id, message) →
+  ChatReply`. Builds prompt from `last N turns` + `retrieve_similar
+  enrichments` + `retrieve_policy_chunks`. Calls Instructor. **Overwrites
+  `cited_*` from retrieval ground truth**, same rule as P2. Persists
+  the user + assistant turns atomically.
+- Route `POST /chat/{id}/message` swapped from stub to
+  `chat_service.answer_message`.
+- Tests: LLM boundary mocked; assert `cited_enrichment_ids` /
+  `cited_policy_chunk_ids` match retrieval, LLM-invented citations
+  overwritten (parallel to P2's D5 regression test), degrade path
+  (embed fails → assistant told "no records retrieved" → answers
+  from prior turns only, empty citations).
+
+**Day 5 — Eval-as-a-system**
+- `eval_runs` + `eval_results` SQLAlchemy tables. Extend
+  `eval/run_eval.py` to write per-run + per-case rows to the DB
+  alongside the existing dated JSON report (unchanged).
+- New route `GET /eval/history?case_id=&limit=` returns per-case
+  historical pass/fail with latency. No new LLM code.
+- Tests: real SQLite, no network. Prove that two runs of the same
+  case get two rows in `eval_results` and that the aggregate query
+  reports "pass rate 1/2" correctly.
+
+**Day 6 — Closeout**
+- First-class "Knowledge assistant (P3)" section in `README.md`
+  (endpoints, auth header, memory cap, citation contract).
+- `NARRATION_LAB.html`: five new day-cards (D2–D6) + a "P3 shipped"
+  banner mirroring P2's.
+- `NARRATION_STUDY.html`: 15 new interview Qs (3 per day × 5 code
+  days) per rule 3-11.
+- `ROADMAP.md` DoD boxes ticked; status snapshot flipped to "P3
+  DONE, next = P4."
+- `AGENTS.md` §4 narration block appended with the six P3 commit
+  hashes. Local memory (`narration_track_state.md`) synced.
+
+### Concepts to keep tight
+
+- **Auth first, chat second.** Every /chat route lands with auth
+  wired from the start; no "add auth later" TODO. That's how "add
+  auth later" turns into "we shipped an unauthed API to prod and
+  now have a rollback problem."
+- **Existence hiding on 404.** Both "no such session" and "session
+  belongs to a different key" return 404 with the same body. An
+  attacker who can distinguish them can enumerate valid session ids
+  by watching status codes.
+- **The LLM chooses the answer. The service chooses the citations.**
+  Same rule as P2. If a regression test starts letting the LLM's
+  cited_* values through unchanged, the rule has silently broken.
+
+---
+
+## 4. P4-P8 outline
 
 From `Jarvis_GenAI_Path.md`, not re-derived here — see that file for
 strategic reasoning. Compressed status:
 
-- **P3 — Knowledge assistant** (auth, conversation memory, eval-as-a-system).
-  First auth layer, first multi-turn state, first proper eval pipeline
-  beyond a golden dataset.
 - **P4 — Async doc-processing pipeline** ← **AWS ka asli ghar** per the
   master plan. First real microservice split: API service (queue and
   return) + Worker (embedding/LLM heavy). SQS + DLQ + S3 + ECS/Lambda +
@@ -290,7 +403,8 @@ sake.
 | `NARRATION_LAB.html` | 🔨 Showcase HTML | Deep concept + build log in mint/teal Narration Lab design system. **Portfolio-shape.** |
 | `NARRATION_STUDY.html` | 📘 Personal learning | Rajat's Q&A journal for narration — scaffolded, filled in as teaching-mode sessions happen. **Study tool, distinct from portfolio.** |
 | `ROADMAP.md` (this file) | 🗺️ Track roadmap | Where you are, what's next, day-plan for the next project. |
-| `P2_DESIGN.md` | 📝 Design + Qs | Design paper for the next work unit (RAG over policy docs). |
+| `P2_DESIGN.md` | 📝 Design + Qs | Design paper for the P2 work unit (RAG over policy docs). |
+| `P3_DESIGN.md` | 📝 Design + Qs | Design paper for the P3 work unit (chat / knowledge assistant + auth + eval-as-a-system). |
 | `src/narration_enrichment/**.py` | ⚙️ Code | Production source. `main.py`, `service.py`, `models.py`, `db.py`, `rag.py`, `rate_limiter.py`, `correlation.py`, `config.py`, `schemas.py` + the three day-N scratch scripts kept as historical record. |
 | `tests/**` | ⚙️ Tests | 68 tests, pytest, no network. |
 | `eval/**` | ⚙️ Eval harness | 12-example golden dataset + `run_eval.py`. Costs real API quota — run manually. |
