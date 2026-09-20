@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | P2 in progress — Days 1–4 done + committed + pushed |
-| **Next work unit** | P2 Day 5 — retrieval + prompt weaving + earned citations |
+| **Current position** | P2 in progress — Days 1–5 done + committed + pushed |
+| **Next work unit** | P2 Day 6 — eval extension + docs (P2 closeout) |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -162,13 +162,13 @@ day plan; that file is the *why*.
 
 - [x] `POST /policies/ingest` — upload a policy doc (PDF/txt/md), chunk
       it, embed each chunk, store in a `policy_chunks` table *(Day 3, commit `b72db22`)*
-- [ ] `/enrich` now retrieves policy chunks alongside past narrations,
+- [x] `/enrich` now retrieves policy chunks alongside past narrations,
       folds both into prompt with distinct labels ("similar past
-      classifications" vs "applicable policy excerpts") *(Day 5, pending)*
-- [ ] **Citations** — the response schema gains a
+      classifications" vs "applicable policy excerpts") *(Day 5, this commit)*
+- [x] **Citations** — the response schema gains a
       `policy_citations: list[Citation]` field with `doc_id + chunk_id +
       snippet + similarity_score`. Never hallucinated: only chunks
-      whose text was actually put in the prompt can be cited *(schema landed Day 2, code-enforced population lands Day 5)*
+      whose text was actually put in the prompt can be cited *(Day 5 — earned-citations overwrite enforced in `_enrich_and_persist`; regression test `test_llm_provided_citations_are_overwritten_not_appended` proves the LLM cannot smuggle a fake citation past the code)*
 - [x] S3-backed storage of the raw documents (first AWS touch on this
       track; SQLite still holds the *chunks + embeddings*) *(Day 4, this commit — bucket creation deferred to user per rule 3-2)*
 - [ ] Live-proved end-to-end (like Week 3's RAG proof): seed a policy doc

@@ -28,7 +28,12 @@ from sqlalchemy.orm import Session
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from narration_enrichment.config import get_settings
-from narration_enrichment.db import EnrichmentRecord, list_records_with_embeddings
+from narration_enrichment.db import (
+    EnrichmentRecord,
+    PolicyChunk,
+    list_policy_chunks_with_embeddings,
+    list_records_with_embeddings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +49,14 @@ TOP_K = 3
 # eye against real narrations, not derived; worth revisiting once there's
 # enough real usage data to tune it properly.
 MIN_SIMILARITY = 0.70
+
+# P2 Day 5 — policy-chunk retrieval floor is a shade lower than the past-
+# narration floor. Policy excerpts are shorter and more abstract, so the
+# cosine score is inherently a bit lower even when a chunk is clearly
+# relevant. Revisit alongside MIN_SIMILARITY once the Day-6 eval extension
+# gives us numbers to tune with.
+POLICY_MIN_SIMILARITY = 0.65
+POLICY_TOP_K = 3
 
 _TRANSIENT_CODES = {429, 503, 504}
 
@@ -126,4 +139,67 @@ def build_context_block(examples: list[EnrichmentRecord]) -> str | None:
             f'category="{record.category}", transaction_type="{record.transaction_type}"'
         )
     lines.append("Use these as guidance for consistency, but judge the new narration on its own merits.")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# P2 Day 5 — policy-chunk retrieval (parallel to past-narration retrieval)
+# ---------------------------------------------------------------------------
+
+
+def retrieve_policy_chunks(
+    db: Session,
+    query_embedding: list[float],
+    top_k: int = POLICY_TOP_K,
+    min_similarity: float = POLICY_MIN_SIMILARITY,
+) -> list[tuple[float, PolicyChunk]]:
+    """Top-K policy chunks above the similarity floor for this narration.
+
+    Returns (score, chunk) tuples so the caller can:
+    1. label them by similarity in the prompt if it wants, and
+    2. populate `policy_citations` on the response with the exact
+       score at retrieval time — that's what makes citations
+       *earned*, not decorative (P2_DESIGN §6).
+
+    Same shape as `find_similar_examples` for past narrations, so
+    the read path across both stores stays symmetric. Note: NO
+    embedding call happens here — the caller passes in an already-
+    embedded query so one narration only pays for one embedding
+    call regardless of how many retrieval targets are searched.
+    """
+    candidates = list_policy_chunks_with_embeddings(db)
+    scored: list[tuple[float, PolicyChunk]] = []
+    for chunk in candidates:
+        chunk_embedding = json.loads(chunk.embedding)
+        similarity = cosine_similarity(query_embedding, chunk_embedding)
+        if similarity >= min_similarity:
+            scored.append((similarity, chunk))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return scored[:top_k]
+
+
+def build_policy_context_block(
+    scored_chunks: list[tuple[float, PolicyChunk]],
+) -> str | None:
+    """Format policy chunks into a labeled prompt block.
+
+    Deliberately distinct label from the past-narration block —
+    prompt-engineering-wise these are different signals: past
+    narrations are *evidence*, policy chunks are *rules*. The model
+    should treat a policy override as authoritative and past
+    classifications as guidance. Making the labels different is one
+    lever we have to nudge that.
+    """
+    if not scored_chunks:
+        return None
+
+    lines = ["Applicable policy excerpts from trusted policy docs:"]
+    for _score, chunk in scored_chunks:
+        lines.append(
+            f'- [doc_id={chunk.doc_id}, chunk {chunk.chunk_index}]: "{chunk.content}"'
+        )
+    lines.append(
+        "Treat these as rules, not just suggestions — if a policy applies, prefer it over your default classification."
+    )
     return "\n".join(lines)

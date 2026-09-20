@@ -288,6 +288,7 @@
       <a class="nav-link" href="#p2-day2"><span class="nav-tag">D2</span>Chunker + schema</a>
       <a class="nav-link" href="#p2-day3"><span class="nav-tag">D3</span>/policies/ingest</a>
       <a class="nav-link" href="#p2-day4"><span class="nav-tag">D4</span>S3 backing</a>
+      <a class="nav-link" href="#p2-day5"><span class="nav-tag">D5</span>Retrieval + earned citations</a>
     </div>
 
     <div class="nav-group">
@@ -1520,6 +1521,60 @@ tests/test_policy_api.py       — +2 integration (bucket set + S3-down)
 Full suite:                       118 passed</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 5): the retrieval side — <code>rag.py</code> gains a <code>retrieve_policy_chunks()</code> parallel to the existing <code>find_similar_examples()</code>, <code>/enrich</code>'s prompt gets a labeled "APPLICABLE POLICY EXCERPTS" block, and <code>policy_citations</code> gets populated from ground truth in service code — never from the LLM's own output, per the "citations are earned, not decorative" contract in <code>P2_DESIGN.md §6</code>.</p>
+    </article>
+
+    <article class="card day-card" id="p2-day5">
+      <div class="day-head">
+        <span class="day-stamp">P2 · D5</span>
+        <span class="day-title">Policy retrieval + prompt weaving + earned-not-decorated citations</span>
+      </div>
+      <span class="day-files">rag.py · service.py · main.py · models.py · tests/test_policy_retrieval.py (new) · tests/test_api.py</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> switch <code>/enrich</code> on to the policy corpus. Every call now embeds the narration once, searches BOTH the past-narration table AND the policy-chunks table, folds the two hits into a two-block prompt, and — the critical part — writes <code>policy_citations</code> on the response from the actual retrieval result, not from anything the LLM claims to have cited.</p>
+
+      <div class="why-box">
+        <div class="why-label">One embed call, two searches</div>
+        <p>The embed step is the slowest thing in the pipeline. So <code>_enrich_and_persist</code> embeds the narration ONCE (as <code>RETRIEVAL_QUERY</code>) and reuses that vector for both <code>rag.find_similar_examples(db, query_embedding)</code> and <code>rag.retrieve_policy_chunks(db, query_embedding)</code>. Two independent embed calls would double the latency and burn twice the quota per <code>/enrich</code>.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Two labeled prompt blocks, not one merged wall of text</h4>
+          <p>The past-narration block is labeled <em>"similar past classifications"</em> (guidance / evidence). The policy block is labeled <em>"applicable policy excerpts from trusted policy docs"</em> with "treat these as rules." Prompt-wise, past classifications are evidence and policy chunks are authoritative — the label difference is one lever we have to nudge the model to treat them that way.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Two independent degrade paths</h4>
+          <p>Past-narration retrieval and policy retrieval each sit in their own try/except. If the embed call itself fails, both are skipped (they share the query embedding, so a dead embed kills both together). If one search raises but the other succeeds, that one still flows into the prompt. RAG is an enhancement, not the critical path — same rule as Week 3.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Policy floor 0.65 vs past floor 0.70</h4>
+          <p>Policy chunks are shorter and more abstract, so the cosine score is inherently a bit lower even when a chunk is clearly relevant. Both floors were picked by eye — Day 6 (eval extension) will surface real numbers to tune them with.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Signatures kept backward-compatible</h4>
+          <p><code>enrich_narration(narration, context=None, policy_context=None)</code> — both context args are keyword-only with defaults, so <code>test_service_retry.py</code>'s existing <code>enrich_narration("some narration")</code> calls still work unchanged. Adding P2 without breaking P1 tests was one of the small wins of the day.</p>
+        </div>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">The earned-citations rule (P2_DESIGN §6), enforced in code</div>
+        <p>After the LLM call returns, <code>_enrich_and_persist</code> does this — <em>unconditionally</em>, overwriting whatever <code>policy_citations</code> the model's function-calling might have populated:</p>
+<pre class="terminal" style="color:var(--term-ink); font-size:12.5px;">result.policy_citations = [
+    Citation(doc_id=chunk.doc_id, chunk_index=chunk.chunk_index,
+             snippet=chunk.content[:280], similarity_score=score)
+    for score, chunk in policy_chunks_scored
+]</pre>
+        <p style="margin-top:10px;"><strong>The model gets to choose the classification. It does NOT get to choose what to cite.</strong> This defeats the entire "cited a chunk that never landed in the prompt" hallucination class — architecturally, not by asking the model nicely. The test <code>test_llm_provided_citations_are_overwritten_not_appended</code> encodes this contract: even if the LLM returns a hallucinated <code>doc_id="hallucinated_doc", chunk_index=999</code>, the response strips it and returns only the real retrieval hit.</p>
+      </div>
+
+      <div class="terminal">tests/test_policy_retrieval.py — 10 passed
+  · 6 unit (retrieve_policy_chunks + build_policy_context_block)
+  · 4 integration (policy_context flows to enrich_narration;
+                   policy_citations comes from ground truth;
+                   LLM-invented citations get overwritten;
+                   no match → empty citations)
+tests/test_api.py — 2 signature updates (kwarg addition)
+Full suite:            128 passed (was 118)</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

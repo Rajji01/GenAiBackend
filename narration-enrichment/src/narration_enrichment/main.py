@@ -33,7 +33,7 @@ from narration_enrichment.db import (
     list_policy_docs,
     save_enrichment,
 )
-from narration_enrichment.models import TransactionEnrichment
+from narration_enrichment.models import Citation, TransactionEnrichment
 from narration_enrichment.policy_ingest import ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
 from narration_enrichment import s3_store
@@ -101,23 +101,58 @@ class EnrichRequest(BaseModel):
 def _enrich_and_persist(narration: str, db: Session) -> TransactionEnrichment:
     raw_client = get_raw_client()
 
-    # RAG retrieval is an enhancement, not the critical path — if it
-    # breaks (embedding call down, bad data in the DB), enrichment must
-    # still work exactly as it did before Week 3, just without the extra
-    # context. A retrieval bug should never become an enrichment outage.
-    context = None
+    # ONE embedding call, TWO cosine searches (past narrations + policy
+    # chunks). The embed step is the slowest thing in /enrich, so sharing
+    # the query vector across both retrieval targets is the performance
+    # rule that keeps P2 from doubling latency vs Week 3 RAG.
+    #
+    # RAG retrieval is an enhancement, not the critical path — if the
+    # embed call fails (provider down, bad data), enrichment must still
+    # work exactly as it did before, just without the extra context. Both
+    # blocks below therefore log-and-fall-back rather than raising.
+    query_embedding: list[float] | None = None
+    context: str | None = None
     try:
         query_embedding = rag.embed_text(raw_client, narration, task_type="RETRIEVAL_QUERY")
         similar = rag.find_similar_examples(db, query_embedding)
         context = rag.build_context_block(similar)
     except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
-        logger.warning("rag_retrieval_failed error=%s", exc)
+        logger.warning("rag_past_retrieval_failed error=%s", exc)
+
+    # P2 Day 5: policy retrieval piggybacks on the same query embedding.
+    # If the embed call already failed above, query_embedding is None and
+    # we skip policy retrieval too — separate tries would just try the
+    # same provider a second time in the same second.
+    policy_chunks_scored: list[tuple[float, object]] = []
+    policy_context: str | None = None
+    if query_embedding is not None:
+        try:
+            policy_chunks_scored = rag.retrieve_policy_chunks(db, query_embedding)
+            policy_context = rag.build_policy_context_block(policy_chunks_scored)
+        except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
+            logger.warning("rag_policy_retrieval_failed error=%s", exc)
 
     # Checked right before the actual generative call, not at the top of
     # the route — RAG's retrieval embedding above doesn't count against
     # this quota, only the structured-extraction call does.
     rate_limiter.acquire()
-    result = enrich_narration(narration, context=context)
+    result = enrich_narration(narration, context=context, policy_context=policy_context)
+
+    # P2 Day 5 — EARN the citations, don't decorate them. Even if
+    # Instructor's function-calling wrote a `policy_citations` list from
+    # the model's own output, we overwrite it from the ground-truth
+    # retrieval result. The model gets to choose the classification; it
+    # does NOT get to choose what to cite. This defeats the "cited a
+    # chunk that never landed in the prompt" hallucination class.
+    result.policy_citations = [
+        Citation(
+            doc_id=chunk.doc_id,
+            chunk_index=chunk.chunk_index,
+            snippet=chunk.content[:280],
+            similarity_score=score,
+        )
+        for score, chunk in policy_chunks_scored
+    ]
 
     # Same reasoning in reverse: the user already has their answer at this
     # point. A failure to embed-for-storage should cost future RAG quality

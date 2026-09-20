@@ -230,6 +230,7 @@
     <a class="nav-link" href="#iq-p2-d2"><span class="nav-tag">D2</span> Chunker + schema</a>
     <a class="nav-link" href="#iq-p2-d3"><span class="nav-tag">D3</span> /policies/ingest</a>
     <a class="nav-link" href="#iq-p2-d4"><span class="nav-tag">D4</span> S3 backing</a>
+    <a class="nav-link" href="#iq-p2-d5"><span class="nav-tag">D5</span> Retrieval + earned cites</a>
   </nav>
 
   <nav class="nav-group">
@@ -530,6 +531,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> <code>s3_store.is_configured()</code> returns False when <code>POLICY_S3_BUCKET</code> is empty, and the ingest route silently skips S3 in that case, recording <code>source_uri=None</code>. In production, would you keep this "silent skip" or would you make ingest hard-fail on missing S3 config? Argue both sides — the dev-ergonomics case for silent skip, and the operational case for fail-loud — and pick one you'd defend in an interview, with a config knob if you want.</p>
     <p class="iq-hint">Hint: there is no single right answer. The interviewer is looking for the trade-off named, an environment-based decision (dev vs prod), and one sentence on "how you'd actually implement your pick." A <code>REQUIRE_S3=true</code> env in prod is a fine answer.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p2-d5">
+    <h3>P2 · Day 5 — Policy retrieval + prompt weaving + earned citations</h3>
+    <span class="iq-anchor">files: <code>rag.py</code>, <code>service.py</code>, <code>main.py</code>, <code>tests/test_policy_retrieval.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>main.py</code>'s <code>_enrich_and_persist</code>. <code>query_embedding</code> is declared as <code>list[float] | None = None</code> BEFORE the first try/except, not inside it. Why can't we just declare it inside the try block? Trace what breaks if we do.</p>
+    <p class="iq-hint">Hint: think about Python name scoping in try/except plus what the policy-retrieval block does with <code>query_embedding</code> immediately after.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Open <code>rag.py</code>. <code>retrieve_policy_chunks(db, query_embedding)</code> takes an ALREADY-embedded vector — it never calls <code>embed_text</code> itself. Why? Where does the actual embedding call happen in the request path, and how many embed calls does one <code>/enrich</code> request make in the happy path where both retrieval targets have data?</p>
+    <p class="iq-hint">Hint: look at <code>_enrich_and_persist</code> in <code>main.py</code>. Count the <code>rag.embed_text(...)</code> calls: query-embed for retrieval, store-embed for future RAG. That's the P2 rule: "one embed call, two searches."</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> <code>_enrich_and_persist</code> does <code>result.policy_citations = [...ground truth...]</code> AFTER the LLM call, unconditionally overwriting anything Instructor's function-calling wrote there. Explain what class of hallucination this defeats, why "just ask the model nicely to cite accurately" doesn't fix the same problem, and — if an interviewer pushes — what performance / correctness cost the overwrite pays. Then read <code>test_llm_provided_citations_are_overwritten_not_appended</code> and describe in one line what specific hallucination that test proves the code catches.</p>
+    <p class="iq-hint">Hint: the interviewer's real question is "how do you defeat citation hallucination architecturally, not with prompt tricks." Anchor: <code>models.Citation</code>, <code>_enrich_and_persist</code>'s comment block starting "EARN the citations."</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

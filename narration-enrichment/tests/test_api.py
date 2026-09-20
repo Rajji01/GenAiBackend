@@ -259,8 +259,9 @@ def test_batch_isolates_a_failing_item_from_the_rest():
 
 def test_enrich_calls_llm_with_no_context_when_the_history_is_empty():
     # Cold-start case: nothing in the DB yet, so there is nothing honest
-    # to retrieve. enrich_narration must be called with context=None,
-    # falling back to exactly Day 3's plain prompt.
+    # to retrieve. enrich_narration must be called with both context=None
+    # (past-narration RAG, Week 3) and policy_context=None (policy RAG,
+    # P2 Day 5) — falling back to exactly Day 3's plain prompt.
     fake_result = TransactionEnrichment(
         merchant="Swiggy", category="food_delivery", transaction_type="UPI", confidence=0.9
     )
@@ -269,7 +270,9 @@ def test_enrich_calls_llm_with_no_context_when_the_history_is_empty():
     ) as mock_enrich:
         client.post("/enrich", json={"narration": "UPI/P2M/.../SWIGGY/Payment"})
 
-    mock_enrich.assert_called_once_with("UPI/P2M/.../SWIGGY/Payment", context=None)
+    mock_enrich.assert_called_once_with(
+        "UPI/P2M/.../SWIGGY/Payment", context=None, policy_context=None
+    )
 
 
 def test_enrich_builds_rag_context_from_a_similar_past_record():
@@ -317,7 +320,12 @@ def test_enrich_degrades_gracefully_when_embedding_call_fails():
             response = client.post("/enrich", json={"narration": "UPI/P2M/.../SWIGGY/Payment"})
 
     assert response.status_code == 200
-    mock_enrich.assert_called_once_with("UPI/P2M/.../SWIGGY/Payment", context=None)
+    # Both retrievals degrade to None when the embed call itself dies —
+    # policy retrieval piggybacks on the same query embedding, so a dead
+    # embed means neither block gets built.
+    mock_enrich.assert_called_once_with(
+        "UPI/P2M/.../SWIGGY/Payment", context=None, policy_context=None
+    )
 
 
 def test_enrich_returns_429_with_retry_after_once_the_rate_limit_is_exhausted():
