@@ -61,3 +61,35 @@ class StatsResponse(BaseModel):
     # succeed or get a 429, without actually attempting one.
     rate_limit_remaining_this_minute: int
     rate_limit_remaining_today: int
+
+
+# --- P2 policy endpoints -------------------------------------------------
+
+class PolicyIngestRequest(BaseModel):
+    # doc_id length-capped to match the DB column and to keep it
+    # tractable as a URL segment for DELETE /policies/{doc_id}.
+    doc_id: str = Field(..., min_length=1, max_length=64,
+                        description="Stable caller-chosen id — same id + same content = no-op re-ingest.")
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1,
+                         description="Raw text of the policy doc (Markdown / plain text). See P2_DESIGN sec 1 for examples.")
+
+
+class PolicyIngestResponse(BaseModel):
+    doc_id: str
+    chunks_ingested: int
+    unchanged: bool = Field(
+        ...,
+        description="true = same doc_id + same content as before, no embedding work done and no chunk row changed.",
+    )
+    checksum: str
+
+
+class PolicyDocSummary(BaseModel):
+    doc_id: str
+    title: str
+    source_uri: str | None
+    chunk_count: int
+    ingested_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -25,13 +25,16 @@ from narration_enrichment.correlation import (
     set_correlation_id,
 )
 from narration_enrichment.db import (
+    delete_policy_doc,
     get_category_counts,
     get_db,
     get_total_and_average_confidence,
     list_enrichments,
+    list_policy_docs,
     save_enrichment,
 )
 from narration_enrichment.models import TransactionEnrichment
+from narration_enrichment.policy_ingest import ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
 from narration_enrichment.schemas import (
     BatchEnrichRequest,
@@ -39,6 +42,9 @@ from narration_enrichment.schemas import (
     BatchItemResult,
     CategoryCount,
     EnrichmentRecordResponse,
+    PolicyDocSummary,
+    PolicyIngestRequest,
+    PolicyIngestResponse,
     StatsResponse,
 )
 from narration_enrichment.service import enrich_narration, get_raw_client
@@ -250,3 +256,81 @@ def get_stats(db: Session = Depends(get_db)) -> StatsResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# --- P2: policy corpus management ---------------------------------------
+#
+# Design note: /policies/ingest is a control-plane operation, distinct
+# from the /enrich data-plane path. It has its own error mapping:
+# failure to embed => 502 (the provider let us down), unchanged =>
+# 200 with a truthful `unchanged=true` flag, valid empty content =>
+# 400 (caller bug). No rate limiter on this path — the daily-cap
+# quota exists to protect /enrich from being starved by a runaway
+# batch ingest, and if it applied here too a big fresh corpus ingest
+# would eat every enrichment slot for the day. Ingest is a rare,
+# planned op; keeping it off the shared quota is deliberate.
+
+
+@app.post("/policies/ingest", response_model=PolicyIngestResponse)
+def policies_ingest(
+    request: PolicyIngestRequest, db: Session = Depends(get_db)
+) -> PolicyIngestResponse:
+    raw_client = get_raw_client()
+
+    def _embed(text: str) -> list[float]:
+        return rag.embed_text(raw_client, text, task_type="RETRIEVAL_DOCUMENT")
+
+    try:
+        result = ingest_policy_doc(
+            db,
+            doc_id=request.doc_id,
+            title=request.title,
+            content=request.content,
+            embed_fn=_embed,
+        )
+    except ValueError as exc:
+        # Empty content or a chunker→0 divergence — 400, caller bug.
+        logger.warning("policy_ingest_invalid doc_id=%s error=%s", request.doc_id, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except APIError as exc:
+        # Embedding provider failure — abort the ingest (no
+        # partial-embed state), tell the caller to retry. Same 503
+        # shape as /enrich's provider-error path so the client
+        # doesn't need to learn a new error language for this route.
+        logger.warning("policy_ingest_provider_error doc_id=%s code=%s", request.doc_id, exc.code)
+        raise HTTPException(
+            status_code=503,
+            detail="The embedding provider is temporarily unavailable. Please retry.",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.error("policy_ingest_unexpected_error doc_id=%s", request.doc_id, exc_info=exc)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
+
+    return PolicyIngestResponse(
+        doc_id=result.doc_id,
+        chunks_ingested=result.chunks_ingested,
+        unchanged=result.unchanged,
+        checksum=result.checksum,
+    )
+
+
+@app.get("/policies", response_model=list[PolicyDocSummary])
+def policies_list(db: Session = Depends(get_db)) -> list[PolicyDocSummary]:
+    return [
+        PolicyDocSummary(
+            doc_id=doc.doc_id,
+            title=doc.title,
+            source_uri=doc.source_uri,
+            chunk_count=count,
+            ingested_at=doc.ingested_at,
+        )
+        for doc, count in list_policy_docs(db)
+    ]
+
+
+@app.delete("/policies/{doc_id}", status_code=204)
+def policies_delete(doc_id: str, db: Session = Depends(get_db)) -> None:
+    # Idempotent by design — DELETE on a missing doc_id returns 204,
+    # not 404. Callers running "delete then re-ingest" flows in a
+    # loop don't have to special-case first-time-through.
+    delete_policy_doc(db, doc_id)
