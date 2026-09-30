@@ -110,6 +110,11 @@
   .dgm-bandlabel{font-family:"IBM Plex Mono",monospace;font-size:10px;fill:var(--ink-soft);letter-spacing:.06em;}
   .dgm-flow{stroke:var(--accent);stroke-width:1.7;fill:none;}
   .dgm-flowdash{stroke:var(--ink-soft);stroke-width:1.4;fill:none;stroke-dasharray:4 3;}
+  .dgm-okbox{fill:var(--success-soft);stroke:var(--success);stroke-width:1.5;}
+  .dgm-badbox{fill:var(--danger-soft);stroke:var(--danger);stroke-width:1.5;}
+  .dgm-okline{stroke:var(--success);stroke-width:1.7;fill:none;}
+  .dgm-badline{stroke:var(--danger);stroke-width:1.8;}
+  .dgm-panel{fill:none;stroke:var(--border);stroke-width:1;stroke-dasharray:3 3;}
   footer{color:var(--ink-soft);font-size:12.5px;padding:30px 44px;}
   @media (max-width:820px){
     .sidebar{position:static;height:auto;width:auto;border-right:none;border-bottom:1px solid var(--border);}
@@ -143,6 +148,7 @@
       <div class="nav-group-title">Build log</div>
       <a class="nav-link" href="#d1"><span class="nav-tag">D1</span> Design paper (WEEK4_DESIGN)</a>
       <a class="nav-link" href="#d2"><span class="nav-tag">D2</span> Terraform skeleton</a>
+      <a class="nav-link" href="#failexp"><span class="nav-tag">D5</span> Failure experiment</a>
     </div>
     <div class="nav-group">
       <div class="nav-group-title">Reference</div>
@@ -377,6 +383,45 @@
       <p><strong>What:</strong> the full environment expressed in HCL — VPC + subnets + NAT (<code>vpc.tf</code>), the SG chain (<code>security.tf</code>), the two IAM roles (<code>iam.tf</code>), ECR repos (<code>ecr.tf</code>), RDS Multi-AZ + Secrets (<code>rds.tf</code>), ALB + routing (<code>alb.tf</code>), ECS cluster + task-defs + services (<code>ecs.tf</code>), plus <code>variables.tf</code>, <code>outputs.tf</code>, <code>main.tf</code>, a README and a <code>.gitignore</code>.</p>
       <p><strong>Why:</strong> one <code>apply</code> creates the environment, one <code>destroy</code> removes it — reproducible infra beats click-ops for both learning and disaster recovery. Default variable values encode the 5 "leans" (see below) so it's runnable as-is, tunable via a <code>.tfvars</code>.</p>
       <div class="bug-box"><div class="bug-label">Honest limitation</div>No <code>terraform</code> binary on the build machine → the HCL was <strong>not locally validated</strong>. It's a reviewed draft; <code>terraform init / validate / plan</code> is Rajat's gate before <code>apply</code>. No resource exists yet.</div>
+    </div>
+
+    <div class="card concept" id="failexp">
+      <div class="concept-head"><span class="concept-stamp">DAY 5 · planned</span><span class="concept-title">The failure experiment — task crash, zero downtime</span></div>
+      <p>The Week-4 payoff you actually prove (not just claim): kill a running task and watch ECS + the ALB heal the system while the other availability zone keeps serving. This is the "managed infra earns its keep" moment.</p>
+      <svg class="diagram" viewBox="0 0 720 200" role="img" aria-label="ECS task crash and auto-replace, three steps">
+        <defs>
+          <marker id="okm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--success)"/></marker>
+          <marker id="grm" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--ink-soft)"/></marker>
+        </defs>
+        <!-- Panel 1 -->
+        <rect class="dgm-panel" x="8" y="40" width="214" height="150" rx="8"/>
+        <text class="dgm-t" x="115" y="32" text-anchor="middle">1 · both healthy</text>
+        <rect class="dgm-box" x="65" y="52" width="100" height="30" rx="6"/><text class="dgm-t" x="115" y="72" text-anchor="middle">ALB</text>
+        <rect class="dgm-okbox" x="26" y="120" width="84" height="42" rx="6"/><text class="dgm-t" x="68" y="140" text-anchor="middle">task A</text><text class="dgm-s" x="68" y="154" text-anchor="middle">AZ-a</text>
+        <rect class="dgm-okbox" x="120" y="120" width="84" height="42" rx="6"/><text class="dgm-t" x="162" y="140" text-anchor="middle">task B</text><text class="dgm-s" x="162" y="154" text-anchor="middle">AZ-b</text>
+        <line class="dgm-okline" x1="100" y1="82" x2="74" y2="118" marker-end="url(#okm)"/>
+        <line class="dgm-okline" x1="130" y1="82" x2="156" y2="118" marker-end="url(#okm)"/>
+        <!-- Panel 2 -->
+        <rect class="dgm-panel" x="248" y="40" width="214" height="150" rx="8"/>
+        <text class="dgm-t" x="355" y="32" text-anchor="middle">2 · task A crashes</text>
+        <rect class="dgm-box" x="305" y="52" width="100" height="30" rx="6"/><text class="dgm-t" x="355" y="72" text-anchor="middle">ALB</text>
+        <rect class="dgm-badbox" x="266" y="120" width="84" height="42" rx="6"/>
+        <line class="dgm-badline" x1="272" y1="124" x2="344" y2="158"/><line class="dgm-badline" x1="344" y1="124" x2="272" y2="158"/>
+        <rect class="dgm-okbox" x="360" y="120" width="84" height="42" rx="6"/><text class="dgm-t" x="402" y="140" text-anchor="middle">task B</text><text class="dgm-s" x="402" y="154" text-anchor="middle">serving</text>
+        <line class="dgm-flowdash" x1="340" y1="82" x2="314" y2="118" marker-end="url(#grm)"/>
+        <line class="dgm-okline" x1="370" y1="82" x2="396" y2="118" marker-end="url(#okm)"/>
+        <text class="dgm-s" x="256" y="182">health check ✕ → A pulled from rotation</text>
+        <!-- Panel 3 -->
+        <rect class="dgm-panel" x="488" y="40" width="214" height="150" rx="8"/>
+        <text class="dgm-t" x="595" y="32" text-anchor="middle">3 · ECS replaces A</text>
+        <rect class="dgm-box" x="545" y="52" width="100" height="30" rx="6"/><text class="dgm-t" x="595" y="72" text-anchor="middle">ALB</text>
+        <rect class="dgm-okbox" x="506" y="120" width="84" height="42" rx="6"/><text class="dgm-t" x="548" y="140" text-anchor="middle">task A′</text><text class="dgm-s" x="548" y="154" text-anchor="middle">new</text>
+        <rect class="dgm-okbox" x="600" y="120" width="84" height="42" rx="6"/><text class="dgm-t" x="642" y="140" text-anchor="middle">task B</text><text class="dgm-s" x="642" y="154" text-anchor="middle">healthy</text>
+        <line class="dgm-okline" x1="580" y1="82" x2="554" y2="118" marker-end="url(#okm)"/>
+        <line class="dgm-okline" x1="610" y1="82" x2="636" y2="118" marker-end="url(#okm)"/>
+        <text class="dgm-s" x="496" y="182">A′ passes health → back in rotation; B never dropped a request</text>
+      </svg>
+      <div class="why-box"><div class="why-label">What it proves</div>Desired-count = 2 (one task per AZ) means a single task death is invisible to users: the ALB stops routing to the dead one, ECS launches a replacement to restore the count, and the surviving AZ carries traffic the whole time. Secondary experiment: remove the RDS-SG ingress and watch the app fail to <em>connect</em> (a timeout surfaced in <code>/actuator/health</code>'s DB indicator, not a crash) — proving the security group is the real boundary.</div>
     </div>
 
     <!-- ===================== REFERENCE ===================== -->
