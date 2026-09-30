@@ -30,6 +30,8 @@
 | `alb.tf` | ALB + per-service target groups + path-based listener rules |
 | `ecs.tf` | cluster + task-defs (secret injection, logs) + services |
 | `outputs.tf` | ALB DNS, RDS endpoint, ECR URLs, master secret ARN |
+| `example.tfvars` | the §7 leans as overridable values — copy to a gitignored `prod.tfvars` |
+| `verify.sh` | [Claude] post-deploy check: health of both services through the ALB + a booking-path probe (`ALB=<dns> ./verify.sh`) |
 
 ## Apply flow — who does what
 
@@ -52,9 +54,10 @@
    (one instance, two DBs — same as local `db-init/`), e.g. `psql -h <rds> -c
    'CREATE DATABASE inventory;'` and `booking`. (Flyway then builds each
    schema on first service start.)
-7. **[Claude]** verify: `http://<alb_dns>/api/inventory/actuator/health` → `UP`,
-   same for booking; RDS reachable only from tasks; `flyway_schema_history`
-   populated; then an end-to-end `POST /api/booking/bookings`.
+7. **[Claude]** verify: run `ALB=$(terraform output -raw alb_dns_name) ./verify.sh`
+   — checks both services' `/actuator/health` through the ALB and probes the
+   booking path. Then confirm RDS is reachable only from tasks and
+   `flyway_schema_history` is populated.
 
 ## Teardown
 
