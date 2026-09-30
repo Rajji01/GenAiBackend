@@ -77,9 +77,11 @@ These have been established across many sessions. Break them and the user will c
 
 **All ticketing work through the Flyway hardening is committed + pushed. Working tree clean; last ticketing commit `9f3a493`.** (The stale "do not commit / keep implementing to 2M budget" instruction from 2026-09-20 is spent — Week 3 was committed across `e4cb1d8`…`9f3a493` and pushed.)
 
-- **Week 4 (up next, NOT started)** — AWS foundation per ROADMAP (IAM/VPC/RDS/ECR/ECS Fargate/ALB). **User-driven per standing rule §3-2.** Claude pairs on Terraform + design + verification but does NOT autonomously touch AWS resource creation ("bs aws services mai banaunga" — reconfirmed 2026-09-30). On this track Claude can go solo only up to Day-1 design paper + Terraform skeleton; real bucket/RDS/ECS is Rajat's.
+- **Week 4 (STARTED — Day 1 design done 2026-09-30, uncommitted)** — AWS foundation per ROADMAP (IAM/VPC/RDS/ECR/ECS Fargate/ALB). **User-driven per standing rule §3-2.** Claude pairs on Terraform + design + verification but does NOT autonomously touch AWS resource creation ("bs aws services mai banaunga" — reconfirmed 2026-09-30).
+  - **Day 1 ✅ `WEEK4_DESIGN.md`** — topology diagram, 8-question framework pass per service (VPC/IAM/ECR/ECS-Fargate/ALB/RDS/Secrets Manager), the Fargate-vs-EC2-vs-Lambda decision, the booking→inventory service-hop decision (ALB path for now, Service Connect later), Terraform module layout, deploy sequence, Day-5 failure experiment (task crash → ALB replace), 5 open questions, 7 interview Qs. Every step tagged **[Claude]** (authors/verifies) vs **[Rajat]** (provisions real AWS).
+  - **Next:** Rajat decides the 5 open questions (§7) → Day 2 = Claude scaffolds `infra/terraform/` skeleton (NO apply) → Rajat applies. Claude goes solo only to design + Terraform skeleton; real bucket/RDS/ECS is Rajat's.
 
-**Week 3 JUnit clean-pass (deferred per rule §3-8) — ✅ DONE this session (2026-09-30), UNCOMMITTED (awaiting user OK to commit):**
+**Week 3 JUnit clean-pass (deferred per rule §3-8) — ✅ DONE + committed + pushed (2026-09-30, commit `3344957`):**
 - **payment-service — 37 tests green**: `PaymentStateMachineTest` 13, `PaymentGatewayFactoryTest` 2, `UPIAdapterTest` 5, `PaymentServiceTest` 17.
 - **notification-service — 5 tests green**: `NotificationServiceTest` — idempotent-consumer dedup (fast findByEventId skip + slow unique-constraint race catch) + malformed-payload degrade.
 - **booking-service Week 3 additions — 16 new tests green** (on top of the existing 26): `OutboxEventTest` 3, `OutboxServiceTest` 3, `OutboxPublisherTest` 4 (at-least-once + correlation-id-restore), `BookingRecoveryServiceTest` 6 (dangling-saga recovery decision tree).
@@ -88,7 +90,7 @@ These have been established across many sessions. Break them and the user will c
 - **Minor finding (flagged, NOT fixed):** `Payment.markFailed()` has a "use refund path" branch for CAPTURED that is unreachable dead code — CAPTURED is terminal so the `isTerminal()` guard throws first ("already CAPTURED"). Behaviour correct; hint text never shows. Future cleanup, not touched in a test pass.
 
 **Still pending on ticketing:**
-- Commit the clean-pass (needs user OK per §3-3) + push (needs user OK per §3-2).
+- Week 4 (AWS foundation) — Day-1 design paper + Terraform skeleton is Claude-solo-doable; real AWS resources are Rajat's (§3-2).
 - User answers 7 interview questions in `WEEK3_DESIGN.md §9` (Rajat's own — writing is the learning).
 
 ### Narration (Track B) — P1+P2+P3 done, P4 up next
@@ -201,6 +203,7 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 - `ticketing-platform/WEEK1_REVIEW.md` — 7 interview Qs awaiting user answers
 - `ticketing-platform/WEEK2_DESIGN.md` — Day 1 design deliverable + 7 more interview Qs
 - `ticketing-platform/WEEK3_DESIGN.md` — Week 3 design deliverable + 7 more interview Qs (§9, awaiting user answers)
+- `ticketing-platform/WEEK4_DESIGN.md` — Week 4 Day-1 AWS foundation design (8-question pass per service, Fargate decision, Terraform layout) + 7 interview Qs (§8, awaiting user answers). Design only — real AWS is Rajat's per §3-2
 - `ticketing-platform/inventory-service/` — Week 1 code (40 tests)
 - `ticketing-platform/booking-service/` — Week 2 code (26 tests) + Week 3 additions (PaymentClient, Outbox, recovery — tests deferred)
 - `ticketing-platform/payment-service/` — Week 3 code (Adapter/Factory/Strategy, 2-step auth+capture — tests deferred)

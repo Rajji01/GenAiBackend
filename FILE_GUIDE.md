@@ -60,6 +60,7 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 | **`WEEK1_REVIEW.md`** | 📝 Interview Qs | 7 interview questions for Week 1 close-out. Rajat's own answers pending. |
 | **`WEEK2_DESIGN.md`** | 📝 Design + Qs | Day 1 design deliverable (state machine, orchestration case, saga design, API contract, sequence diagrams) + 7 more interview questions |
 | **`WEEK3_DESIGN.md`** | 📝 Design + Qs | Day 1 deliverable for Week 3 (payment-service state machine, Adapter/Factory/Strategy, outbox pattern, saga rollback failure matrix, dangling recovery, sequence diagrams) + 7 more interview questions |
+| **`WEEK4_DESIGN.md`** | 📝 Design + Qs | Day 1 deliverable for Week 4 (AWS foundation — topology, 8-question framework per service VPC/IAM/ECR/ECS-Fargate/ALB/RDS/Secrets Manager, Fargate-vs-EC2-vs-Lambda decision, Terraform module layout, deploy sequence, failure experiment) + 7 interview questions. **Design only — real AWS resources are Rajat's per §3-2** |
 | **`LEARNING_NOTES.md`** | 📖 Prose revision | Prose deep notes with self-check questions at end of each section. **No answers by design** — revision tool |
 | **`SEAT_LOCK.html`** | 🔨 Showcase HTML | Week 1 (`inventory-service`) deep concept + build log. Corner Notes design (cream/amber) |
 | **`SAGA_LAB.html`** | 🔨 Showcase HTML | Week 2 (`booking-service`) deep concept + build log. Same Corner Notes design. Includes Day 4 LIVE EVIDENCE card with real terminal output + 6-entry bug museum |
