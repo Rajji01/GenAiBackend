@@ -15,7 +15,7 @@
 | **Week 1** | ✅ DONE — `inventory-service` prod-grade (local) |
 | **Week 2** | ✅ DONE — `booking-service` saga orchestrator (sync), cross-service idempotency |
 | **Week 3** | ✅ DONE — `payment-service` + outbox + refund + dangling-recovery + `notification-service` + Flyway hardening (last commit `9f3a493`) |
-| **Current** | Week 4 (AWS foundation) STARTED — Day 1 design done (`WEEK4_DESIGN.md`). Week 3 JUnit clean-pass ✅ committed+pushed (`3344957`, 58 tests). Next: Rajat decides WEEK4_DESIGN §7 open Qs → Day 2 Terraform skeleton |
+| **Current** | Week 4 (AWS foundation) STARTED — Day 1 design (`WEEK4_DESIGN.md`) + Day 2 Terraform skeleton (`infra/terraform/`, unapplied/unvalidated) done. Week 3 JUnit clean-pass ✅ pushed (`3344957`, 58 tests). Next: Rajat runs `terraform init/validate/plan` + reviews §7 leans, then apply |
 | **Domain** | Event ticketing (District / BookMyShow clone) |
 | **Soul of the system** | Flash-sale mein bhi *correct* booking — no oversell, no crash, no lost money |
 

@@ -83,6 +83,8 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 - **`payment-service/`** — Week 3's service (Adapter+Factory+Strategy for payment methods, 2-step auth+capture, refund lifecycle). Committed + live-verified.
 - **`notification-service/`** — Week 3 Day 5's downstream consumer (port 8084). POST /notifications/receive webhook + read endpoints. Committed + live-verified end-to-end.
 
+**`infra/terraform/`** (Week 4 Day 2, new) — ⚙️ IaC skeleton for the AWS foundation: VPC/SG/IAM/ECR/RDS(Multi-AZ)/Secrets/ALB/ECS-Fargate as Terraform. **Authored by Claude, NOT applied, NOT locally validated** (no terraform binary here). Real `apply` + resource creation is Rajat's (§3-2). See `infra/terraform/README.md` for the apply flow and `WEEK4_DESIGN.md` for the why.
+
 Each service directory has the standard Maven layout:
 - `pom.xml`, `mvnw`, `mvnw.cmd`, `.mvn/` — build
 - `Dockerfile`, `.dockerignore` — containerize
