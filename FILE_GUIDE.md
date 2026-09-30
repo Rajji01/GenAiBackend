@@ -64,6 +64,7 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 | **`LEARNING_NOTES.md`** | 📖 Prose revision | Prose deep notes with self-check questions at end of each section. **No answers by design** — revision tool |
 | **`SEAT_LOCK.html`** | 🔨 Showcase HTML | Week 1 (`inventory-service`) deep concept + build log. Corner Notes design (cream/amber) |
 | **`SAGA_LAB.html`** | 🔨 Showcase HTML | Week 2 (`booking-service`) deep concept + build log. Same Corner Notes design. Includes Day 4 LIVE EVIDENCE card with real terminal output + 6-entry bug museum |
+| **`WEEK4_CLOUD.html`** | 🔨 Showcase HTML | Week 4 (AWS foundation) easy-way notes. Corner Notes design. 7 concept cards + Day 1/2 build log + **3 inline-SVG diagrams** (topology, SG-chain, secret-injection) + AWS glossary + the explicit [Claude]/[Rajat] boundary. Design/skeleton only — no AWS resources |
 | **`PAYMENT_LAB.html`** | 🔨 Showcase HTML | Week 3 (`payment-service` + outbox + refund + recovery) deep concept + build log. 10 concepts, 4 days, 4-entry bug museum (Bugs 7-10), LIVE EVIDENCE card, task ledger, decision log, tech glossary. Corner Notes design. |
 | **`TICKET_STUDY.html`** | 📘 Personal learning | Rajat's Q&A journal. Sections + questions + answers captured from live teaching. **Distinct from showcase HTMLs** — this is study/revision, not portfolio |
 
@@ -182,6 +183,7 @@ backend/CORNER_NOTES.html (original)
         ├──► ticketing-platform/SEAT_LOCK.html    (copied styling, Week 1)
         ├──► ticketing-platform/SAGA_LAB.html     (copied styling, Week 2)
         ├──► ticketing-platform/PAYMENT_LAB.html  (copied styling, Week 3)
+        ├──► ticketing-platform/WEEK4_CLOUD.html  (copied styling, Week 4 + inline-SVG diagrams)
         └──► ticketing-platform/TICKET_STUDY.html (copied styling + teal Q&A extension)
 
 narration-enrichment/NARRATION_LAB.html (separate, mint/teal design system)
