@@ -172,6 +172,7 @@
   .svg-accent{ color:var(--accent); }
   .svg-danger{ color:var(--danger); }
   .svg-success{ color:var(--success); }
+  .svg-danger{ color:var(--danger); }
 
   .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
   @media (max-width:700px){ .two-col{ grid-template-columns:1fr; } }
@@ -436,6 +437,33 @@ if (Boolean.TRUE.equals(acquired)) {
     }
 }</code></pre></div>
       <p style="margin-top:10px;">Step 1 (Redis SETNX) succeeds first. If step 2 (the Postgres update) then fails for <em>any</em> reason — the seat doesn't exist, it's already booked, or a genuine optimistic-lock conflict — the <code>catch</code> block deletes the Redis key before re-throwing. Without this, a request that failed at step 2 would still leave the seat looking "held" in Redis for up to 5 minutes, with no actual hold behind it: a phantom lock nobody could break except by waiting out the TTL.</p>
+
+      <figure>
+        <svg viewBox="0 0 720 150" role="img" aria-label="Compensating-action sequence: SETNX ok, Postgres fails, Redis key deleted" style="width:100%;height:auto;">
+          <defs><marker id="sl-arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+          <g font-family="IBM Plex Mono, monospace" font-size="12">
+            <rect class="svg-success" x="8" y="46" width="152" height="56" rx="8" fill="currentColor" fill-opacity=".12" stroke="currentColor"/>
+            <text x="84" y="70" text-anchor="middle">1 · SETNX key</text>
+            <text x="84" y="88" text-anchor="middle" font-size="10.5" opacity=".75">Redis · OK ✓</text>
+            <rect class="svg-danger" x="192" y="46" width="160" height="56" rx="8" fill="currentColor" fill-opacity=".12" stroke="currentColor"/>
+            <text x="272" y="70" text-anchor="middle">2 · UPDATE @Version</text>
+            <text x="272" y="88" text-anchor="middle" font-size="10.5" opacity=".75">Postgres · FAILS ✗</text>
+            <rect class="svg-accent" x="384" y="46" width="172" height="56" rx="8" fill="currentColor" fill-opacity=".12" stroke="currentColor"/>
+            <text x="470" y="70" text-anchor="middle">3 · catch → DELETE key</text>
+            <text x="470" y="88" text-anchor="middle" font-size="10.5" opacity=".75">compensate Redis</text>
+            <rect class="svg-success" x="588" y="46" width="124" height="56" rx="8" fill="currentColor" fill-opacity=".12" stroke="currentColor"/>
+            <text x="650" y="70" text-anchor="middle">4 · clean</text>
+            <text x="650" y="88" text-anchor="middle" font-size="10.5" opacity=".75">no phantom lock</text>
+          </g>
+          <g stroke="currentColor" fill="none" stroke-width="1.3">
+            <line x1="160" y1="74" x2="190" y2="74" marker-end="url(#sl-arrow2)"/>
+            <line x1="352" y1="74" x2="382" y2="74" marker-end="url(#sl-arrow2)"/>
+            <line x1="556" y1="74" x2="586" y2="74" marker-end="url(#sl-arrow2)"/>
+          </g>
+          <text x="8" y="130" font-family="IBM Plex Mono, monospace" font-size="10.5" opacity=".7">Skip step 3 → the seat looks "held" in Redis for the full 5-min TTL with no real hold behind it: a phantom lock.</text>
+        </svg>
+        <figcaption>The compensating delete turns a two-store failure into a clean rollback — detect the intermediate state, then undo step 1 rather than leave it dangling.</figcaption>
+      </figure>
 
       <div class="bug-box">
         <div class="bug-label">The failure mode this specifically prevents</div>

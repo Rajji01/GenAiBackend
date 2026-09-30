@@ -84,6 +84,15 @@
   pre{margin:0;} pre code{background:none;padding:0;}
   .code-block{background:var(--code-bg);color:var(--code-ink);border-radius:9px;padding:14px 16px;overflow-x:auto;font-size:12.8px;line-height:1.6;}
   .code-block code{background:none;color:inherit;padding:0;}
+  .diagram{width:100%;height:auto;display:block;margin:6px 0 4px;}
+  .dgm-box{fill:var(--surface-alt);stroke:var(--border);stroke-width:1.5;}
+  .dgm-accentbox{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5;}
+  .dgm-okbox{fill:var(--success-soft);stroke:var(--success);stroke-width:1.5;}
+  .dgm-badbox{fill:var(--danger-soft);stroke:var(--danger);stroke-width:1.5;}
+  .dgm-t{font-family:"IBM Plex Mono",monospace;font-size:12px;fill:var(--ink);}
+  .dgm-s{font-family:"IBM Plex Mono",monospace;font-size:10.5px;fill:var(--ink-soft);}
+  .dgm-flow{stroke:var(--accent);stroke-width:1.7;fill:none;}
+  .dgm-flowdash{stroke:var(--danger);stroke-width:1.5;fill:none;stroke-dasharray:4 3;}
   .table-wrap{overflow-x:auto;margin-top:8px;}
   table{border-collapse:collapse;width:100%;font-size:13.5px;}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
@@ -237,6 +246,26 @@
       <div class="concept-title">Two-phase commit is dead — enter the saga</div>
       <p>The classic answer to "two databases must agree" is <strong>two-phase commit</strong>: a coordinator asks every participant "can you commit?", and only when everyone answers yes does it tell them all "then do it." It <em>works</em>. It's also cursed for microservices: every participant blocks its own resources through the whole coordination window, and if the coordinator itself dies mid-round, participants sit locked with no way to safely proceed. In a flash-sale, this is the entire system freezing on one flaky node.</p>
       <p>The <strong>saga pattern</strong> throws away atomicity and buys back <em>eventual consistency</em>: split the transaction into a sequence of local ones, and give every forward step a <strong>compensating action</strong> that undoes it. A step fails → you don't roll back the world, you run the compensations for what already happened. Nothing is ever locked across a network hop.</p>
+      <svg class="diagram" viewBox="0 0 720 200" role="img" aria-label="Booking saga: forward path and compensation to FAILED">
+        <defs>
+          <marker id="sg_ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker>
+          <marker id="sg_bad" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--danger)"/></marker>
+        </defs>
+        <text class="dgm-s" x="160" y="28" text-anchor="middle">hold seats</text>
+        <text class="dgm-s" x="343" y="28" text-anchor="middle">charge</text>
+        <text class="dgm-s" x="564" y="28" text-anchor="middle">confirm</text>
+        <rect class="dgm-box" x="8" y="38" width="132" height="44" rx="7"/><text class="dgm-t" x="74" y="64" text-anchor="middle">PENDING</text>
+        <rect class="dgm-box" x="182" y="38" width="140" height="44" rx="7"/><text class="dgm-t" x="252" y="64" text-anchor="middle">SEATS_HELD</text>
+        <rect class="dgm-box" x="364" y="38" width="180" height="44" rx="7"/><text class="dgm-t" x="454" y="64" text-anchor="middle">PAYMENT_INITIATED</text>
+        <rect class="dgm-okbox" x="586" y="38" width="126" height="44" rx="7"/><text class="dgm-t" x="649" y="64" text-anchor="middle">CONFIRMED</text>
+        <line class="dgm-flow" x1="140" y1="60" x2="180" y2="60" marker-end="url(#sg_ar)"/>
+        <line class="dgm-flow" x1="322" y1="60" x2="362" y2="60" marker-end="url(#sg_ar)"/>
+        <line class="dgm-flow" x1="544" y1="60" x2="584" y2="60" marker-end="url(#sg_ar)"/>
+        <rect class="dgm-badbox" x="286" y="138" width="170" height="44" rx="7"/><text class="dgm-t" x="371" y="164" text-anchor="middle">FAILED</text>
+        <line class="dgm-flowdash" x1="252" y1="82" x2="340" y2="136" marker-end="url(#sg_bad)"/>
+        <line class="dgm-flowdash" x1="454" y1="82" x2="402" y2="136" marker-end="url(#sg_bad)"/>
+        <text class="dgm-s" x="8" y="196">any forward step fails → run compensations for what already happened (release seat / refund) → FAILED</text>
+      </svg>
       <div class="why-box"><div class="why-label">Ticketing consequence</div>Hold seat → charge card → confirm seat. Payment fails? Don't try to un-charge (you never charged the DB — you charged Stripe). Just run <code>/release</code> on the seat. The seat becomes AVAILABLE, the booking becomes FAILED, no user sits blocked on a distributed lock.</div>
     </div>
 
