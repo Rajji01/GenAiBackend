@@ -93,11 +93,11 @@ Each service directory has the standard Maven layout:
 **Booking-service Week 3 packages:**
 - `outbox/` — `OutboxEvent`, `OutboxRepository`, `OutboxService` (write within tx), `OutboxPublisher` (`@Scheduled` drain), `EventBus` (stub, will become SNS in Phase 3)
 
-**Test count check (as of last commit `8a30afa`):**
+**Test count check (Week 3 JUnit clean-pass DONE 2026-09-30, uncommitted — 124 ticketing tests total):**
 - `inventory-service`: 40 tests green
-- `booking-service`: 26 tests green (old `BookingSagaServiceTest` deleted with Week 3's saga rewrite; tests get rebuilt at end-pass per user directive)
-- `payment-service`: 0 tests (Week 3, deferred)
-- `notification-service`: 0 tests (Week 3 Day 5, deferred)
+- `booking-service`: **42 tests green** — 26 baseline + 16 new Week 3 (`OutboxEventTest` 3, `OutboxServiceTest` 3, `OutboxPublisherTest` 4, `BookingRecoveryServiceTest` 6). New ones are pure Mockito; the baseline still uses Testcontainers
+- `payment-service`: **37 tests green** — pure JUnit/Mockito, no Testcontainers (Docker-free by design, §7). `PaymentStateMachineTest` 13, `PaymentGatewayFactoryTest` 2, `UPIAdapterTest` 5, `PaymentServiceTest` 17
+- `notification-service`: **5 tests green** — `NotificationServiceTest` (dedup fast+race paths + malformed-payload degrade). Mockito + real ObjectMapper, no Testcontainers
 
 ### 🐍 Narration track (`narration-enrichment/`)
 

@@ -378,6 +378,31 @@ annotation so Hibernate emits a valid ALTER. Live fix during verify:
 manual `ALTER TABLE ...` via `docker exec psql`. Prod-safe answer:
 Flyway migrations, which write explicit `DEFAULT` clauses.
 
+**Week 3 JUnit clean-pass (2026-09-30).** The end-of-week test pass
+deferred per the learning-first rule (implement + live-verify first, write
+proper tests over the finished shape). 58 new tests across the three Week 3
+services, all green:
+- `payment-service` — 37 (state machine, Adapter/Factory/Strategy, the
+  authorize→capture/void/refund lifecycle, idempotency, gateway-failure
+  translation).
+- `notification-service` — 5 (idempotent-consumer dedup: fast
+  `findByEventId` skip + slow unique-constraint race catch, plus
+  malformed-payload degrade).
+- `booking-service` Week 3 additions — 16 (outbox row, atomic-write +
+  correlation snapshot, the at-least-once publisher with correlation-id
+  restore across the scheduled boundary, and the dangling-saga recovery
+  decision tree).
+
+Deliberate choice: these are **pure JUnit/Mockito, no Testcontainers**,
+unlike Weeks 1–2. Docker is fragile on this machine, and every invariant
+worth pinning here lives in application logic, not DB semantics — a mocked
+`PlatformTransactionManager` runs the `TransactionTemplate` callback so the
+full flow is exercised DB-less. DB-constraint behaviour stays covered by the
+Week 3 Day-4 live evidence above. Ticketing test count is now 124 (inventory
+40 + booking 42 + payment 37 + notification 5). One minor find, flagged not
+fixed: `Payment.markFailed()`'s "use refund path" branch for CAPTURED is
+unreachable (CAPTURED is terminal, so the `isTerminal()` guard throws first).
+
 ## Week 2 — `booking-service` (in progress)
 
 Week 2 introduces the second service on this track: `booking-service`, the

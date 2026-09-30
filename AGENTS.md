@@ -66,37 +66,34 @@ These have been established across many sessions. Break them and the user will c
 
 ---
 
-## 4. Current state (as of 2026-09-18)
+## 4. Current state (as of 2026-09-30)
 
 ### Ticketing (Track C) — WHERE MOST OF THE ACTION IS
 
 - **Week 1** — inventory-service ✅ **DONE + committed + pushed** (`0b97be5`).
 - **Week 2** — booking-service ✅ **DONE + committed + pushed** (`1abd8ec` code, `b9e507e` notes). 6 live-verified failure experiments, 3 real bugs caught+fixed live.
 - **Week 3 (DONE 2026-09-20)** — payment-service + outbox pattern + refund path + dangling-saga recovery + notification-service downstream consumer + MDC-across-scheduled-boundary fix. Commits: `e4cb1d8` Day 1 design, `2e767a4` Day 2 payment-service, `2629131` Day 3 booking-side (PaymentClient + Outbox + Recovery), `d1ddd5e` Day 4 live-verify + docs, `8235fea` Day 5 notification-service (outbox end-to-end), `8a30afa` Day 6 correlation-id fix, `0f57290` + `a9233dd` Day 7 consumer dedup by event_id. Live-verified with 7 checks + F1/F2 failure experiments + 4-service end-to-end pipeline.
-- **Post-Week-3 hardening (2026-09-20)** — Flyway migrations added across all 4 services (payment, inventory, booking, notification). `ddl-auto` flipped from `update` → `validate`; each service now has `V1__initial_<x>_schema.sql`. Bug 4/7 permanently defused. See standing rule §3-10.
+- **Post-Week-3 hardening (2026-09-20)** — Flyway migrations added across all 4 services (payment, inventory, booking, notification). `ddl-auto` flipped from `update` → `validate`; each service now has `V1__initial_<x>_schema.sql`. Bug 4/7/8 permanently defused. Commit `9f3a493`. See standing rule §3-10.
 
-- **Week 4 (up next)** — AWS foundation per ROADMAP (IAM/VPC/RDS/ECR/ECS Fargate/ALB). **User-driven per standing rule.** Claude pairs on Terraform + verification but does NOT autonomously touch AWS resource creation ("bs aws ki service smai banaunga" — 2026-09-20 reconfirmation).
-  - New module `payment-service/` — Java 17 Spring Boot, Adapter+Factory+Strategy for UPI/Card/NetBanking stubs, 6-state Payment machine, 2-step auth+capture. Own Postgres DB (`payment`).
-  - booking-service updates: `PaymentClient` (Resilience4j with fresh `payment` instance, all Bug 5+6 lessons pre-applied), Outbox (entity + repo + service + poller + `EventBus` stub), `BookingRecoveryService` (2-min age filter, drives forward or rolls back), refund path on captured-but-confirm-fail, `Booking.payment_id` + `refund_pending` columns.
-  - docker-compose: payment-service added on 8083, `create-payment-db.sh` init script.
-  - `WEEK3_DESIGN.md` full design paper + 7 more interview Qs.
+**All ticketing work through the Flyway hardening is committed + pushed. Working tree clean; last ticketing commit `9f3a493`.** (The stale "do not commit / keep implementing to 2M budget" instruction from 2026-09-20 is spent — Week 3 was committed across `e4cb1d8`…`9f3a493` and pushed.)
 
-**Uncommitted since last push (`8d255fe`)**:
-- Week 3 additions above (~45 new/modified files across payment-service, booking-service, ticketing-platform root)
-- `AGENTS.md` §5 flip to implementation-mode (this file)
-- `README.md` (ticketing) Week 3 build log entry
+- **Week 4 (up next, NOT started)** — AWS foundation per ROADMAP (IAM/VPC/RDS/ECR/ECS Fargate/ALB). **User-driven per standing rule §3-2.** Claude pairs on Terraform + design + verification but does NOT autonomously touch AWS resource creation ("bs aws services mai banaunga" — reconfirmed 2026-09-30). On this track Claude can go solo only up to Day-1 design paper + Terraform skeleton; real bucket/RDS/ECS is Rajat's.
 
-User instruction 2026-09-20: **do not commit, keep implementing to 2M token budget.** Also: no junit tests (manual verify where feasible).
+**Week 3 JUnit clean-pass (deferred per rule §3-8) — ✅ DONE this session (2026-09-30), UNCOMMITTED (awaiting user OK to commit):**
+- **payment-service — 37 tests green**: `PaymentStateMachineTest` 13, `PaymentGatewayFactoryTest` 2, `UPIAdapterTest` 5, `PaymentServiceTest` 17.
+- **notification-service — 5 tests green**: `NotificationServiceTest` — idempotent-consumer dedup (fast findByEventId skip + slow unique-constraint race catch) + malformed-payload degrade.
+- **booking-service Week 3 additions — 16 new tests green** (on top of the existing 26): `OutboxEventTest` 3, `OutboxServiceTest` 3, `OutboxPublisherTest` 4 (at-least-once + correlation-id-restore), `BookingRecoveryServiceTest` 6 (dangling-saga recovery decision tree).
+- **58 new tests total. Ticketing test count now: inventory 40 + booking 42 + payment 37 + notification 5 = 124.**
+- **Deliberate approach — pure JUnit/Mockito, NO Testcontainers** (diverges from Weeks 1–2 which used real Postgres). Rationale: Docker is fragile here (§7); the invariants worth pinning (state machines, saga/recovery orchestration, idempotency, gateway-failure translation, at-least-once outbox, consumer dedup) all live in application logic, not DB semantics. A mocked `PlatformTransactionManager` runs the `TransactionTemplate` callback so DB-less unit tests exercise the full flow. DB-constraint behaviour stays covered by Week 3 Day-4 live evidence. Run booking's new tests in isolation with `-Dtest='OutboxEventTest,OutboxServiceTest,OutboxPublisherTest,BookingRecoveryServiceTest'` to avoid booting the existing Testcontainers tests.
+- **Minor finding (flagged, NOT fixed):** `Payment.markFailed()` has a "use refund path" branch for CAPTURED that is unreachable dead code — CAPTURED is terminal so the `isTerminal()` guard throws first ("already CAPTURED"). Behaviour correct; hint text never shows. Future cleanup, not touched in a test pass.
 
-**Pending for Week 3 completion:**
-- Live-verify against a running 3-service stack (Day 4 equivalent)
-- Update SAGA_LAB.html (or new PAYMENT_LAB.html?) with Week 3 concepts + bug museum entries if live finds any
-- User answers 7 more interview questions in `WEEK3_DESIGN.md §9`
-- Eventual commit + push (needs user OK)
+**Still pending on ticketing:**
+- Commit the clean-pass (needs user OK per §3-3) + push (needs user OK per §3-2).
+- User answers 7 interview questions in `WEEK3_DESIGN.md §9` (Rajat's own — writing is the learning).
 
-### Narration (Track B) — P1 done, P2 up next
+### Narration (Track B) — P1+P2+P3 done, P4 up next
 
-**Status:** P1 (Transaction Enrichment API) ✅ **DONE + committed + pushed** through last narration commit `20cb3c6` (Week 4 `/stats`). 68 tests green, no network in the suite.
+**Status:** P1 (Transaction Enrichment API) ✅ **DONE + committed + pushed** through narration commit `20cb3c6` (Week 4 `/stats`). 68 tests green, no network in the suite. P2 + P3 also **DONE + committed + pushed** (last narration commit `fab8f9e`); **168 tests green** at P3 close.
 
 **P1 shipped across four "weeks" (phases):**
 - **Week 1** — base `POST /enrich`: Instructor + Pydantic + Gemini + FastAPI + Dockerfile + docker-compose with healthcheck. Commit `4cb3d86`.
@@ -168,7 +165,7 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 
 **Ticketing track:** `ticketing-platform/ROADMAP.md` — the master plan (10 phases, weeks 2 onward). This SUPERSEDES an older `codes Practice/Jarvis_Architect_Path.md` which had a different Phase 1 ordering. Follow `ROADMAP.md`.
 
-**GenAI track:** `Jarvis_GenAI_Path.md` (this dir) — P1 → P8 projects. Currently at P1 Week 4+ done.
+**GenAI track:** `Jarvis_GenAI_Path.md` (this dir) — P1 → P8 projects. Currently P1+P2+P3 done; P4 (async doc pipeline, AWS) is next.
 
 **Cross-track forward plan:** `NEXT_PATH.md` (this dir) — my synthesis of what's next on both tracks, with `[PLAN]` markers for what's in the roadmap files verbatim vs `[PROPOSAL]` for my forward-looking suggestions.
 
@@ -195,15 +192,19 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 
 ### Ticketing track (Java, microservices)
 - `ticketing-platform/ROADMAP.md` — **master plan** (10 phases)
-- `ticketing-platform/README.md` — full build log (Week 1 + Week 2 daily)
+- `ticketing-platform/README.md` — full build log (Weeks 1–3 daily)
 - `ticketing-platform/SEAT_LOCK.html` — Week 1 deep concept notes (inventory-service)
 - `ticketing-platform/SAGA_LAB.html` — Week 2 deep concept notes (booking-service, Resilience4j, docker, bug museum)
+- `ticketing-platform/PAYMENT_LAB.html` — Week 3 deep concept notes (payment-service + outbox + refund + recovery + notification, bug museum B7–B10)
 - `ticketing-platform/TICKET_STUDY.html` — **user's active learning companion** (2026-09-18)
 - `ticketing-platform/LEARNING_NOTES.md` — prose revision with self-check Qs (no answers, by design)
 - `ticketing-platform/WEEK1_REVIEW.md` — 7 interview Qs awaiting user answers
 - `ticketing-platform/WEEK2_DESIGN.md` — Day 1 design deliverable + 7 more interview Qs
+- `ticketing-platform/WEEK3_DESIGN.md` — Week 3 design deliverable + 7 more interview Qs (§9, awaiting user answers)
 - `ticketing-platform/inventory-service/` — Week 1 code (40 tests)
-- `ticketing-platform/booking-service/` — Week 2 code (26 tests)
+- `ticketing-platform/booking-service/` — Week 2 code (26 tests) + Week 3 additions (PaymentClient, Outbox, recovery — tests deferred)
+- `ticketing-platform/payment-service/` — Week 3 code (Adapter/Factory/Strategy, 2-step auth+capture — tests deferred)
+- `ticketing-platform/notification-service/` — Week 3 Day 5 downstream consumer (port 8084, dedup by event_id — tests deferred)
 
 ### GenAI track (Python)
 - `Jarvis_GenAI_Path.md` — master plan (P1 → P8)

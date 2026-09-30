@@ -13,7 +13,9 @@
 | | |
 |---|---|
 | **Week 1** | ✅ DONE — `inventory-service` prod-grade (local) |
-| **Current** | Week 2 ready to start |
+| **Week 2** | ✅ DONE — `booking-service` saga orchestrator (sync), cross-service idempotency |
+| **Week 3** | ✅ DONE — `payment-service` + outbox + refund + dangling-recovery + `notification-service` + Flyway hardening (last commit `9f3a493`) |
+| **Current** | Week 4 (AWS foundation) up next — NOT started. Pending unblocked work: Week 3 JUnit clean-pass + user's WEEK3_DESIGN §9 interview answers |
 | **Domain** | Event ticketing (District / BookMyShow clone) |
 | **Soul of the system** | Flash-sale mein bhi *correct* booking — no oversell, no crash, no lost money |
 
@@ -202,9 +204,9 @@ Claude/LangChain stack yahan plug.
 | Week | Goal |
 |------|------|
 | 1 ✅ | inventory-service prod-grade local (DONE) |
-| 2 | booking-service + saga orchestration (sync), cross-service idempotency |
-| 3 | payment-service stub + outbox pattern + saga rollback + dangling recovery |
-| 4 | AWS foundation (IAM/VPC/RDS/ECR/ECS Fargate/ALB) — 2 services live |
+| 2 ✅ | booking-service + saga orchestration (sync), cross-service idempotency (DONE) |
+| 3 ✅ | payment-service stub + outbox pattern + saga rollback + dangling recovery + notification-service + Flyway hardening (DONE) |
+| 4 | AWS foundation (IAM/VPC/RDS/ECR/ECS Fargate/ALB) — 2 services live — **NOT started** |
 | 5 | SQS/SNS/DLQ — sync→async decoupling |
 | 6 | notification-service + SNS fan-out + EventBridge |
 | 7 | catalog-service + ElastiCache + CloudFront + eventual consistency |
