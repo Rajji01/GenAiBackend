@@ -201,6 +201,7 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 - `ticketing-platform/SAGA_LAB.html` — Week 2 deep concept notes (booking-service, Resilience4j, docker, bug museum)
 - `ticketing-platform/PAYMENT_LAB.html` — Week 3 deep concept notes (payment-service + outbox + refund + recovery + notification, bug museum B7–B10)
 - `ticketing-platform/WEEK4_CLOUD.html` — Week 4 showcase notes (AWS foundation, easy-way): 7 concept cards + Day 1/2 build log + 4 inline-SVG diagrams (topology, SG-chain, secret-injection, task-crash failure experiment) + AWS glossary + [Claude]/[Rajat] boundary. Corner Notes design
+- `ticketing-platform/ARCHITECTURE.html` — cross-week system-evolution overview (portfolio-shape): growth table + 4 stage-diagrams (W1→W4) each linking to its deep-dive. Corner Notes design. Start-here for the whole-track picture
 - `ticketing-platform/TICKET_STUDY.html` — **user's active learning companion** (2026-09-18)
 - `ticketing-platform/LEARNING_NOTES.md` — prose revision with self-check Qs (no answers, by design)
 - `ticketing-platform/WEEK1_REVIEW.md` — 7 interview Qs awaiting user answers

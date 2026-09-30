@@ -65,6 +65,7 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 | **`SEAT_LOCK.html`** | 🔨 Showcase HTML | Week 1 (`inventory-service`) deep concept + build log. Corner Notes design (cream/amber). **2 inline-SVG diagrams** (2-store topology; compensating-action sequence — added 2026-09-30) |
 | **`SAGA_LAB.html`** | 🔨 Showcase HTML | Week 2 (`booking-service`) deep concept + build log. Same Corner Notes design. Includes Day 4 LIVE EVIDENCE card with real terminal output + 6-entry bug museum. **1 inline-SVG diagram** (saga forward-path + compensation to FAILED — added 2026-09-30) |
 | **`WEEK4_CLOUD.html`** | 🔨 Showcase HTML | Week 4 (AWS foundation) easy-way notes. Corner Notes design. 7 concept cards + Day 1/2 build log + **4 inline-SVG diagrams** (topology, SG-chain, secret-injection, task-crash failure experiment) + AWS glossary + the explicit [Claude]/[Rajat] boundary. Design/skeleton only — no AWS resources |
+| **`ARCHITECTURE.html`** | 🔨 Showcase HTML | **Cross-week system-evolution overview** (portfolio-shape, added 2026-09-30). Corner Notes design. The whole track on one page: growth table + 4 stage-diagrams (W1 inventory → W2 +booking saga → W3 +payment/outbox/notify → W4 +AWS) each linking to its deep-dive. Start here for the big picture |
 | **`PAYMENT_LAB.html`** | 🔨 Showcase HTML | Week 3 (`payment-service` + outbox + refund + recovery) deep concept + build log. 10 concepts, 4 days, 4-entry bug museum (Bugs 7-10), LIVE EVIDENCE card, task ledger, decision log, tech glossary, **+ 2 inline-SVG diagrams (outbox at-least-once flow, recovery decision tree)** (added 2026-09-30). Corner Notes design. |
 | **`TICKET_STUDY.html`** | 📘 Personal learning | Rajat's Q&A journal. Sections + questions + answers captured from live teaching. **Distinct from showcase HTMLs** — this is study/revision, not portfolio |
 
@@ -184,6 +185,7 @@ backend/CORNER_NOTES.html (original)
         ├──► ticketing-platform/SAGA_LAB.html     (copied styling, Week 2)
         ├──► ticketing-platform/PAYMENT_LAB.html  (copied styling, Week 3)
         ├──► ticketing-platform/WEEK4_CLOUD.html  (copied styling, Week 4 + inline-SVG diagrams)
+        ├──► ticketing-platform/ARCHITECTURE.html (copied styling, cross-week evolution overview)
         └──► ticketing-platform/TICKET_STUDY.html (copied styling + teal Q&A extension)
 
 narration-enrichment/NARRATION_LAB.html (separate, mint/teal design system)
