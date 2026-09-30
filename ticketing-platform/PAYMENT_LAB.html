@@ -84,6 +84,13 @@
   pre{margin:0;} pre code{background:none;padding:0;}
   .code-block{background:var(--code-bg);color:var(--code-ink);border-radius:9px;padding:14px 16px;overflow-x:auto;font-size:12.8px;line-height:1.6;}
   .code-block code{background:none;color:inherit;padding:0;}
+  .diagram{width:100%;height:auto;display:block;margin:6px 0 4px;}
+  .dgm-box{fill:var(--surface-alt);stroke:var(--border);stroke-width:1.5;}
+  .dgm-accentbox{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5;}
+  .dgm-t{font-family:"IBM Plex Mono",monospace;font-size:12px;fill:var(--ink);}
+  .dgm-s{font-family:"IBM Plex Mono",monospace;font-size:10.5px;fill:var(--ink-soft);}
+  .dgm-flow{stroke:var(--accent);stroke-width:1.7;fill:none;}
+  .dgm-flowdash{stroke:var(--ink-soft);stroke-width:1.4;fill:none;stroke-dasharray:4 3;}
   .table-wrap{overflow-x:auto;margin-top:8px;}
   table{border-collapse:collapse;width:100%;font-size:13.5px;}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
@@ -329,6 +336,24 @@ public void confirm(...) {
     <div class="card concept" id="c4">
       <div class="concept-head"><div class="concept-stamp">CONCEPT 4</div></div>
       <div class="concept-title">Outbox — mechanics that actually defeat the dual-write</div>
+      <svg class="diagram" viewBox="0 0 720 200" role="img" aria-label="Outbox at-least-once flow">
+        <defs>
+          <marker id="ob_ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker>
+          <marker id="ob_gr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--ink-soft)"/></marker>
+        </defs>
+        <rect class="dgm-accentbox" x="8" y="44" width="214" height="104" rx="8"/>
+        <text class="dgm-t" x="115" y="62" text-anchor="middle">one DB transaction · atomic</text>
+        <rect class="dgm-box" x="20" y="74" width="190" height="28" rx="5"/><text class="dgm-s" x="115" y="92" text-anchor="middle">UPDATE booking → CONFIRMED</text>
+        <rect class="dgm-box" x="20" y="110" width="190" height="28" rx="5"/><text class="dgm-s" x="115" y="128" text-anchor="middle">INSERT outbox_events row</text>
+        <rect class="dgm-box" x="272" y="64" width="150" height="60" rx="8"/><text class="dgm-t" x="347" y="88" text-anchor="middle">OutboxPublisher</text><text class="dgm-s" x="347" y="104" text-anchor="middle">@Scheduled · drains</text>
+        <rect class="dgm-box" x="470" y="64" width="110" height="60" rx="8"/><text class="dgm-t" x="525" y="88" text-anchor="middle">EventBus</text><text class="dgm-s" x="525" y="104" text-anchor="middle">HTTP push</text>
+        <rect class="dgm-accentbox" x="612" y="64" width="100" height="60" rx="8"/><text class="dgm-t" x="662" y="88" text-anchor="middle">notification</text><text class="dgm-s" x="662" y="104" text-anchor="middle">dedup event_id</text>
+        <line class="dgm-flow" x1="222" y1="96" x2="270" y2="94" marker-end="url(#ob_ar)"/>
+        <line class="dgm-flow" x1="422" y1="94" x2="468" y2="94" marker-end="url(#ob_ar)"/>
+        <line class="dgm-flow" x1="580" y1="94" x2="610" y2="94" marker-end="url(#ob_ar)"/>
+        <path class="dgm-flowdash" d="M525,124 L525,168 L347,168 L347,126" marker-end="url(#ob_gr)"/>
+        <text class="dgm-s" x="360" y="186">publish fails → row stays unpublished → retried next poll (at-least-once)</text>
+      </svg>
       <p>Write the event as a row in a table (<code>outbox_events</code>) inside the SAME transaction as the state change:</p>
       <pre class="code-block"><code><span style="color:#7FB8B8;">BEGIN;</span>
   UPDATE bookings SET status = 'CONFIRMED' WHERE id = 5;
@@ -421,6 +446,27 @@ public void sweep() {
         recover(b);
     }
 }</code></pre>
+      <svg class="diagram" viewBox="0 0 720 232" role="img" aria-label="Recovery decision tree by booking status">
+        <defs><marker id="rc_ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+        <rect class="dgm-accentbox" x="280" y="10" width="160" height="34" rx="8"/>
+        <text class="dgm-t" x="360" y="32" text-anchor="middle">recover(booking)</text>
+        <rect class="dgm-box" x="20" y="72" width="180" height="46" rx="7"/><text class="dgm-t" x="110" y="94" text-anchor="middle">PENDING</text><text class="dgm-s" x="110" y="110" text-anchor="middle">nothing done yet</text>
+        <rect class="dgm-box" x="270" y="72" width="180" height="46" rx="7"/><text class="dgm-t" x="360" y="94" text-anchor="middle">SEATS_HELD</text><text class="dgm-s" x="360" y="110" text-anchor="middle">hold made, no pay</text>
+        <rect class="dgm-box" x="520" y="72" width="180" height="46" rx="7"/><text class="dgm-t" x="610" y="94" text-anchor="middle">PAYMENT_INITIATED</text><text class="dgm-s" x="610" y="110" text-anchor="middle">has paymentId</text>
+        <line class="dgm-flow" x1="360" y1="44" x2="110" y2="70" marker-end="url(#rc_ar)"/>
+        <line class="dgm-flow" x1="360" y1="44" x2="360" y2="70" marker-end="url(#rc_ar)"/>
+        <line class="dgm-flow" x1="360" y1="44" x2="610" y2="70" marker-end="url(#rc_ar)"/>
+        <rect class="dgm-accentbox" x="20" y="150" width="180" height="40" rx="7"/><text class="dgm-t" x="110" y="174" text-anchor="middle">→ mark FAILED</text>
+        <rect class="dgm-accentbox" x="270" y="150" width="180" height="40" rx="7"/><text class="dgm-t" x="360" y="174" text-anchor="middle">release seats → FAILED</text>
+        <line class="dgm-flow" x1="110" y1="118" x2="110" y2="148" marker-end="url(#rc_ar)"/>
+        <line class="dgm-flow" x1="360" y1="118" x2="360" y2="148" marker-end="url(#rc_ar)"/>
+        <line class="dgm-flow" x1="610" y1="118" x2="610" y2="146" marker-end="url(#rc_ar)"/>
+        <text class="dgm-s" x="512" y="160">GET payment status →</text>
+        <text class="dgm-s" x="512" y="178">FAILED → release → FAIL</text>
+        <text class="dgm-s" x="512" y="194">AUTHORIZED → capture + confirm</text>
+        <text class="dgm-s" x="512" y="210">CAPTURED → confirm (else refund)</text>
+        <text class="dgm-s" x="512" y="226">REFUNDED → cleanup → FAIL</text>
+      </svg>
       <div class="bug-box"><div class="bug-label">Without the 2-minute age filter</div>A booking created 10 seconds ago is probably still executing right now in some request handler's saga. The sweep would race it — both trying to <code>/confirm</code> or <code>/capture</code>, both trying to write the same state change. Interleaved failures, undefined outcomes. The sweep must NEVER touch a booking younger than the saga could plausibly still be running.</div>
       <div class="why-box"><div class="why-label">Idempotency of every re-driven operation</div>Every op the sweep calls is idempotent by design: <code>/release</code> is a no-op if already released, <code>/confirm</code> returns the same response for a retry, payment <code>/capture</code> returns CAPTURED either way, <code>/refund</code> returns REFUND_PENDING either way. <strong>Safe to re-drive from any state.</strong></div>
     </div>

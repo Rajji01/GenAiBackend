@@ -65,7 +65,7 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 | **`SEAT_LOCK.html`** | 🔨 Showcase HTML | Week 1 (`inventory-service`) deep concept + build log. Corner Notes design (cream/amber) |
 | **`SAGA_LAB.html`** | 🔨 Showcase HTML | Week 2 (`booking-service`) deep concept + build log. Same Corner Notes design. Includes Day 4 LIVE EVIDENCE card with real terminal output + 6-entry bug museum |
 | **`WEEK4_CLOUD.html`** | 🔨 Showcase HTML | Week 4 (AWS foundation) easy-way notes. Corner Notes design. 7 concept cards + Day 1/2 build log + **4 inline-SVG diagrams** (topology, SG-chain, secret-injection, task-crash failure experiment) + AWS glossary + the explicit [Claude]/[Rajat] boundary. Design/skeleton only — no AWS resources |
-| **`PAYMENT_LAB.html`** | 🔨 Showcase HTML | Week 3 (`payment-service` + outbox + refund + recovery) deep concept + build log. 10 concepts, 4 days, 4-entry bug museum (Bugs 7-10), LIVE EVIDENCE card, task ledger, decision log, tech glossary. Corner Notes design. |
+| **`PAYMENT_LAB.html`** | 🔨 Showcase HTML | Week 3 (`payment-service` + outbox + refund + recovery) deep concept + build log. 10 concepts, 4 days, 4-entry bug museum (Bugs 7-10), LIVE EVIDENCE card, task ledger, decision log, tech glossary, **+ 2 inline-SVG diagrams (outbox at-least-once flow, recovery decision tree)** (added 2026-09-30). Corner Notes design. |
 | **`TICKET_STUDY.html`** | 📘 Personal learning | Rajat's Q&A journal. Sections + questions + answers captured from live teaching. **Distinct from showcase HTMLs** — this is study/revision, not portfolio |
 
 **Config / deployment:**
