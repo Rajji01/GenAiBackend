@@ -389,14 +389,19 @@ Anchored to this week's real decisions; jump to the section, then answer.
 - [x] `WEEK4_DESIGN.md` written — topology, 8-question pass per service,
       Fargate decision, service-hop decision, Terraform layout, deploy
       sequence, failure experiment, open questions, 7 interview Qs.
-- [ ] PAYMENT_LAB is Week 3's; **Week 4 gets its own showcase HTML**
-      (`WEEK4_CLOUD.html` or similar, per rule §3-5 one-per-week) — spawned
-      when Day 2+ code/infra lands, not at design.
-- [ ] Open questions §7 answered with Rajat before Day 2 Terraform scaffold.
+- [x] **Week 4 showcase HTML** `WEEK4_CLOUD.html` shipped (Corner Notes, 7
+      concept cards + build log + 4 inline-SVG diagrams + glossary).
+- [x] **Day 2 Terraform skeleton** `infra/terraform/` authored (NOT applied,
+      NOT locally validated — no terraform binary here; brace-balance
+      self-checked). Note: the design listed a separate `secrets.tf`; the
+      skeleton folds the secrets into `rds.tf` — same resources, one file.
+- [~] Open questions §7: proceeded with the documented default leans (per
+      Rajat's "work autonomously" directive) rather than blocking; Rajat
+      confirms/adjusts at the AWS session via `example.tfvars`.
 - [ ] Rajat answers §8 interview questions (answer-first, then evaluate).
-- [ ] **No AWS resource created in Day 1** — design only. First resource is
-      Rajat's, after the §7 decisions.
+- [x] **No AWS resource created** — design + skeleton only; first real
+      resource is Rajat's.
 
-> **Day 2 starts** once §7 is decided. Day 2 = **[Claude]** scaffolds the
-> `infra/terraform/` skeleton (no apply); **[Rajat]** reviews. Progressive,
-> one day at a time — same rhythm as Weeks 1–3.
+> **Day 3+ (apply) starts** when Rajat sits down for AWS: `terraform
+> init/validate/plan` → review → apply → build/push images → create the two
+> DBs → `verify.sh`. Progressive, one day at a time — same rhythm as Weeks 1–3.
