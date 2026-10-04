@@ -1,0 +1,11 @@
+# Terraform local state — never committed (may embed account ids,
+# queue URLs with account numbers, and plan-time secrets).
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.tfstate.lock.info

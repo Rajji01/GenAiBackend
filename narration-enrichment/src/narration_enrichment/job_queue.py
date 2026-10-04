@@ -134,27 +134,82 @@ class InMemoryJobQueue:
             return len(self._visible) + len(self._in_flight)
 
 
+class SqsJobQueue:
+    """P4 Day 4 — the same four methods against real (or moto) SQS.
+
+    Deliberately a thin mapping, because the in-memory fake already
+    speaks SQS's dialect: `receive` → ReceiveMessage (short long-poll),
+    `delete` → DeleteMessage by ReceiptHandle, `depth` → the two
+    approximate-count attributes summed. Visibility timeout and the
+    maxReceiveCount→DLQ redrive are QUEUE-level configuration owned by
+    the Terraform in `narration-enrichment/infra/` — the code never
+    sets them, so the worker behaves identically however the queue is
+    tuned. Creating the real queue + DLQ is Rajat's per rule 3-2;
+    tests run against moto.
+    """
+
+    def __init__(self, queue_url: str, region: str):
+        # Deferred import, same reason as s3_store: boto3 costs real
+        # import time and the in-memory path must not pay it.
+        import boto3
+
+        self._queue_url = queue_url
+        self._client = boto3.client("sqs", region_name=region)
+
+    def send(self, job_id: str) -> None:
+        self._client.send_message(QueueUrl=self._queue_url, MessageBody=job_id)
+
+    def receive(self, max_messages: int = 1) -> list[QueueMessage]:
+        resp = self._client.receive_message(
+            QueueUrl=self._queue_url,
+            MaxNumberOfMessages=max_messages,
+            # Short poll in code; production long-polling is queue-level
+            # config (ReceiveMessageWaitTimeSeconds in the Terraform), so
+            # the worker loop's pacing knob stays in ONE place.
+        )
+        return [
+            QueueMessage(job_id=m["Body"], receipt=m["ReceiptHandle"])
+            for m in resp.get("Messages", [])
+        ]
+
+    def delete(self, message: QueueMessage) -> None:
+        self._client.delete_message(
+            QueueUrl=self._queue_url, ReceiptHandle=message.receipt
+        )
+
+    def depth(self) -> int:
+        resp = self._client.get_queue_attributes(
+            QueueUrl=self._queue_url,
+            AttributeNames=[
+                "ApproximateNumberOfMessages",
+                "ApproximateNumberOfMessagesNotVisible",
+            ],
+        )
+        attrs = resp["Attributes"]
+        return int(attrs["ApproximateNumberOfMessages"]) + int(
+            attrs["ApproximateNumberOfMessagesNotVisible"]
+        )
+
+
 _queue: JobQueue | None = None
 _queue_lock = threading.Lock()
 
 
 def get_queue() -> JobQueue:
     """Process-wide queue instance. In-memory when INGEST_QUEUE_URL is
-    empty (dev/tests); the SQS implementation slots in here on Day 4
-    without any caller changing. Resolved lazily at call time — not at
-    import — so tests can reconfigure via _reset_for_tests(), same
-    seam-shape as s3_store."""
+    empty (dev/tests); SQS when it's set — the API intake and the
+    worker both resolve through here, so flipping ONE env var moves
+    the whole pipeline onto the real queue with zero caller changes.
+    Resolved lazily at call time — not at import — so tests can
+    reconfigure via _reset_for_tests(), same seam-shape as s3_store."""
     global _queue
     with _queue_lock:
         if _queue is None:
             settings = get_settings()
             if settings.ingest_queue_url:
-                # Day 4 lands SqsJobQueue here. Until then a configured
-                # URL is a loud misconfiguration, not a silent fallback.
-                raise NotImplementedError(
-                    "INGEST_QUEUE_URL is set but the SQS queue backend lands on P4 Day 4"
-                )
-            _queue = InMemoryJobQueue()
+                _queue = SqsJobQueue(settings.ingest_queue_url, settings.aws_region)
+            else:
+                _queue = InMemoryJobQueue()
         return _queue
 
 

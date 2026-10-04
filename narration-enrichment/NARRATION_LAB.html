@@ -307,6 +307,7 @@
       <a class="nav-link" href="#p4-intro"><span class="nav-tag">·</span>The idea</a>
       <a class="nav-link" href="#p4-day2"><span class="nav-tag">D2</span>Job table + queue + 202 intake</a>
       <a class="nav-link" href="#p4-day3"><span class="nav-tag">D3</span>The Worker (claim-by-CAS + DONE/FAILED/DEAD)</a>
+      <a class="nav-link" href="#p4-day4"><span class="nav-tag">D4</span>SQS behind the same door + Terraform</a>
     </div>
 
     <div class="nav-group">
@@ -2017,6 +2018,49 @@ Full suite:                 189 passed (was 168)</div>
 Full suite:                202 passed (was 189)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 4): <code>SqsJobQueue</code> behind the same four-method interface (moto-tested), DLQ semantics, and the Terraform for queue + DLQ authored for Rajat — real <code>apply</code> is his per rule 3-2.</p>
+    </article>
+
+    <article class="card day-card" id="p4-day4">
+      <div class="day-head">
+        <span class="day-stamp">P4 · D4</span>
+        <span class="day-title">SQS behind the same four methods + the queue's Terraform</span>
+      </div>
+      <span class="day-files">job_queue.py (SqsJobQueue) · infra/main.tf (new) · infra/README.md (new) · tests/test_sqs_queue.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> make the real queue a one-env-var flip. <code>SqsJobQueue</code> implements the same <code>send/receive/delete/depth</code> protocol; <code>get_queue()</code> picks it when <code>INGEST_QUEUE_URL</code> is set, in-memory otherwise — API intake and worker both resolve through the same factory, so <em>zero caller changes</em>. The real queue + DLQ are two Terraform resources in <code>narration-enrichment/infra/</code>, authored [Claude], applied [Rajat] (rule 3-2) — not applied, not locally validated, honestly flagged in its README.</p>
+
+      <div class="why-box">
+        <div class="why-label">The fake spoke SQS's dialect on purpose — Day 4 is the payoff</div>
+        <p>Day 2's in-memory queue faked exactly two real behaviours: visibility-timeout redelivery and receipt-per-delivery. So <code>test_sqs_queue.py</code> is the SAME behavioural claims re-proven against the real boto3 surface via moto — the worker literally cannot tell the backends apart, and that file is the evidence. One honest divergence: a standard SQS queue makes no FIFO promise, so the batch test asserts the <em>set</em> of jobs, not the order (the fake is stricter than the real thing — the safe direction for a test double to differ).</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Tuning lives on the queue, not in code</h4>
+          <p>Visibility timeout (15 min — one worst-case 40-chunk attempt at 5/min + headroom), long-polling (20s), and the maxReceiveCount→DLQ redrive are all queue-level Terraform config. The code never sets them, so the worker behaves identically however ops tunes the queue — one knob, one place.</p>
+        </div>
+        <div class="mini-card">
+          <h4>maxReceiveCount ≥ app attempts + 1</h4>
+          <p>The DLQ guards <em>poison messages</em> (consumer crashes pre-claim); job retries are budgeted by <code>INGEST_MAX_ATTEMPTS</code> in the app. The Terraform defaults redrive to 5 against the app's 3 so the DLQ never races the app's own FAILED/DEAD bookkeeping — variable's description says exactly this, so the constraint survives a future re-tune.</p>
+        </div>
+        <div class="mini-card">
+          <h4>moto over LocalStack, again</h4>
+          <p>Same call as P2 Day 4's S3 tests: moto intercepts boto3 in-process — no container, no port, no Docker fragility (§7 of AGENTS). The one-second real sleep in the redelivery test is the honest cost of having no injectable clock on the fake service; paid once, in one test.</p>
+        </div>
+        <div class="mini-card">
+          <h4>One gotcha: the factory is the integration point</h4>
+          <p>The last test proves <code>get_queue()</code> itself — env set → <code>SqsJobQueue</code> → a message actually round-trips through the configured queue. Testing only the class and not the factory is how "works in tests, in-memory in prod" ships: the env-var wiring IS the feature.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_sqs_queue.py — 7 new, all green (moto, no real AWS)
+  · round-trip, invisible-while-in-flight, redelivery with
+    FRESH ReceiptHandle, delete-is-permanent, depth =
+    visible + in-flight, batch-as-a-set (no FIFO promise),
+    get_queue() factory end-to-end via INGEST_QUEUE_URL
+Full suite:                209 passed (was 202)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 5): the recovery sweep (stale QUEUED re-send, stale PROCESSING→FAILED, FAILED re-enqueue / DEAD at budget — the dangling-saga decision tree in Python) + <code>GET /ops/ingest</code> (queue depth, DLQ depth, per-status rollups, oldest-QUEUED age).</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

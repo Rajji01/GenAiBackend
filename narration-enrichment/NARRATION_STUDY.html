@@ -750,6 +750,29 @@
     <p class="iq-hint">Hint for (c): two live deliveries for one job — the CAS absorbs the duplicate, but only because ack-always guarantees at most one pending wake-up per job per source. Mixing both retry mechanisms means retry pacing lives half in config, half in queue settings nobody reads. Anchor: worker.py module docstring, contract step 4.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p4-d4">
+    <h3>P4 · Day 4 — SQS behind the same interface + the queue's Terraform</h3>
+    <span class="iq-anchor">files: <code>job_queue.py</code> (SqsJobQueue + get_queue), <code>infra/main.tf</code>, <code>tests/test_sqs_queue.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>SqsJobQueue.__init__</code> does <code>import boto3</code> INSIDE the constructor, while <code>test_sqs_queue.py</code> imports boto3 at module top. Why is the deferred import correct in the production module but unnecessary in the test file? Then: <code>JobQueue</code> is a <code>typing.Protocol</code> — explain what makes <code>SqsJobQueue</code> satisfy it with no inheritance, and name the Java-track concept this structural typing replaces.</p>
+    <p class="iq-hint">Hint: the in-memory path must not pay boto3's import cost (same seam as s3_store); the test file ONLY runs when SQS is the subject. Protocol = duck typing checked by shape — the <code>implements</code> keyword without the keyword.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> The in-memory batch test asserts ORDER (<code>["job-0","job-1"]</code>) but the SQS batch test asserts a SET (<code>{"job-0","job-1","job-2"}</code>). Read both. Which backend makes the stronger promise, why does real SQS (standard queue) not promise FIFO, and in which direction is it safe for a test double to be stricter than the real service? Give the concrete bug you'd ship if the fake were LOOSER than SQS instead.</p>
+    <p class="iq-hint">Hint: a fake stricter than reality can only make tests fail that would pass in prod (annoying, safe). A fake looser than reality lets code pass tests while relying on a guarantee prod never gives — e.g. a worker that assumed job-0 completes before job-1 queues.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> <code>infra/main.tf</code> sets <code>visibility_timeout_seconds = 900</code> and defaults <code>max_receive_count = 5</code> while the app's <code>INGEST_MAX_ATTEMPTS</code> is 3. Walk the failure math: (a) what goes wrong if the visibility timeout were 60s against a 40-chunk doc at the 5/min quota — name the exact worker code path that starts eating legitimate wake-ups; (b) why must maxReceiveCount exceed the app's attempt budget, and what lands in the DLQ if you set it LOWER (say 2) — poison messages, or something the app would have handled itself?; (c) why do these knobs live in Terraform rather than in config.py next to INGEST_MAX_ATTEMPTS?</p>
+    <p class="iq-hint">Hint for (a): claim succeeds at t=0, embed grinds for 8 min, SQS redelivers at t=60s → the CAS sees PROCESSING and DROPS the redelivery… which is fine ONCE, but every redelivery burns a receive toward maxReceiveCount → a healthy slow job can get its message DLQ'd mid-work. Anchor: the comment block above <code>visibility_timeout_seconds</code>.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">
