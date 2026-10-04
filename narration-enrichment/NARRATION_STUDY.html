@@ -819,6 +819,29 @@
     <p class="iq-hint">Hint for the follow-up: Celery brings a broker + its own serialization/retry opinions you'd then have to align with the job-row-as-truth design; Kafka is a log, not a work queue — consumer-group rebalancing and offset semantics buy replay you don't need at 5 embeds/min. The honest answer is "SQS + 300 lines beat a framework whose defaults fight the design." Anchor: P4_DESIGN.md §4's second-concrete-case rule.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p5-d2">
+    <h3>P5 · Day 2 — The tool registry (whitelist + typed args + one gate)</h3>
+    <span class="iq-anchor">files: <code>tools.py</code>, <code>tests/test_tools.py</code>, <code>P5_DESIGN.md</code> §1–§3</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>tools.py</code>. <code>Tool</code> is a frozen dataclass whose <code>args_model</code> field holds a CLASS (<code>type[BaseModel]</code>), not an instance, and <code>execute_tool</code> calls <code>tool.args_model.model_validate(arguments or {})</code>. Explain (a) what storing the class (vs an instance) enables at validation time, (b) what <code>arguments or {}</code> handles and which tool makes that case legitimate rather than an error, and (c) why <code>ValidationError</code> is caught but re-shaped into a dict instead of being allowed to propagate.</p>
+    <p class="iq-hint">Hint: a fresh validated instance per call (no shared mutable state); <code>list_policy_docs</code> takes no args so <code>None</code> is legal; the error must become an OBSERVATION the model can read and correct — an exception would kill the chat for a recoverable mistake.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>execute_tool(db, "count_transactions", {"merchant": "Swig", "days": 30})</code> against a DB holding one Swiggy record from yesterday. Which of the three gate layers does it pass, what SQL filters run, and what exact dict comes back? Now change <code>"Swig"</code> to <code>"SWIGGY"</code> — what changes and which single SQLAlchemy expression makes the difference? Why does the tool description SAY "exact, case-insensitive — not fuzzy" when the code already enforces it?</p>
+    <p class="iq-hint">Hint: all three layers pass (valid name, valid args) — the result is just <code>{"count": 0}</code>, which is correct: substring ≠ match. <code>func.lower(col) == value.lower()</code>. The description exists because the MODEL chooses tools by reading it — enforcement without disclosure produces a model that retries fuzzier spellings forever.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> P5_DESIGN §1 forbids a <code>sum_spend</code> tool because <code>enrichment_records</code> has no amount column. A teammate argues: "add the tool anyway, return the count and let the description say it's a proxy for spend." Argue why that's worse than no tool at all — connect it to the earned-citations rule (what do both defend against?), then design the RIGHT path: what schema change, which pipeline stage (P1's extraction? a new migration?), and which eval case would have to exist before <code>sum_spend</code> ships honestly.</p>
+    <p class="iq-hint">Hint: a proxy labeled "spend" gets read as spend — the label does the hallucinating. Both rules defend the same invariant: the system never asserts data it doesn't hold. The right path: an <code>amount</code> field extracted in P1's schema (model + migration + eval cases proving extraction accuracy on real narrations), THEN the tool is a one-liner.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

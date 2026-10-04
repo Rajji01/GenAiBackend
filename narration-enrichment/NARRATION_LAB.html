@@ -313,6 +313,12 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">P5 — Tool-calling assistant</div>
+      <a class="nav-link" href="#p5-intro"><span class="nav-tag">·</span>The idea</a>
+      <a class="nav-link" href="#p5-day2"><span class="nav-tag">D2</span>The tool registry (whitelist + typed args)</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -2139,6 +2145,60 @@ Full suite:                217 passed (was 209)</div>
   149c778  P4 Day 4  SqsJobQueue + queue/DLQ Terraform (7 tests)
   05a8e7c  P4 Day 5  recovery sweep + /ops/ingest (8 tests)
   &lt;this commit&gt;  P4 Day 6  docs + ROADMAP + AGENTS + FILE_GUIDE sync</div>
+    </article>
+
+    <section id="p5-intro" style="margin-top:64px;">
+      <p class="eyebrow">Project 5 · Tool-calling assistant</p>
+      <h2>The exact channel next to the fuzzy one</h2>
+      <p>P3's chat grounds the model in similarity retrieval — great for "show me things LIKE this", structurally wrong for three question shapes: <strong>exact counts</strong> (top-k shows k rows; the model counting them is a confident wrong answer), <strong>exhaustive filters</strong> (floors and k silently truncate), and <strong>inventory</strong> ("which rulebooks do you have?" — there is no embedding of absence). P5 gives the assistant four deterministic, <em>read-only</em>, whitelisted tools over the DB and a bounded loop to use them — with guardrails that assume the model <em>can</em> be fooled and make the blast radius structural instead.</p>
+      <p style="font-size:14.5px;">Design paper: <code><a href="P5_DESIGN.md">P5_DESIGN.md</a></code>. Day plan: <code><a href="ROADMAP.md">ROADMAP.md</a> §3D</code>. One honesty rule up front: <code>enrichment_records</code> has no amount column, so <em>no tool pretends to sum money</em>.</p>
+    </section>
+
+    <article class="card day-card" id="p5-day2">
+      <div class="day-head">
+        <span class="day-stamp">P5 · D2</span>
+        <span class="day-title">The tool registry — whitelist, typed args, read-only, one gate</span>
+      </div>
+      <span class="day-files">tools.py (new) · tests/test_tools.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> the four tools and the single door to them, built and fully tested BEFORE any LLM touches them (the P3 Day-3 stub-first discipline, applied to tools). <code>execute_tool</code> is whitelist → Pydantic-validate → run → observation; every failure mode comes back as <code>ok=False</code> data, never an exception — a failed tool must not kill a chat.</p>
+
+      <div class="why-box">
+        <div class="why-label">Capability is a whitelist; the catalog renders FROM it</div>
+        <p><code>TOOL_REGISTRY</code> is the only authority: a <code>tool_name</code> miss returns an error observation naming the real menu (nothing secret about the whitelist's names — the model recovers best when told what IS available). And <code>catalog_block()</code> — the menu the model reads — is rendered from the same registry, so the model's menu and the executor's whitelist <em>cannot drift</em>: one source, two views.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Typed args are the gate, not decoration</h4>
+          <p>The raw dict the LLM produced goes through the tool's own Pydantic model before the function runs. <code>{"days": "yesterday"}</code> or a hostile <code>limit=10000</code> dies in validation and goes back as an error observation the model can correct — never a SQL parameter.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Exact means exact</h4>
+          <p>Merchant/category matching is case-insensitive but <em>not</em> fuzzy — <code>"Swig"</code> matches zero rows, by test. Fuzzy is retrieval's job; the whole point of the tool channel is that its answers are exact. Blurring that line would re-import the wrongness tools exist to fix.</p>
+        </div>
+        <div class="mini-card">
+          <h4>The honesty note travels in the description</h4>
+          <p><code>category_breakdown</code>'s description tells the model "amounts are NOT captured; counts are the only honest aggregate" — pinned by a test that greps the rendered catalog. The guardrail against invented spend totals starts in the menu, not in post-hoc correction.</p>
+        </div>
+        <div class="mini-card">
+          <h4>One gotcha: the runtime-failure leg needs a forced break</h4>
+          <p>Whitelist-miss and bad-args are easy to test; the third failure leg (the tool itself raising, e.g. a DB hiccup) can't happen naturally against healthy SQLite — so the test monkeypatches a broken registry entry and proves the gate converts a <code>RuntimeError</code> into <code>ok=False</code> + class-name-only error (no internals leaked into a prompt-bound observation).</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_tools.py — 13 new, all green (no LLM, nothing mocked but one forced break)
+  · count: no-filter, case-insensitive exact (substring = 0),
+    days window
+  · breakdown: whole distribution largest-first, empty → [] not error
+  · find: newest-first + limit, out-of-bound limit rejected
+  · inventory: docs with chunk counts
+  · the gate: unknown tool names the menu, bad args observed,
+    runtime failure degraded, catalog renders from registry,
+    every tool runs clean on empty valid args
+Full suite:                230 passed (was 217)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 3): the loop in <code>chat_service.py</code> — <code>_ChatLLMStep</code>, max 3 iterations + forced-final with the catalog withheld, data-framed observations, and the earned tool-trail (<code>tools_used</code> + <code>tool_invocations</code> written by the executor, never the model).</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
