@@ -15,24 +15,33 @@ DoD green na ho."** Same rule for both tracks.
 
 ---
 
-## Where we are RIGHT NOW (2026-09-17 EOD)
+## Where we are RIGHT NOW (2026-10-04)
 
-### Ticketing — Week 1 (Phase 0)
+> **Note:** the phase plans below were written at Week-1 time
+> (2026-09-17) and the actual execution diverged — the live sequencing
+> truth is `ticketing-platform/ROADMAP.md` (ticketing) and
+> `narration-enrichment/ROADMAP.md` (narration). Keep this file for the
+> `[PLAN]` extracts and far-horizon `[PROPOSAL]`s; don't treat its
+> week-by-week ordering as current.
 
-- Days 1–5 done + Weekend `confirm` endpoint added.
-- **41 tests green** (real Postgres + Redis via Testcontainers). afterCommit
-  fix for the Redis-key-delete-before-commit race is in.
-- **Not yet committed:** `confirm` endpoint, its tests, afterCommit fix,
-  `SEAT_LOCK.html` still has no card for `confirm`.
-- **BLOCKING Phase 1:** `WEEK1_REVIEW.md` interview Qs + LLD reflection —
-  YOUR answers first, then evaluation.
+### Ticketing — Weeks 1–3 done, Week 4 (AWS) in flight
 
-### Narration — Week 4 done
+- inventory → booking saga → payment + outbox + notification all shipped,
+  live-verified, Flyway-hardened. **124 tests green** across 4 services
+  (Week 3 JUnit clean-pass, commit `3344957`).
+- Week 4 Day 1+2 done: `WEEK4_DESIGN.md` + `infra/terraform/` skeleton +
+  `WEEK4_CLOUD.html`. Terraform authored but NOT applied — `init/validate/
+  plan/apply` is Rajat's gate (§3-2).
+- Pending on Rajat: terraform validate+apply, §7 lean confirmations,
+  WEEK3/WEEK4_DESIGN interview answers.
 
-- Week 4 features shipped: self-imposed rate limiter, correlation IDs
-  (with the live logging-filter bug caught), `/stats` endpoint.
-- **59 tests green**, 0 live calls in the suite.
-- Last commit `20cb3c6`, all pushed. No pending direction chosen yet.
+### Narration — P1 + P2 + P3 done, P4 next
+
+- P1 (enrichment API) + P2 (policy RAG, earned citations) + P3 (knowledge
+  assistant: auth, chat memory, eval-as-a-system) all shipped.
+- **168 tests green**, 0 live calls in the suite. Last commit `fab8f9e`.
+- **P4 (async doc pipeline — SQS + DLQ + S3 + worker split) not started;
+  awaiting Rajat's greenlight.** AWS resource creation is Rajat's (§3-2).
 
 ---
 

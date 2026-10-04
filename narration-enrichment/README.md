@@ -76,9 +76,11 @@ Then either:
 uv run pytest -v
 ```
 
-68 tests, no network calls, no API key required — the LLM and the
+168 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
+`tests/conftest.py` sets a placeholder `GEMINI_API_KEY` so the suite runs
+on a fresh clone with no `.env` file (the key is never sent anywhere).
 
 ## Evaluate (costs real API quota — run manually, not in CI)
 
@@ -87,7 +89,8 @@ uv run python eval/run_eval.py
 ```
 
 Runs the real pipeline (real Gemini calls) against `eval/golden_dataset.json`
-— 12 hand-labeled bank narrations — and reports per-field accuracy,
+— 17 hand-labeled bank narrations (12 base + 5 policy-driven, seeded from
+`eval/policy_seeds.json`) — and reports per-field accuracy,
 separately from the call-failure rate (timeouts/quota are a *reliability*
 finding, not a *correctness* one). A dated JSON report is saved under
 `eval/results/`. Run this whenever the prompt, schema, or model changes.

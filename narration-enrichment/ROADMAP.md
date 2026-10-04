@@ -269,7 +269,7 @@ This section is the day plan; that file is the *why*.
 - [x] `P3_DESIGN.md` shipped as Day 1 deliverable
 - [x] `X-API-Key` bearer auth + `api_keys` table + `require_api_key`
       FastAPI dependency + CLI to mint a dev key *(Day 2 — commit
-      pending push; 11 auth tests, full suite 139 green)*
+      `5fbe346`; 11 auth tests, full suite 139 green)*
 - [x] `chat_sessions` + `chat_turns` tables with FK CASCADE +
       `POST /chat/session`, `POST /chat/{id}/message` (LLM stubbed),
       `GET /chat/{id}`, `DELETE /chat/{id}`, all auth-gated *(Day 3
@@ -415,7 +415,7 @@ sake.
 | `P2_DESIGN.md` | 📝 Design + Qs | Design paper for the P2 work unit (RAG over policy docs). |
 | `P3_DESIGN.md` | 📝 Design + Qs | Design paper for the P3 work unit (chat / knowledge assistant + auth + eval-as-a-system). |
 | `src/narration_enrichment/**.py` | ⚙️ Code | Production source. `main.py`, `service.py`, `models.py`, `db.py`, `rag.py`, `rate_limiter.py`, `correlation.py`, `config.py`, `schemas.py` + the three day-N scratch scripts kept as historical record. |
-| `tests/**` | ⚙️ Tests | 68 tests, pytest, no network. |
+| `tests/**` | ⚙️ Tests | 168 tests, pytest, no network, no API key (`conftest.py` sets a placeholder). |
 | `eval/**` | ⚙️ Eval harness | 12-example golden dataset + `run_eval.py`. Costs real API quota — run manually. |
 | `Dockerfile`, `docker-compose.yml`, `pyproject.toml`, `uv.lock` | ⚙️ Config | Local run. |
 
@@ -427,14 +427,15 @@ sake.
 - Section 1 tells you where P1 sits in the P1-P8 arc.
 - Section 2 is the compact "what shipped" table — trace any commit
   back to what it covered.
-- Section 3 is your day-by-day plan for the next work unit. Do NOT
-  advance to P3 until P2's DoD ticks. Update section 3's checkboxes
-  as work lands.
+- Sections 3 and 3B are the day-by-day records of P2 and P3 (both
+  shipped — their DoD boxes are the audit trail). The next work unit
+  is P4; its day plan lands as a new section when Rajat greenlights
+  P4 start.
 - Section 4 is the far-horizon view.
 
 **Updating this file:**
-- When P2 completes → move it to the "DONE" pattern of P1 (add a
-  build-log table in section 2). Rewrite section 3 for P3.
+- When P(N) completes → tick its DoD boxes, flip the status snapshot,
+  and write the day plan for P(N+1) as a new section.
 - Any user-facing directive I'm given about this track ("prefer X",
   "don't reach for Y") gets captured in the appropriate section or in
   `AGENTS.md` §3, per standing rule §3-9.
