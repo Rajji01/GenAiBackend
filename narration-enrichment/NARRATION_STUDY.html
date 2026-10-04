@@ -704,6 +704,29 @@
     <p class="iq-hint">Hint: the interviewer's real question is "do you see engineering as 'don't do the thing' vs 'make the thing structurally impossible'?" Anchor: the four bullet points in P3 D6's "invariants P3 leaves for P4" why-box.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p4-d2">
+    <h3>P4 · Day 2 — ingest_jobs + queue abstraction + the 202 intake</h3>
+    <span class="iq-anchor">files: <code>job_queue.py</code>, <code>db.py</code> (IngestJob), <code>main.py</code> (/policies/ingest-async, /jobs/{id}), <code>tests/test_job_queue.py</code>, <code>tests/test_ingest_async_api.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>job_queue.py</code>. <code>QueueMessage</code> is a <code>@dataclass(frozen=True)</code> with a <code>receipt</code> field, and <code>InMemoryJobQueue.delete</code> does <code>self._in_flight.pop(message.receipt, None)</code>. Two parts: (a) what does <code>frozen=True</code> buy here, and why does <code>delete</code> keying off the receipt <em>value</em> (not object identity) matter — look at <code>test_delete_accepts_a_reconstructed_message_value</code>; (b) why does a redelivered message get a <em>fresh</em> receipt instead of reusing the old one? Name the real-SQS concept this mirrors.</p>
+    <p class="iq-hint">Hint: ReceiptHandle identifies a <em>delivery</em>, not a message. If the dead consumer's old handle could ack the new consumer's delivery, a zombie process could silently eat a live worker's in-flight job.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>policies_ingest_async</code> in <code>main.py</code> top to bottom and list the FIVE early-exit paths before a new job is created (whitespace-400, DONE-unchanged-200, active-dedup-202, backlog-429, and… is the fifth even in the function body? Look at the route's dependencies). For the backlog-429 case, explain why the test asserts <code>len(rows) == 1</code> after the refusal — what lie would the API be telling if a refused request left a row behind?</p>
+    <p class="iq-hint">Hint: the fifth exit is <code>Depends(auth.require_api_key)</code> — 401 fires before the body runs. And a 429 must mean "nothing was accepted"; a hidden row would make the same retry dedup onto a job the caller was told was rejected.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The enqueue happens strictly AFTER the job row's commit, is wrapped in <code>try/except</code> that only logs, and the route still returns 202 on a send failure (<code>test_queue_send_failure_still_returns_202_with_a_durable_queued_job</code>). Explain (a) the dual-write problem this ordering dissolves, and why the OTHER order (send first, insert after) is strictly worse; (b) what repairs the "committed but never sent" window, and when it arrives in the P4 plan; (c) how this is and isn't the ticketing outbox — what did ticketing need a separate outbox TABLE for that P4 gets for free from the jobs table itself?</p>
+    <p class="iq-hint">Hint for (c): ticketing's domain write (booking state) and its event were two different facts needing one transaction — hence a second table. Here the job row IS the domain fact; there's nothing else to keep atomic with it, so the jobs table is its own outbox. Anchor: P4_DESIGN.md §5.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

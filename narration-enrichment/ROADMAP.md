@@ -390,10 +390,13 @@ This section is the day plan; that file is the *why*.
 ### DoD (Definition of Done)
 
 - [x] `P4_DESIGN.md` shipped as Day 1 deliverable *(2026-10-04)*
-- [ ] `ingest_jobs` table + `JobQueue` abstraction with
+- [x] `ingest_jobs` table + `JobQueue` abstraction with
       `InMemoryJobQueue` + `POST /policies/ingest-async` (202 +
       job_id, checksum fast-path, backlog 429) + `GET /jobs/{id}` —
-      all auth-gated *(Day 2)*
+      all auth-gated *(Day 2, this commit — 21 new tests: 11 queue
+      semantics incl. visibility-timeout redelivery + fresh-receipt,
+      10 API incl. dedup x2, 429-leaves-zero-rows, queue-outage-still-202;
+      full suite 189 green)*
 - [ ] Worker: `python -m narration_enrichment.worker` — CAS claim,
       chunk→embed→upsert, DONE/FAILED/DEAD transitions, call-retry
       (tenacity whitelist) vs job-retry (attempts) separation *(Day 3)*

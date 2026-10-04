@@ -75,6 +75,35 @@ class PolicyIngestRequest(BaseModel):
                          description="Raw text of the policy doc (Markdown / plain text). See P2_DESIGN sec 1 for examples.")
 
 
+class IngestAsyncResponse(BaseModel):
+    """P4 Day 2 — the 202 (or 200-unchanged) body for
+    POST /policies/ingest-async. `unchanged=True` only on the
+    checksum fast-path where a DONE job for the same bytes already
+    exists — same honest flag the sync route returns."""
+
+    job_id: str
+    doc_id: str
+    status: str
+    unchanged: bool = False
+
+
+class IngestJobStatusResponse(BaseModel):
+    """P4 Day 2 — GET /jobs/{job_id}. A thin projection of the
+    ingest_jobs row; `content` is deliberately NOT echoed back
+    (potentially large, and the caller already has it)."""
+
+    model_config = {"from_attributes": True}
+
+    job_id: str
+    doc_id: str
+    status: str
+    attempts: int
+    error: str | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
 class PolicyIngestResponse(BaseModel):
     doc_id: str
     chunks_ingested: int

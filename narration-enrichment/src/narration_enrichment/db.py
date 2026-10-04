@@ -658,3 +658,138 @@ def get_eval_pass_rate_by_case(db: Session, limit_per_case: int = 20) -> list[tu
         .order_by(EvalResult.case_id)
         .all()
     )
+
+
+# ---------------------------------------------------------------------------
+# P4 Day 2 — ingest_jobs (async ingestion)
+# ---------------------------------------------------------------------------
+
+# One-way status lifecycle (P4_DESIGN.md §3). Same state-machine
+# discipline as payment-service's PaymentStatus — explicit terminal
+# states, no transition ever runs backwards:
+#   QUEUED → PROCESSING → DONE
+#          ↘ FAILED (retryable) → QUEUED (re-enqueue) | DEAD (max attempts)
+JOB_QUEUED = "QUEUED"
+JOB_PROCESSING = "PROCESSING"
+JOB_DONE = "DONE"
+JOB_FAILED = "FAILED"
+JOB_DEAD = "DEAD"
+
+_JOB_STATUSES = (JOB_QUEUED, JOB_PROCESSING, JOB_DONE, JOB_FAILED, JOB_DEAD)
+
+
+class IngestJob(Base):
+    """One row per async ingest request. THE source of truth for the
+    pipeline — the queue message carries only this row's id
+    (P4_DESIGN.md §5: job row = truth, message = hint). The worker,
+    the recovery sweep, and GET /jobs/{id} all read state from here,
+    never from the queue.
+
+    `id` is a UUIDv4 string because it's exposed in GET /jobs/{id} —
+    same enumeration argument as ChatSession.id. `content` holds the
+    raw doc text (small policy docs; an S3-pointer variant is a P4
+    stretch goal, deliberately not built before something needs it —
+    rule 3-7). `checksum` is computed at enqueue time so the dedup
+    fast-paths never re-read content.
+    """
+
+    __tablename__ = "ingest_jobs"
+
+    id = Column(String, primary_key=True)
+    doc_id = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    content = Column(String, nullable=False)
+    checksum = Column(String, nullable=False)
+    source_uri = Column(String, nullable=True)
+    status = Column(String, nullable=False, default=JOB_QUEUED, index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    error = Column(String, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        # DB-level guard, same pattern as chat_turns.role: a typo'd
+        # status string is a bug worth failing loudly on at write time,
+        # not a mystery row the sweep silently never matches.
+        CheckConstraint(
+            "status IN ('QUEUED','PROCESSING','DONE','FAILED','DEAD')",
+            name="ck_ingest_jobs_status",
+        ),
+    )
+
+
+def create_ingest_job(
+    db: Session,
+    *,
+    job_id: str,
+    doc_id: str,
+    title: str,
+    content: str,
+    checksum: str,
+) -> IngestJob:
+    job = IngestJob(
+        id=job_id,
+        doc_id=doc_id,
+        title=title,
+        content=content,
+        checksum=checksum,
+        status=JOB_QUEUED,
+        attempts=0,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+def get_ingest_job(db: Session, job_id: str) -> IngestJob | None:
+    return db.query(IngestJob).filter(IngestJob.id == job_id).one_or_none()
+
+
+def find_ingest_job_by_checksum(
+    db: Session, *, doc_id: str, checksum: str, statuses: tuple[str, ...]
+) -> IngestJob | None:
+    """Newest job for this exact (doc_id, checksum) pair in one of the
+    given statuses. Backs the two enqueue-time idempotency fast-paths
+    (P4_DESIGN.md §6): same pair already DONE → report unchanged
+    without a new job; same pair already QUEUED/PROCESSING → return
+    that job instead of double-queueing identical work."""
+    return (
+        db.query(IngestJob)
+        .filter(
+            IngestJob.doc_id == doc_id,
+            IngestJob.checksum == checksum,
+            IngestJob.status.in_(statuses),
+        )
+        .order_by(IngestJob.created_at.desc())
+        .limit(1)
+        .one_or_none()
+    )
+
+
+def count_ingest_backlog(db: Session) -> int:
+    """QUEUED + PROCESSING count — the number the intake valve
+    compares against ingest_max_backlog (P4_DESIGN.md §8). COUNT in
+    the DB, same rule as every other aggregate here."""
+    return (
+        db.query(func.count(IngestJob.id))
+        .filter(IngestJob.status.in_((JOB_QUEUED, JOB_PROCESSING)))
+        .scalar()
+    ) or 0
+
+
+def count_ingest_jobs_by_status(db: Session) -> dict[str, int]:
+    """Per-status rollup for GET /ops/ingest (Day 5 wires the route;
+    the query lands with the table so Day 2's tests can already pin
+    it). Every status appears in the result, zero included — an ops
+    endpoint that omits empty states makes 'is DEAD empty or missing?'
+    ambiguous."""
+    rows = (
+        db.query(IngestJob.status, func.count(IngestJob.id))
+        .group_by(IngestJob.status)
+        .all()
+    )
+    counts = {status: 0 for status in _JOB_STATUSES}
+    counts.update({status: count for status, count in rows})
+    return counts
