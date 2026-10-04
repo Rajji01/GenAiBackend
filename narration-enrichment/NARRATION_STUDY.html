@@ -796,6 +796,29 @@
     <p class="iq-hint">Hint for (a): the CAS claim — a duplicate matches zero rows and costs one receive + one delete. The invariant: EVERY path through process_one_message acks. Anchor: run_sweep's docstring, first bullet, and P4_DESIGN.md §6's "exactly-once nowhere."</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p4-d6">
+    <h3>P4 · Day 6 — Closeout: the split, reviewed whole</h3>
+    <span class="iq-anchor">files: the whole P4 arc — <code>P4_DESIGN.md</code>, <code>job_queue.py</code>, <code>worker.py</code>, <code>db.py</code> (IngestJob), <code>main.py</code>, <code>infra/</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> P4 added two new entry points to one package: <code>uvicorn narration_enrichment.main:app</code> and <code>python -m narration_enrichment.worker</code>. Explain what <code>python -m</code> does differently from <code>python src/narration_enrichment/worker.py</code> (imports, <code>sys.path</code>, the <code>if __name__ == "__main__"</code> guard), and why the worker deliberately does NOT import <code>main.py</code> — what would importing it drag in that a queue-draining process never needs?</p>
+    <p class="iq-hint">Hint: <code>-m</code> runs the module WITH the package importable, so absolute imports work. main.py pulls FastAPI, middleware, every route and their schemas — plus its import-time logging/filter setup would double-configure in a second process.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Walk P4_DESIGN §13 Q3's crash windows against the code as it actually shipped: API dies (a) before INSERT, (b) after INSERT before send, (c) after send; worker dies (d) after claim before upsert, (e) after upsert before DONE. For each, name the exact function that repairs it (or the honest answer "nothing to repair — caller retries"). Which window is repaired by TWO cooperating mechanisms, and in what order do they fire?</p>
+    <p class="iq-hint">Hint: (d) is the double — the queue's visibility timeout redelivers (CAS drops it while PROCESSING), then run_sweep's stale-PROCESSING pass marks FAILED and re-arms. (e) is subtle: the upsert landed, re-run converges to "unchanged" → DONE. Idempotency layer 3 earns its keep exactly here.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The interview question P4 was built to answer: "design an async document-processing pipeline." Give the 90-second answer USING this codebase as the worked example — the five load-bearing decisions (202 + job row as truth; message as hint; CAS claim as idempotent consumer; whitelisted transience with a DEAD terminal; sweep over un-acked-message retries) and ONE sentence each on the alternative you rejected. Then the follow-up every interviewer asks: "why not Celery/RQ/Kafka?" — answer it honestly for THIS system's scale and constraints.</p>
+    <p class="iq-hint">Hint for the follow-up: Celery brings a broker + its own serialization/retry opinions you'd then have to align with the job-row-as-truth design; Kafka is a log, not a work queue — consumer-group rebalancing and offset semantics buy replay you don't need at 5 embeds/min. The honest answer is "SQS + 300 lines beat a framework whose defaults fight the design." Anchor: P4_DESIGN.md §4's second-concrete-case rule.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

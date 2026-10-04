@@ -106,7 +106,7 @@ Each service directory has the standard Maven layout:
 
 ### 🐍 Narration track (`narration-enrichment/`)
 
-Python/FastAPI/Gemini/Instructor/RAG track. **P1 + P2 + P3 done (last commit `fab8f9e`, 168 tests green); P4 (async doc pipeline, AWS) up next — awaiting Rajat's greenlight (see `ROADMAP.md` status snapshot).**
+Python/FastAPI/Gemini/Instructor/RAG track. **P1 + P2 + P3 + P4 (code-side) done — 217 tests green. P4's live-SQS leg is Rajat's (terraform apply, rule 3-2); then P5 (see `ROADMAP.md` status snapshot).**
 
 | File | Category | Purpose |
 |---|---|---|
@@ -114,14 +114,16 @@ Python/FastAPI/Gemini/Instructor/RAG track. **P1 + P2 + P3 done (last commit `fa
 | `ROADMAP.md` | 🗺️ Track roadmap | **Narration-specific ordered plan** — P1 done recap with commit refs + P2 day-by-day plan + P3-P8 outline. Complements the generic `Jarvis_GenAI_Path.md` at repo root (2026-09-20) |
 | `P2_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P2 (Transaction + policy RAG) — data model, chunking strategy, S3+SQLite split, citation contract, failure matrix, sequence diagrams + 6 interview Qs (2026-09-20) |
 | `P3_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P3 (Knowledge assistant) — auth model, chat session/turn schema, memory strategy, grounding + earned citations, eval-as-a-system + 6 interview Qs (2026-09-20) |
+| `P4_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P4 (async ingestion) — API+Worker split, job-row-is-truth, queue abstraction, 3-layer idempotency, DLQ-vs-DEAD, backpressure + 6 interview Qs (2026-10-04) |
+| `infra/` | ⚙️ IaC | SQS queue + DLQ Terraform for P4 — authored [Claude], **applied [Rajat]** (rule 3-2); NOT applied/validated yet, flagged in `infra/README.md` |
 | `LEARNING_NOTES.md` | 📖 Prose revision | Self-check Qs, no answers |
 | `NARRATION_LAB.html` | 🔨 Showcase HTML | Deep concept HTML — **Narration Lab design (mint/teal)**, distinct from Java-track's Corner Notes |
 | `NARRATION_STUDY.html` | 📘 Personal learning | **Rajat's Q&A journal** for the narration track. 6 concept sections (structured output / RAG / retry / rate limiter / correlation IDs / degrade-not-fail) + "Daily interview questions" blocks for P2 Days 2–6 and P3 Days 2–6 (3 Qs per day, per rule 3-11). Teaching-mode Q&A still to come. Narration Lab mint/teal base + amber Q&A accent (parallel to TICKET_STUDY's teal-on-cream) |
 | `Dockerfile`, `docker-compose.yml` | Config | Local run |
 | `pyproject.toml`, `uv.lock` | Config | Python deps (uv-managed) |
-| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py, schemas.py + P2: chunker.py, policy_ingest.py, s3_store.py + P3: auth.py, chat_service.py + 3 dayN scratch scripts kept as historical record |
+| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py, schemas.py + P2: chunker.py, policy_ingest.py, s3_store.py + P3: auth.py, chat_service.py + P4: job_queue.py, worker.py (second entry point: `python -m narration_enrichment.worker`) + 3 dayN scratch scripts kept as historical record |
 | `scripts/create_api_key.py` | Code | CLI-only API-key mint (P3 Day 2) — prints raw key once, stores only the sha256 hash |
-| `tests/**` | Tests | 168 tests, pytest (LLM + embedding boundaries mocked, real DB via in-memory SQLite + StaticPool; `conftest.py` sets a placeholder GEMINI_API_KEY so a fresh clone runs the suite with no `.env`) |
+| `tests/**` | Tests | 217 tests, pytest (LLM + embedding boundaries mocked, real DB via in-memory SQLite + StaticPool, SQS via moto; `conftest.py` sets a placeholder GEMINI_API_KEY so a fresh clone runs the suite with no `.env`) |
 | `eval/**` | Eval | 17-example golden dataset (12 base + 5 policy-driven) + policy_seeds.json + run_eval.py — costs real API quota, run manually; persists eval_runs/eval_results since P3 Day 5 |
 | `narration_enrichment.db` | Runtime | SQLite persistence (gitignored) |
 

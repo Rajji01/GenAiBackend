@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-168 tests, no network calls, no API key required — the LLM and the
+217 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 `tests/conftest.py` sets a placeholder `GEMINI_API_KEY` so the suite runs
@@ -134,6 +134,63 @@ the *next* `/enrich` call would succeed, without spending one to find
 out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
 `AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
 would misleadingly imply there's data behind it.
+
+## Async ingestion (P4) — API + Worker split over a queue
+
+The sync `POST /policies/ingest` does checksum → chunk → one embed
+call per chunk → store, all inside the request — at the live-measured
+5 embeds/min free-tier cap, a 40-chunk doc is ~8 minutes of wall-clock
+no HTTP client survives. P4 splits it: the **API half** accepts in
+milliseconds, the **Worker half** (a separate process) does the heavy
+work at quota pace. Design paper: `P4_DESIGN.md`.
+
+### The API half
+
+```bash
+# enqueue (auth required — P3's auth-first invariant)
+curl -X POST http://localhost:8000/policies/ingest-async \
+  -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"doc_id":"merchant_map_v2","title":"Merchant Map","content":"..."}'
+# → 202 {"job_id":"0e1e...","doc_id":"merchant_map_v2","status":"QUEUED","unchanged":false}
+# same bytes already DONE → 200 {"status":"DONE","unchanged":true} (no new work)
+# same bytes already QUEUED/PROCESSING → 202 with THAT job_id (no double-queue)
+# backlog over INGEST_MAX_BACKLOG → 429 + Retry-After, and NOTHING recorded
+
+# poll the job
+curl -H "X-API-Key: $KEY" http://localhost:8000/jobs/<job_id>
+# → {"status":"QUEUED|PROCESSING|DONE|FAILED|DEAD","attempts":1,"error":null,...}
+
+# the backpressure dashboard
+curl -H "X-API-Key: $KEY" http://localhost:8000/ops/ingest
+# → {"queue_depth":0,"dlq_depth":null,"jobs":{"QUEUED":0,...},"oldest_queued_age_seconds":null}
+```
+
+### The Worker half
+
+```bash
+uv run python -m narration_enrichment.worker
+```
+
+Claims jobs by compare-and-set (`QUEUED|FAILED → PROCESSING` in one
+UPDATE — a redelivered duplicate matches zero rows and is dropped
+without burning an attempt), runs the **same** `policy_ingest.ingest`
+the sync route uses, and records DONE / FAILED / DEAD. Retryable is a
+whitelist (429/503/504 + timeouts); a deterministic failure goes DEAD
+on the first attempt. A recovery sweep repairs the crash windows:
+stale QUEUED hints re-sent, stale PROCESSING marked FAILED, FAILED
+re-armed up to `INGEST_MAX_ATTEMPTS` then DEAD.
+
+### The queue
+
+`INGEST_QUEUE_URL` empty (default) = in-memory queue with SQS-shaped
+semantics — dev and the entire test suite need zero AWS. Set it to a
+real SQS URL and both halves switch backends with no code change.
+The queue + DLQ Terraform lives in `infra/` — **authoring is in this
+repo, `apply` and the real resources are Rajat's** (AGENTS rule 3-2);
+`infra/README.md` has the run and the live kill-the-worker
+verification script. Job row = source of truth, queue message = a
+delivery hint carrying only the job_id — the dual-write problem is
+dissolved the same way ticketing's outbox dissolved it.
 
 ## Knowledge assistant (P3) — chat over the enrichment history + policy corpus
 
