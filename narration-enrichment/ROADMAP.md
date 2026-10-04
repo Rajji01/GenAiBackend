@@ -468,10 +468,15 @@ Rajat-greenlit unit; this is the Python half.
       substring-must-not-match, the gate's three failure legs
       (unknown/invalid/runtime), catalog-renders-from-registry;
       full suite 230 green)*
-- [ ] The loop in `chat_service.py` — `_ChatLLMStep` (flat, not a
-      union), up to 3 iterations, forced-final with the catalog
-      withheld, data-framed observations; `tool_invocations` table +
-      `ChatReply.tools_used` earned from the executor *(Day 3)*
+- [x] The loop in `chat_service.py` — `_ChatLLMReply` extended into
+      the flat step model (action defaults to final_answer, so every
+      P3-era test passed UNTOUCHED — the old behaviour is the loop's
+      one-iteration case), up to 3 iterations, forced-final with the
+      catalog withheld + never-silent fallback, data-framed
+      observations; `tool_invocations` table + `ChatReply.tools_used`
+      earned from the executor *(Day 3, this commit — 5 new scripted-
+      sequence tests, real tools against real rows; full suite 235
+      green, 19/19 P3 chat tests unmodified)*
 - [ ] Guardrail regression pass — unknown tool, invalid args, tool
       exception (`ok=false` row), budget exhaustion, catalog withheld
       on forced-final, audit-matches-tools_used exactly; injection
