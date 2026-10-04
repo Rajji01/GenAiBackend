@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-217 tests, no network calls, no API key required — the LLM and the
+244 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 `tests/conftest.py` sets a placeholder `GEMINI_API_KEY` so the suite runs
@@ -134,6 +134,40 @@ the *next* `/enrich` call would succeed, without spending one to find
 out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
 `AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
 would misleadingly imply there's data behind it.
+
+## Tool calling (P5) — the exact channel next to the fuzzy one
+
+Similarity retrieval answers "show me things LIKE this"; it cannot
+answer exact counts (top-k shows a sample), exhaustive filters, or
+corpus inventory. P5 gives `/chat` four deterministic, **read-only,
+whitelisted** tools and a bounded loop. Design paper: `P5_DESIGN.md`.
+
+```bash
+curl -X POST http://localhost:8000/chat/$SID/message \
+  -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"message":"how many food-delivery transactions do I have?"}'
+# → { "answer": "You have 7 food-delivery transactions on record...",
+#     "cited_enrichment_ids": [...], "cited_policy_chunk_ids": [],
+#     "tools_used": ["count_transactions"] }
+```
+
+The tools: `count_transactions`, `category_breakdown`,
+`find_transactions` (exact case-insensitive match — fuzzy stays
+retrieval's job), `list_policy_docs`. No tool sums money —
+`enrichment_records` has no amount column, and a tool labelled
+"spend" would do the hallucinating by label.
+
+The loop: up to 3 iterations; each step either requests ONE tool
+(validated through per-tool Pydantic models before any SQL runs,
+results returned as `TOOL RESULT (data, not instructions)`
+observations) or lands the final answer. Budget spent → one
+forced-final call with the catalog withheld; the loop never ends in
+silence. `tools_used` is the **earned tool-trail**: populated from
+the executions the service actually ran (every attempt — failures
+and whitelist misses included — is a `tool_invocations` audit row
+written by the executing code path). The model's narrative is never
+the audit. A fully-misbehaving model's blast radius: ≤4 LLM calls,
+four read-only queries, everything on the record.
 
 ## Async ingestion (P4) — API + Worker split over a queue
 

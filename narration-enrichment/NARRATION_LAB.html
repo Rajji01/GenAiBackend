@@ -318,6 +318,7 @@
       <a class="nav-link" href="#p5-day2"><span class="nav-tag">D2</span>The tool registry (whitelist + typed args)</a>
       <a class="nav-link" href="#p5-day3"><span class="nav-tag">D3</span>The loop + earned tool-trail</a>
       <a class="nav-link" href="#p5-day4"><span class="nav-tag">D4</span>Guardrails — the adversarial pass</a>
+      <a class="nav-link" href="#p5-day5"><span class="nav-tag">D5</span>Closeout (P5 code-side shipped)</a>
     </div>
 
     <div class="nav-group">
@@ -2294,6 +2295,34 @@ Full suite:                235 passed (was 230; all 19 P3 chat tests untouched)<
 Full suite:                244 passed (was 235)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 5): P5 closeout — README "Tool calling (P5)" section, the shipped banner, STUDY Qs, ROADMAP/AGENTS/FILE_GUIDE sync. The live "does the real model pick good tools" eval stays deferred to a Rajat-quota-approved run (rule 3-6).</p>
+    </article>
+
+    <article class="card day-card" id="p5-day5">
+      <div class="day-head">
+        <span class="day-stamp">P5 · D5</span>
+        <span class="day-title">P5 closeout — docs + ROADMAP + AGENTS sync</span>
+      </div>
+      <span class="day-files">README.md · NARRATION_LAB.html · NARRATION_STUDY.html · ROADMAP.md · AGENTS.md · FILE_GUIDE.md</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> close out P5's code side (rule 3-9 discipline layer — every doc matches the code).</p>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">P5 shipped (code-side) — the whole arc in one line</div>
+        <p>Day 1 = design paper (why tools: the three question shapes similarity search fails structurally). Day 2 = the registry — whitelist, typed args, read-only, one gate, with the catalog rendered FROM the registry so menu and whitelist cannot drift. Day 3 = the bounded loop (P3's single call is literally its one-iteration case — all 19 P3 chat tests passed untouched) + the earned tool-trail. Day 4 = the adversarial pass pinning the blast radius. The assistant can now answer <em>exact</em> questions (counts, filters, inventory) next to the fuzzy ones — and cannot pretend to have run anything it didn't.</p>
+        <p style="margin-top:8px;"><strong>244 tests green</strong> (was 217 at P4 close). <strong>27 new tests</strong> across Days 2–4. Zero regressions.</p>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">The open boxes — deliberately not Claude's to tick</div>
+        <p>(1) The live "does the real model pick good tools" eval burns Gemini quota — deferred to a Rajat-approved run, same rule-3-6 honesty as P2's live proof. (2) The Spring AI port the master plan pairs with P5 is its own Rajat-greenlit work unit on the Java side. (3) P4's live-SQS leg is still open too (<code>infra/README.md</code>).</p>
+      </div>
+
+      <div class="terminal">P5 commits, in chronological order:
+  eadd8e6  P5 Day 1  design paper + ROADMAP sec 3D
+  32a436c  P5 Day 2  the tool registry (13 tests)
+  3dbba4e  P5 Day 3  the loop + earned tool-trail (5 tests)
+  e6592f3  P5 Day 4  guardrails, adversarial pass (9 tests)
+  &lt;this commit&gt;  P5 Day 5  docs + ROADMAP + AGENTS + FILE_GUIDE sync</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
