@@ -61,6 +61,16 @@ class Settings(BaseSettings):
     # default — at ~8 min per 40-chunk doc on the free tier, 100 jobs
     # is already half a day of worker time.
     ingest_max_backlog: int = 100
+    # P4 Day 3 — job-level retry budget. attempts counts CLAIMS (the
+    # CAS increments it), so 3 means: first run + two retries, then
+    # DEAD. Separate knob from the call-level tenacity retry inside
+    # a single attempt — see P4_DESIGN.md §7 for why the two must
+    # not be conflated.
+    ingest_max_attempts: int = 3
+    # How long the worker sleeps between polls when the queue came
+    # back empty. Irrelevant under load (a non-empty receive loops
+    # immediately); only sets idle-queue latency.
+    worker_poll_interval_seconds: float = 2.0
 
 
 @lru_cache

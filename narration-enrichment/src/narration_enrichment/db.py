@@ -779,6 +779,52 @@ def count_ingest_backlog(db: Session) -> int:
     ) or 0
 
 
+def claim_ingest_job(db: Session, job_id: str) -> bool:
+    """P4 Day 3 — the worker's compare-and-set claim.
+
+    One UPDATE whose WHERE carries the allowed source states
+    (QUEUED → first attempt, FAILED → a sweep-re-enqueued retry).
+    Returns True iff exactly this call moved the row to PROCESSING.
+
+    This is the idempotent-consumer dedup (P4_DESIGN.md §6 layer 2,
+    ticketing Day-7's lesson): a message re-delivered while the job
+    is already PROCESSING/DONE/DEAD matches ZERO rows — the caller
+    acks and drops without touching the job. The status column plays
+    the role ticketing's processed_event table played.
+    """
+    claimed = (
+        db.query(IngestJob)
+        .filter(IngestJob.id == job_id, IngestJob.status.in_((JOB_QUEUED, JOB_FAILED)))
+        .update(
+            {
+                IngestJob.status: JOB_PROCESSING,
+                IngestJob.attempts: IngestJob.attempts + 1,
+                IngestJob.started_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    return claimed == 1
+
+
+def finish_ingest_job(db: Session, job_id: str, *, status: str, error: str | None = None) -> None:
+    """Terminal-or-retryable outcome write for one attempt. `status`
+    is DONE, FAILED or DEAD; `error` is kept on FAILED and DEAD so an
+    operator reading GET /jobs/{id} sees the last real reason, and is
+    cleared on DONE (a stale error string on a succeeded job would
+    read as a contradiction)."""
+    db.query(IngestJob).filter(IngestJob.id == job_id).update(
+        {
+            IngestJob.status: status,
+            IngestJob.error: error,
+            IngestJob.finished_at: datetime.now(timezone.utc),
+        },
+        synchronize_session=False,
+    )
+    db.commit()
+
+
 def count_ingest_jobs_by_status(db: Session) -> dict[str, int]:
     """Per-status rollup for GET /ops/ingest (Day 5 wires the route;
     the query lands with the table so Day 2's tests can already pin
