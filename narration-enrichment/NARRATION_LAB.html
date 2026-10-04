@@ -308,6 +308,7 @@
       <a class="nav-link" href="#p4-day2"><span class="nav-tag">D2</span>Job table + queue + 202 intake</a>
       <a class="nav-link" href="#p4-day3"><span class="nav-tag">D3</span>The Worker (claim-by-CAS + DONE/FAILED/DEAD)</a>
       <a class="nav-link" href="#p4-day4"><span class="nav-tag">D4</span>SQS behind the same door + Terraform</a>
+      <a class="nav-link" href="#p4-day5"><span class="nav-tag">D5</span>Recovery sweep + /ops/ingest</a>
     </div>
 
     <div class="nav-group">
@@ -2061,6 +2062,53 @@ Full suite:                202 passed (was 189)</div>
 Full suite:                209 passed (was 202)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 5): the recovery sweep (stale QUEUED re-send, stale PROCESSING→FAILED, FAILED re-enqueue / DEAD at budget — the dangling-saga decision tree in Python) + <code>GET /ops/ingest</code> (queue depth, DLQ depth, per-status rollups, oldest-QUEUED age).</p>
+    </article>
+
+    <article class="card day-card" id="p4-day5">
+      <div class="day-head">
+        <span class="day-stamp">P4 · D5</span>
+        <span class="day-title">Recovery sweep + /ops/ingest — the crash windows get an owner</span>
+      </div>
+      <span class="day-files">worker.py (run_sweep) · job_queue.py (dlq_depth) · db.py · main.py · config.py · schemas.py · tests/test_recovery_sweep.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> every crash window from the Day-1 design now has a named repairman. <code>run_sweep</code> is ticketing's <code>BookingRecoveryService</code> decision tree in Python: stale QUEUED (the post-commit send was lost) → re-send the hint; stale PROCESSING (worker died mid-job) → FAILED; FAILED under budget → re-enqueue; FAILED at budget → DEAD. Plus <code>GET /ops/ingest</code> — the backpressure dashboard.</p>
+
+      <div class="why-box">
+        <div class="why-label">The sweep re-sends hints; only a claim moves the state machine</div>
+        <p>Pass 1 re-sends a stale QUEUED job's message but <em>does not touch its status</em> — if the original hint is still in flight somewhere, two deliveries race and the CAS absorbs the loser. One deliberate consequence, documented in the docstring: while the worker is down, each sweep cycle re-sends again, so recovery starts with a few duplicate drops. Accepted — cheaper than a <code>last_enqueued_at</code> column nothing else needs (rule 3-7).</p>
+        <p style="margin-top:10px;">Pass 2→3 chaining is deliberate too: a stale PROCESSING flipped to FAILED is re-queried and re-armed <strong>in the same sweep</strong>, not left dangling until the next cycle. The full-cycle test proves the whole at-least-once story with zero sleeps: transient fail → FAILED → sweep re-arms → next claim → DONE, attempts=2, stale error cleared.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Threshold discipline: sweep &gt; visibility timeout</h4>
+          <p><code>SWEEP_STALE_PROCESSING_SECONDS</code> (1800) must exceed the queue's visibility timeout (900 in the Terraform) — otherwise the sweep declares death on jobs whose message SQS is still legitimately holding, and a healthy slow job gets a second claim racing its first.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Age math in Python, not SQL</h4>
+          <p>SQLite compares datetimes as strings, and naive-vs-aware is a silent lie waiting to happen. The sweep fetches the (intake-valve-bounded) QUEUED/PROCESSING/FAILED rows and does age arithmetic through one <code>_as_utc</code> normalizer — a <code>TypeError</code> at 3am traded for two lines of code.</p>
+        </div>
+        <div class="mini-card">
+          <h4>null ≠ 0 on the ops surface</h4>
+          <p><code>dlq_depth</code> is <code>None</code> when no DLQ is configured (in-memory queue) — "no DLQ exists" and "DLQ is empty" are different facts. Same honest-null rule as <code>/stats</code>' empty-table average. And the per-status rollup carries explicit zeros for every state, so "is DEAD empty or missing?" is never ambiguous.</p>
+        </div>
+        <div class="mini-card">
+          <h4>The jobs table IS the observability</h4>
+          <p>P3's invariant #4 said "persist observability alongside expensive ops." P4's twist: no metrics side-channel was ever needed — the pipeline's own source of truth doubles as the dashboard. <code>/ops/ingest</code> is one GROUP BY, one oldest-age read, and two queue-attribute peeks.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_recovery_sweep.py — 8 new, all green
+  · decision tree leg by leg: stale-QUEUED resent (fresh not),
+    stale-PROCESSING → FAILED + re-armed SAME sweep, FAILED
+    under/at budget, healthy state → all-zeros no-op
+  · full cycle, zero sleeps: transient → FAILED → sweep →
+    reclaim → DONE (attempts=2, error cleared)
+  · /ops/ingest: 401, honest nulls on empty state, rollups +
+    oldest-QUEUED age with a live queue hint
+Full suite:                217 passed (was 209)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 6): P4 closeout — README "Async ingestion (P4)" section, "P4 shipped" banner here, ROADMAP DoD, AGENTS/FILE_GUIDE sync. The one DoD box that stays open: the live SQS end-to-end, which is Rajat's run (infra/README.md has the script, including the kill-the-worker failure experiment).</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

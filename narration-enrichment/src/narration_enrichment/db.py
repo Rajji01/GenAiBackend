@@ -825,6 +825,21 @@ def finish_ingest_job(db: Session, job_id: str, *, status: str, error: str | Non
     db.commit()
 
 
+def list_ingest_jobs_by_status(db: Session, status: str) -> list[IngestJob]:
+    """All jobs in one status, oldest first. The sweep's working set:
+    QUEUED/PROCESSING/FAILED populations are small by construction
+    (bounded by the intake valve), so fetching rows and doing the
+    age arithmetic in Python sidesteps SQLite's string-typed
+    datetime comparisons — the one place a SQL-side cutoff can lie
+    silently about timezones."""
+    return (
+        db.query(IngestJob)
+        .filter(IngestJob.status == status)
+        .order_by(IngestJob.created_at.asc())
+        .all()
+    )
+
+
 def count_ingest_jobs_by_status(db: Session) -> dict[str, int]:
     """Per-status rollup for GET /ops/ingest (Day 5 wires the route;
     the query lands with the table so Day 2's tests can already pin

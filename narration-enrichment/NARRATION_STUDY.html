@@ -773,6 +773,29 @@
     <p class="iq-hint">Hint for (a): claim succeeds at t=0, embed grinds for 8 min, SQS redelivers at t=60s → the CAS sees PROCESSING and DROPS the redelivery… which is fine ONCE, but every redelivery burns a receive toward maxReceiveCount → a healthy slow job can get its message DLQ'd mid-work. Anchor: the comment block above <code>visibility_timeout_seconds</code>.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p4-d5">
+    <h3>P4 · Day 5 — Recovery sweep + /ops/ingest</h3>
+    <span class="iq-anchor">files: <code>worker.py</code> (run_sweep + _as_utc), <code>job_queue.py</code> (dlq_depth), <code>main.py</code> (/ops/ingest), <code>tests/test_recovery_sweep.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>worker.py</code>'s <code>_as_utc</code>. (a) What EXACTLY happens in Python when you subtract a naive datetime from an aware one, and why is that failure mode better AND worse than SQLite silently string-comparing mismatched formats? (b) <code>run_sweep</code> takes <code>now: datetime | None = None</code> and the tests pass a fixed <code>NOW</code> — name the testing principle this shares with <code>RateLimiter(time_fn=...)</code> and <code>InMemoryJobQueue(time_fn=...)</code>, and why <code>datetime.now()</code> hard-coded inside the function body would make the staleness tests either flaky or full of sleeps.</p>
+    <p class="iq-hint">Hint: naive−aware raises <code>TypeError</code> (loud, immediate — better); the string compare returns a wrong ANSWER silently (worse). The principle: the clock is a dependency — inject it.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>run_sweep</code> on a DB holding exactly one job: PROCESSING, <code>attempts=3</code>, <code>started_at</code> 2 hours old, with <code>max_attempts=3</code>. Walk all three passes and state the job's final status, which counters incremented, and what landed on the queue. Then explain why pass 3 runs a FRESH query instead of reusing a list fetched before pass 2 — which test would break if it didn't?</p>
+    <p class="iq-hint">Hint: pass 2 flips it FAILED ("presumed dead"), pass 3 sees attempts ≥ max → DEAD, nothing enqueued; counters: failed_stale_processing=1, dead_at_budget=1. The fresh query is what lets <code>test_stale_processing_is_marked_failed...</code> assert same-sweep re-arming.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The sweep re-sends a stale-QUEUED job's hint every cycle while the worker is down, and the design ACCEPTS the resulting duplicate deliveries instead of adding a <code>last_enqueued_at</code> column to pace re-sends. Argue (a) why the duplicates are provably harmless HERE — name the exact mechanism and the invariant it depends on; (b) at what scale or cost model the accepted waste flips into a real problem, and what you'd add first when it does; (c) the general principle: when is "make the duplicate harmless" the right answer and when is "prevent the duplicate" — connect it to why SQS itself chose at-least-once + idempotent consumers over exactly-once delivery.</p>
+    <p class="iq-hint">Hint for (a): the CAS claim — a duplicate matches zero rows and costs one receive + one delete. The invariant: EVERY path through process_one_message acks. Anchor: run_sweep's docstring, first bullet, and P4_DESIGN.md §6's "exactly-once nowhere."</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

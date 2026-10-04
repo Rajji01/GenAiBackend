@@ -71,6 +71,22 @@ class Settings(BaseSettings):
     # back empty. Irrelevant under load (a non-empty receive loops
     # immediately); only sets idle-queue latency.
     worker_poll_interval_seconds: float = 2.0
+    # P4 Day 5 — the recovery sweep's thresholds (P4_DESIGN.md §5/§10c).
+    # stale QUEUED: older than this and still QUEUED means the
+    # post-commit send was lost (crash window, queue outage) — re-send
+    # the hint. Comfortably above normal claim latency so a healthy
+    # queue never gets duplicate hints.
+    sweep_stale_queued_seconds: float = 120.0
+    # stale PROCESSING: the claim is older than this — the worker died
+    # mid-job. Must exceed the queue's visibility timeout (900s in
+    # infra/main.tf) or the sweep declares death on jobs whose message
+    # SQS is still legitimately holding.
+    sweep_stale_processing_seconds: float = 1800.0
+    # How often the worker loop runs the sweep alongside its polling.
+    sweep_interval_seconds: float = 60.0
+    # P4 Day 5 — ops visibility. DLQ URL from infra/main.tf's output;
+    # empty = no DLQ (in-memory queue), /ops/ingest reports null.
+    ingest_dlq_url: str = ""
 
 
 @lru_cache

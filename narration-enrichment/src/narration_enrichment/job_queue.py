@@ -213,6 +213,30 @@ def get_queue() -> JobQueue:
         return _queue
 
 
+def dlq_depth() -> int | None:
+    """P4 Day 5 — approximate DLQ depth for /ops/ingest. None when no
+    DLQ is configured (the in-memory queue has none by definition —
+    an honest null, not a fake 0, same rule as /stats' empty-table
+    average). Reads INGEST_DLQ_URL from infra/main.tf's output."""
+    settings = get_settings()
+    if not settings.ingest_dlq_url:
+        return None
+    import boto3
+
+    client = boto3.client("sqs", region_name=settings.aws_region)
+    resp = client.get_queue_attributes(
+        QueueUrl=settings.ingest_dlq_url,
+        AttributeNames=[
+            "ApproximateNumberOfMessages",
+            "ApproximateNumberOfMessagesNotVisible",
+        ],
+    )
+    attrs = resp["Attributes"]
+    return int(attrs["ApproximateNumberOfMessages"]) + int(
+        attrs["ApproximateNumberOfMessagesNotVisible"]
+    )
+
+
 def _reset_for_tests() -> None:
     global _queue
     with _queue_lock:

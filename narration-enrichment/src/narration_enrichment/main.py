@@ -33,6 +33,8 @@ from narration_enrichment.db import (
     ChatTurn,
     append_chat_turn,
     count_ingest_backlog,
+    count_ingest_jobs_by_status,
+    list_ingest_jobs_by_status,
     create_chat_session,
     create_ingest_job,
     delete_chat_session,
@@ -70,6 +72,7 @@ from narration_enrichment.schemas import (
     EvalResultDetail,
     IngestAsyncResponse,
     IngestJobStatusResponse,
+    OpsIngestResponse,
     PolicyDocSummary,
     PolicyIngestRequest,
     PolicyIngestResponse,
@@ -558,6 +561,34 @@ def get_job_status(
         created_at=job.created_at,
         started_at=job.started_at,
         finished_at=job.finished_at,
+    )
+
+
+@app.get("/ops/ingest", response_model=OpsIngestResponse)
+def ops_ingest(
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> OpsIngestResponse:
+    # P4 Day 5 — the backpressure dashboard (P4_DESIGN.md §8). All
+    # reads: the jobs table already IS the persisted observability
+    # (P3 invariant #4 — the data exists because the pipeline wrote
+    # it, not because a metrics side-channel copied it), so this
+    # route is aggregation + two queue-attribute peeks, nothing more.
+    from datetime import datetime, timezone
+
+    queued = list_ingest_jobs_by_status(db, JOB_QUEUED)
+    oldest_age: float | None = None
+    if queued:
+        oldest = queued[0].created_at
+        if oldest.tzinfo is None:
+            oldest = oldest.replace(tzinfo=timezone.utc)
+        oldest_age = max(0.0, (datetime.now(timezone.utc) - oldest).total_seconds())
+
+    return OpsIngestResponse(
+        queue_depth=job_queue.get_queue().depth(),
+        dlq_depth=job_queue.dlq_depth(),
+        jobs=count_ingest_jobs_by_status(db),
+        oldest_queued_age_seconds=oldest_age,
     )
 
 
