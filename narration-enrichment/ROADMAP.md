@@ -477,10 +477,14 @@ Rajat-greenlit unit; this is the Python half.
       earned from the executor *(Day 3, this commit — 5 new scripted-
       sequence tests, real tools against real rows; full suite 235
       green, 19/19 P3 chat tests unmodified)*
-- [ ] Guardrail regression pass — unknown tool, invalid args, tool
+- [x] Guardrail regression pass — unknown tool, invalid args, tool
       exception (`ok=false` row), budget exhaustion, catalog withheld
       on forced-final, audit-matches-tools_used exactly; injection
-      framing in the system header *(Day 4)*
+      framing in the system header *(Day 4, this commit — 9 hostile-
+      sequence tests pinning the blast radius: ≤4 calls, nothing
+      outside the read-only whitelist executes, no unframed path into
+      the prompt, fabricated narratives ship with an empty trail;
+      full suite 244 green)*
 - [ ] Closeout: README "Tool calling (P5)" section, LAB cards +
       banner, STUDY Qs per rule 3-11, this DoD, AGENTS/FILE_GUIDE
       sync *(Day 5)*
