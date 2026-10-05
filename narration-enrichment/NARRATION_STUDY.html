@@ -865,6 +865,29 @@
     <p class="iq-hint">Hint: a visible menu is an affordance — models reach for what they can see, and "ignore the menu" loses to the menu often enough. What's kept: all accumulated observations — the data already gathered. Shared budget keeps the worst case bounded at 4 calls total; a separate invalid-budget could double latency for a model that's flailing — and a flailing model needs landing, not more rope.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p5-d4">
+    <h3>P5 · Day 4 — Guardrails: the adversarial pass</h3>
+    <span class="iq-anchor">files: <code>tests/test_chat_guardrails.py</code>, <code>chat_service.py</code> (header rule), <code>P5_DESIGN.md</code> §6</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> In <code>test_hostile_arguments_die_in_validation...</code>, the pydantic bound <code>le=20</code> on <code>limit</code> is what rejects <code>10_000</code>. Open <code>tools.py</code> and list every <code>Field</code> bound across the four args models. For each, say what it protects (the DB? the prompt size? the model's own sanity?) and what the failure would look like WITHOUT it. Which bound is doing security work and which is doing UX work?</p>
+    <p class="iq-hint">Hint: <code>limit le=20</code> caps prompt-stuffing (20 rows of JSON back into the transcript is already chunky); <code>days ge=1 le=3650</code> stops nonsense windows (0, negative, 10 000 years) from silently returning confident wrong counts. Security vs UX is a spectrum here — the point is being able to argue each.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>test_budget_exhaustion_forces_exactly_one_final_call_without_the_catalog</code>: for each of the four <code>_client.create</code> calls, write down (a) catalog present?, (b) how many TOOL RESULT observations in the prompt, (c) what the audit table holds at that moment. Then answer: the forced-final prompt keeps the observations but drops the menu — which SPECIFIC assertion in the test proves each half, and why does the test also assert <code>tools_used == ["count_transactions"] * 3</code> (what would deduplication hide)?</p>
+    <p class="iq-hint">Hint: calls 1–3 have the catalog with 0/1/2 observations; call 4 has no catalog, 3 observations, 3 audit rows. Duplicates in the trail are the honest record that the model burned its whole budget re-asking the same question — exactly the behaviour an operator debugging cost wants visible.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> Day 4's test file opens by saying it tests only the STRUCTURAL guardrails and deliberately does not assert that the model obeys the data-framing rule. An interviewer pushes: "so your injection defence is untested?" Give the three-part answer: (a) what a mocked test asserting prompt-obedience would actually be testing (and why that's worthless), (b) what the structural tests DO guarantee even against a fully-compromised model — enumerate the blast radius precisely, (c) what the honest NEXT step is for testing the probabilistic half, and which existing repo asset (think: eval harness, rule 3-6) that work would extend.</p>
+    <p class="iq-hint">Hint for (a): with a scripted mock, "the model obeyed" is an assertion about your script, not the model. (b): ≤4 LLM calls, 4 read-only whitelisted queries max, every attempt audited, trail unfakeable. (c): adversarial cases in eval/ run live against the real model on Rajat's quota — the same live-proof discipline P2 deferred under rule 3-6.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">
