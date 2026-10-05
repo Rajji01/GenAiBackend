@@ -842,6 +842,29 @@
     <p class="iq-hint">Hint: a proxy labeled "spend" gets read as spend — the label does the hallucinating. Both rules defend the same invariant: the system never asserts data it doesn't hold. The right path: an <code>amount</code> field extracted in P1's schema (model + migration + eval cases proving extraction accuracy on real narrations), THEN the tool is a one-liner.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p5-d3">
+    <h3>P5 · Day 3 — The loop + the earned tool-trail</h3>
+    <span class="iq-anchor">files: <code>chat_service.py</code> (the loop, _ChatLLMReply-as-step), <code>db.py</code> (ToolInvocation), <code>tests/test_chat_tools.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> The Day-3 mocks use <code>side_effect=[step1, step2, ...]</code> where P3's used <code>return_value=reply</code>. Explain the difference in <code>unittest.mock</code> terms — what does each call to the mock return under each, and what happens when a <code>side_effect</code> list runs out? Why is running out a FEATURE in these tests rather than a hazard?</p>
+    <p class="iq-hint">Hint: side_effect iterates per call; exhaustion raises <code>StopIteration</code> — which means a test that scripted 2 steps but whose code made 3 LLM calls fails LOUDLY at the exact extra call, pinning the loop's call count for free.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>answer_message</code> when the scripted steps are <code>[tool_call(category_breakdown), tool_call(count_transactions), final_answer]</code>. For each of the three <code>_call</code> invocations: does the prompt contain the catalog, how many observations ride along, and what gets written to <code>tool_invocations</code> between calls? Then: why did backward-compatibility fall out of <code>action</code> having a DEFAULT, rather than from any code written for compatibility?</p>
+    <p class="iq-hint">Hint: catalog in all three (it's withheld only on the forced-final path, which this sequence never reaches); observations 0→1→2; two ok=1 rows. The default means P3-era constructions <em>parse as</em> final answers — the old behaviour is a special case of the new shape, not a maintained branch.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The forced-final call withholds the tool catalog instead of just saying "don't call tools." Defend that design choice with what you know about how LLMs follow instructions vs how they follow <em>affordances</em>; then name the one piece of information the forced-final prompt KEEPS that makes withholding safe (the model still has to answer well). Finally: the loop counts an INVALID step (final_answer with empty text) against the same budget as a tool call — argue for and against giving invalid steps their own, separate budget.</p>
+    <p class="iq-hint">Hint: a visible menu is an affordance — models reach for what they can see, and "ignore the menu" loses to the menu often enough. What's kept: all accumulated observations — the data already gathered. Shared budget keeps the worst case bounded at 4 calls total; a separate invalid-budget could double latency for a model that's flailing — and a flailing model needs landing, not more rope.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

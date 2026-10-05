@@ -161,6 +161,10 @@ class ChatReply(BaseModel):
     answer: str
     cited_enrichment_ids: list[int] = Field(default_factory=list)
     cited_policy_chunk_ids: list[int] = Field(default_factory=list)
+    # P5 Day 3 — the earned tool-trail: the tools the service ACTUALLY
+    # executed successfully for this reply, in call order, from the
+    # executor's own record (never from anything the model claimed).
+    tools_used: list[str] = Field(default_factory=list)
 
 
 class ChatTurnResponse(BaseModel):

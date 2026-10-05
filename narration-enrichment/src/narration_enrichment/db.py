@@ -779,6 +779,62 @@ def count_ingest_backlog(db: Session) -> int:
     ) or 0
 
 
+class ToolInvocation(Base):
+    """P5 Day 3 — one row per tool execution ATTEMPT (success and
+    failure alike, whitelist misses included). Written by the same
+    code path that executes (`chat_service`'s loop calling
+    `tools.execute_tool`), so the audit cannot drift from reality —
+    there is no second bookkeeping. The earned-trail counterpart of
+    chat_turns.retrieved_*: the model's narrative is never the audit.
+    """
+
+    __tablename__ = "tool_invocations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(
+        String,
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    tool_name = Column(String, nullable=False)
+    arguments_json = Column(String, nullable=False)
+    result_json = Column(String, nullable=False)
+    ok = Column(Integer, nullable=False)  # SQLite bool-as-int, same as EvalResult.passed
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+def record_tool_invocation(
+    db: Session,
+    *,
+    session_id: str,
+    tool_name: str,
+    arguments: dict | None,
+    ok: bool,
+    result: dict,
+) -> ToolInvocation:
+    row = ToolInvocation(
+        session_id=session_id,
+        tool_name=tool_name,
+        arguments_json=json.dumps(arguments or {}),
+        result_json=json.dumps(result),
+        ok=1 if ok else 0,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def list_tool_invocations(db: Session, *, session_id: str) -> list[ToolInvocation]:
+    return (
+        db.query(ToolInvocation)
+        .filter(ToolInvocation.session_id == session_id)
+        .order_by(ToolInvocation.id.asc())
+        .all()
+    )
+
+
 def claim_ingest_job(db: Session, job_id: str) -> bool:
     """P4 Day 3 — the worker's compare-and-set claim.
 
