@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE**, **P3 DONE** — all 6 days shipped + committed + pushed |
-| **Next work unit** | P4 — Async doc-processing pipeline (SQS + DLQ + S3 + ECS/Lambda; first genuine microservice split). AWS bucket/queue creation is Rajat's per rule 3-2. |
+| **Current position** | **P2 DONE**, **P3 DONE**; **P4 IN PROGRESS — Day 1 (design) done 2026-10-04** |
+| **Next work unit** | P4 Days 2–6 per §3C — Async doc-processing pipeline (API + Worker split, queue + DLQ + sweep). Real SQS queue/DLQ creation is Rajat's per rule 3-2; code runs on an in-memory queue + moto until then. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -41,6 +41,7 @@ after it's proven against a real Gemini call, real SQLite, real HTTP.
 2. [P1 build log — what actually shipped](#2-p1-build-log--what-actually-shipped)
 3. [P2 daily plan — Transaction + policy RAG](#3-p2-daily-plan--transaction--policy-rag)
 3b. [P3 daily plan — Knowledge assistant](#3b-p3-daily-plan--knowledge-assistant)
+3c. [P4 daily plan — Async doc-processing pipeline](#3c-p4-daily-plan--async-doc-processing-pipeline)
 4. [P4-P8 outline (from Jarvis_GenAI_Path.md)](#4-p4-p8-outline)
 5. [Companion files — which is which](#5-companion-files)
 6. [How to use this file](#6-how-to-use-this-file)
@@ -57,7 +58,7 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 | P1 | Transaction Enrichment API | Structured output | — | Modular monolith | ✅ **DONE** |
 | P2 | Transaction + policy RAG | Embeddings, retrieval, citations | S3 (docs) | Modular monolith | ✅ **DONE** |
 | P3 | Knowledge assistant | Auth, memory, eval pipeline | S3 | Modular monolith | ✅ **DONE** |
-| **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | 📍 **NEXT** |
+| **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | 🚧 **IN PROGRESS** (Day 1 done) |
 | P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | future |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
 | P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | future |
@@ -377,6 +378,52 @@ its shape justified against this paper.
 
 ---
 
+## 3C. P4 daily plan — Async doc-processing pipeline
+
+**Goal:** `POST /policies/ingest-async` returns 202 in milliseconds; a
+separate Worker process drains a queue and does the chunk-embed-store
+work at quota pace. First genuine two-process split on this track.
+
+**Design paper:** [`P4_DESIGN.md`](P4_DESIGN.md) — read it first.
+This section is the day plan; that file is the *why*.
+
+### DoD (Definition of Done)
+
+- [x] `P4_DESIGN.md` shipped as Day 1 deliverable *(2026-10-04)*
+- [ ] `ingest_jobs` table + `JobQueue` abstraction with
+      `InMemoryJobQueue` + `POST /policies/ingest-async` (202 +
+      job_id, checksum fast-path, backlog 429) + `GET /jobs/{id}` —
+      all auth-gated *(Day 2)*
+- [ ] Worker: `python -m narration_enrichment.worker` — CAS claim,
+      chunk→embed→upsert, DONE/FAILED/DEAD transitions, call-retry
+      (tenacity whitelist) vs job-retry (attempts) separation *(Day 3)*
+- [ ] `SqsJobQueue` behind the same interface, moto-tested + DLQ
+      semantics + Terraform for queue+DLQ authored for Rajat (real
+      `apply` is his, rule 3-2) *(Day 4)*
+- [ ] Recovery sweep (stale QUEUED re-send, stale PROCESSING→FAILED,
+      FAILED re-enqueue / DEAD at max) + `GET /ops/ingest`
+      (depth/status rollups/oldest-age) *(Day 5)*
+- [ ] Closeout: README "Async ingestion (P4)" section, LAB day-cards
+      + "P4 shipped" banner, STUDY 3-Qs-per-code-day (rule 3-11),
+      this DoD ticked, AGENTS/FILE_GUIDE synced *(Day 6)*
+- [ ] Live end-to-end against real SQS — **Rajat-driven** session
+      once his Terraform apply creates the queue/DLQ
+
+### Concepts to keep tight
+
+- **Job row = truth, message = hint.** Crash windows are repaired
+  from the DB by the sweep, never by trusting the queue.
+- **At-least-once + idempotent effects, never "exactly-once".**
+  Claim is a CAS on status; the terminal write is already an upsert.
+- **Retryable is a whitelist.** Call-level: 429/503/504 only
+  (existing rule). Job-level: transient exhaustion retries,
+  deterministic errors go DEAD immediately.
+- **The queue is the backpressure** — plus an honest 429 at intake
+  when the backlog cap is hit, and the existing RateLimiter pacing
+  the worker at the true scarce resource (embed quota).
+
+---
+
 ## 4. P4-P8 outline
 
 From `Jarvis_GenAI_Path.md`, not re-derived here — see that file for
@@ -414,6 +461,7 @@ sake.
 | `ROADMAP.md` (this file) | 🗺️ Track roadmap | Where you are, what's next, day-plan for the next project. |
 | `P2_DESIGN.md` | 📝 Design + Qs | Design paper for the P2 work unit (RAG over policy docs). |
 | `P3_DESIGN.md` | 📝 Design + Qs | Design paper for the P3 work unit (chat / knowledge assistant + auth + eval-as-a-system). |
+| `P4_DESIGN.md` | 📝 Design + Qs | Design paper for the P4 work unit (async ingestion: API + Worker split, job table, queue abstraction, idempotency, DLQ, backpressure). |
 | `src/narration_enrichment/**.py` | ⚙️ Code | Production source. `main.py`, `service.py`, `models.py`, `db.py`, `rag.py`, `rate_limiter.py`, `correlation.py`, `config.py`, `schemas.py` + the three day-N scratch scripts kept as historical record. |
 | `tests/**` | ⚙️ Tests | 168 tests, pytest, no network, no API key (`conftest.py` sets a placeholder). |
 | `eval/**` | ⚙️ Eval harness | 12-example golden dataset + `run_eval.py`. Costs real API quota — run manually. |
