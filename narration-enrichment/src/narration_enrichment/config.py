@@ -50,6 +50,18 @@ class Settings(BaseSettings):
     policy_s3_prefix: str = "policy-docs/"
     aws_region: str = "ap-south-1"
 
+    # P4 Day 2 — async ingestion. Empty queue URL = in-memory queue
+    # (dev/test default, zero AWS needed) — same gating pattern as
+    # policy_s3_bucket above. A real SQS URL flips the backend on
+    # Day 4; the URL itself comes from Rajat's Terraform (rule 3-2).
+    ingest_queue_url: str = ""
+    # Intake valve (P4_DESIGN.md §8): above this many QUEUED+PROCESSING
+    # jobs the API refuses new async ingests with 429 + Retry-After
+    # rather than promising work it can't run for hours. Generous
+    # default — at ~8 min per 40-chunk doc on the free tier, 100 jobs
+    # is already half a day of worker time.
+    ingest_max_backlog: int = 100
+
 
 @lru_cache
 def get_settings() -> Settings:

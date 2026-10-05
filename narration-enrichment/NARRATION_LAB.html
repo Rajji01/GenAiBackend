@@ -303,6 +303,12 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">P4 — Async doc pipeline</div>
+      <a class="nav-link" href="#p4-intro"><span class="nav-tag">·</span>The idea</a>
+      <a class="nav-link" href="#p4-day2"><span class="nav-tag">D2</span>Job table + queue + 202 intake</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -1907,6 +1913,61 @@ Full suite:               168 passed (was 158)</div>
   d7a8e81  P3 Day 4  real LLM chat + grounding + earned cites (5 tests)
   7eed5d7  P3 Day 5  eval-as-a-system (10 tests)
   &lt;this commit&gt;  P3 Day 6  docs + ROADMAP + AGENTS + memory sync</div>
+    </article>
+
+    <section id="p4-intro" style="margin-top:64px;">
+      <p class="eyebrow">Project 4 · Async doc-processing pipeline</p>
+      <h2>Accept fast, work later — the first real two-process split</h2>
+      <p>P2's <code>/policies/ingest</code> does everything inside the HTTP request: checksum → chunk → one embedding call per chunk → store. At the live-measured free-tier cap of 5 embeds/min, a 40-chunk doc is <strong>8 minutes of wall-clock inside one request</strong> — no client survives that. P4 splits the work: an <strong>API half</strong> that validates, records a job row, enqueues a hint, and returns <code>202 + job_id</code> in milliseconds, and a <strong>Worker half</strong> (separate process) that drains the queue at whatever pace the quota allows. The job row is the source of truth; the queue message is just a wake-up call — ticketing Week 3's outbox lesson, in Python.</p>
+      <p style="font-size:14.5px;">Design paper: <code><a href="P4_DESIGN.md">P4_DESIGN.md</a></code>. Six-day plan: <code><a href="ROADMAP.md">ROADMAP.md</a> §3C</code>. Real SQS queue/DLQ creation is Rajat's per standing rule 3-2 — until then everything runs on an in-memory queue with SQS-shaped semantics, zero AWS needed.</p>
+    </section>
+
+    <article class="card day-card" id="p4-day2">
+      <div class="day-head">
+        <span class="day-stamp">P4 · D2</span>
+        <span class="day-title">ingest_jobs table + queue abstraction + the 202 intake</span>
+      </div>
+      <span class="day-files">job_queue.py (new) · db.py (IngestJob) · main.py · config.py · schemas.py · tests/test_job_queue.py (new) · tests/test_ingest_async_api.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> build the API half of the split end-to-end — <code>POST /policies/ingest-async</code> (auth-gated from its first commit, P3 invariant #1) and <code>GET /jobs/{id}</code> — plus the queue boundary the Day-3 worker will consume from. No embedding call anywhere on this path: if a Day-2 test ever triggered one, that would itself be the bug.</p>
+
+      <div class="why-box">
+        <div class="why-label">Job row = truth, queue message = hint</div>
+        <p>The message carries ONLY a <code>job_id</code>. Content, status, attempts, errors — all live on the <code>ingest_jobs</code> row. The API <strong>commits the row first</strong>, then enqueues best-effort: if the queue is down, the caller still gets an honest 202 because the work is durably accepted in the DB, and the Day-5 recovery sweep re-sends the hint. This dissolves the dual-write problem the same way ticketing's outbox did — one system owns the truth, the other is allowed to fail.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>In-memory queue with SQS-shaped semantics</h4>
+          <p><code>InMemoryJobQueue</code> fakes the two SQS behaviours the worker must survive: <strong>visibility timeout</strong> (a received-but-never-deleted message reappears — consumer presumed dead) and <strong>receipt-per-delivery</strong> (a redelivery carries a fresh handle; acking with a stale one is a silent no-op). Clock injected like the rate limiter's, so the timeout test needs no real 30-second sleep.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Two dedup fast-paths before any work queues</h4>
+          <p>Same <code>(doc_id, checksum)</code> already <strong>DONE</strong> → <code>200 unchanged</code>, zero cost. Same pair already <strong>QUEUED/PROCESSING</strong> → return <em>that</em> job_id; the queue depth stays at one. P2's checksum idempotency, lifted to the job layer.</p>
+        </div>
+        <div class="mini-card">
+          <h4>The intake valve — an honest 429</h4>
+          <p>Above <code>INGEST_MAX_BACKLOG</code> queued+processing jobs, the API refuses with <code>429 + Retry-After</code> instead of enqueueing. An unbounded queue in front of a 5/min worker is a promise the system can't keep — refusing at intake beats accepting work that won't run for hours. And a refused doc leaves <em>zero</em> rows: 429 means "nothing was accepted," not "accepted but hidden."</p>
+        </div>
+        <div class="mini-card">
+          <h4>One gotcha: status lives behind a CHECK constraint</h4>
+          <p><code>ingest_jobs.status</code> has a DB-level <code>CHECK IN ('QUEUED','PROCESSING','DONE','FAILED','DEAD')</code> — same pattern as <code>chat_turns.role</code>. A typo'd status string fails loudly at write time instead of becoming a mystery row the Day-5 sweep silently never matches.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests — 21 new, all green
+  test_job_queue.py          11  (FIFO + batching, invisible while
+                                  in-flight, redelivery after timeout
+                                  with FRESH receipt, stale-receipt
+                                  ack is a no-op, depth = visible
+                                  + in-flight)
+  test_ingest_async_api.py   10  (401 both routes, 202 + row + hint,
+                                  dedup x2, new-job-on-changed-bytes,
+                                  400 whitespace, 429 valve + zero
+                                  rows, queue-outage still 202)
+Full suite:                 189 passed (was 168)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 3): the Worker half — <code>python -m narration_enrichment.worker</code>, claim-by-CAS (<code>QUEUED|FAILED → PROCESSING</code>, a redelivered duplicate matches zero rows and gets dropped), chunk→embed→upsert, and the DONE / FAILED / DEAD transitions with call-retry (tenacity whitelist) kept strictly separate from job-retry (attempts).</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

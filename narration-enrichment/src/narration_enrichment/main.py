@@ -10,7 +10,7 @@ code that already exists, not a hand-maintained spec.)
 import logging
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from google.genai.errors import APIError
 from instructor.core.exceptions import InstructorRetryException
 from pydantic import BaseModel, Field
@@ -25,18 +25,25 @@ from narration_enrichment.correlation import (
     set_correlation_id,
 )
 from narration_enrichment.db import (
+    JOB_DONE,
+    JOB_PROCESSING,
+    JOB_QUEUED,
     ApiKey,
     ChatSession,
     ChatTurn,
     append_chat_turn,
+    count_ingest_backlog,
     create_chat_session,
+    create_ingest_job,
     delete_chat_session,
     delete_policy_doc,
+    find_ingest_job_by_checksum,
     get_category_counts,
     get_chat_session_owned_by,
     get_db,
     get_eval_history_for_case,
     get_eval_pass_rate_by_case,
+    get_ingest_job,
     get_total_and_average_confidence,
     list_chat_turns,
     list_enrichments,
@@ -44,9 +51,9 @@ from narration_enrichment.db import (
     save_enrichment,
 )
 from narration_enrichment.models import Citation, TransactionEnrichment
-from narration_enrichment.policy_ingest import ingest as ingest_policy_doc
+from narration_enrichment.policy_ingest import compute_checksum, ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
-from narration_enrichment import auth, chat_service, s3_store
+from narration_enrichment import auth, chat_service, job_queue, s3_store
 from narration_enrichment.schemas import (
     BatchEnrichRequest,
     BatchEnrichResponse,
@@ -61,6 +68,8 @@ from narration_enrichment.schemas import (
     EvalCasePassRate,
     EvalHistoryResponse,
     EvalResultDetail,
+    IngestAsyncResponse,
+    IngestJobStatusResponse,
     PolicyDocSummary,
     PolicyIngestRequest,
     PolicyIngestResponse,
@@ -449,6 +458,107 @@ def policies_list(db: Session = Depends(get_db)) -> list[PolicyDocSummary]:
         )
         for doc, count in list_policy_docs(db)
     ]
+
+
+# --- P4 Day 2: async ingestion (API side) --------------------------------
+#
+# The fast half of the API+Worker split (P4_DESIGN.md §2): validate,
+# dedup, record a job row, COMMIT, then best-effort enqueue — the 202
+# comes back in milliseconds regardless of how slow embedding is or
+# whether the queue is even reachable. The worker (Day 3) does the
+# heavy half. Auth-gated from the first commit per P3's invariant #1
+# ("auth-first is the default posture") — unlike the sync ingest,
+# which predates the auth layer and stays open for P1/P2 compat.
+
+
+@app.post("/policies/ingest-async", response_model=IngestAsyncResponse, status_code=202)
+def policies_ingest_async(
+    request: PolicyIngestRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> IngestAsyncResponse:
+    # Same service-level guard as the sync path: a whitespace-only body
+    # passes Pydantic's min_length=1 but is a caller bug. Reject at
+    # intake — never park a job the worker is guaranteed to DEAD-letter.
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="policy doc content is empty")
+
+    checksum = compute_checksum(request.content)
+
+    # Idempotency fast-path 1 (P4_DESIGN.md §6): these exact bytes were
+    # already ingested to completion — the honest answer is "done,
+    # unchanged", costing zero queue slots and zero embedding budget.
+    done = find_ingest_job_by_checksum(
+        db, doc_id=request.doc_id, checksum=checksum, statuses=(JOB_DONE,)
+    )
+    if done is not None:
+        response.status_code = 200
+        return IngestAsyncResponse(
+            job_id=done.id, doc_id=done.doc_id, status=JOB_DONE, unchanged=True
+        )
+
+    # Idempotency fast-path 2: identical work is already queued or in
+    # flight — hand back THAT job_id instead of double-queueing it.
+    active = find_ingest_job_by_checksum(
+        db, doc_id=request.doc_id, checksum=checksum, statuses=(JOB_QUEUED, JOB_PROCESSING)
+    )
+    if active is not None:
+        return IngestAsyncResponse(
+            job_id=active.id, doc_id=active.doc_id, status=active.status
+        )
+
+    # Intake valve (P4_DESIGN.md §8): an unbounded queue in front of a
+    # 5/min worker is a promise the system can't keep. Refuse honestly,
+    # with the same 429 + Retry-After contract the rate limiter set.
+    settings = get_settings()
+    if count_ingest_backlog(db) >= settings.ingest_max_backlog:
+        raise HTTPException(
+            status_code=429,
+            detail="Ingest backlog is full. Retry later.",
+            headers={"Retry-After": "60"},
+        )
+
+    job = create_ingest_job(
+        db,
+        job_id=str(_uuid.uuid4()),
+        doc_id=request.doc_id,
+        title=request.title,
+        content=request.content,
+        checksum=checksum,
+    )
+
+    # Best-effort, strictly AFTER the commit above (P4_DESIGN.md §5):
+    # the job row is the truth, this send is the hint. If it fails, the
+    # job sits QUEUED and the recovery sweep (Day 5) re-sends it — the
+    # caller still gets its 202 because the work IS durably accepted.
+    try:
+        job_queue.get_queue().send(job.id)
+    except Exception as exc:  # noqa: BLE001 - degrade, don't fail the intake
+        logger.warning("ingest_enqueue_failed job_id=%s error=%s", job.id, exc)
+
+    return IngestAsyncResponse(job_id=job.id, doc_id=job.doc_id, status=JOB_QUEUED)
+
+
+@app.get("/jobs/{job_id}", response_model=IngestJobStatusResponse)
+def get_job_status(
+    job_id: str,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> IngestJobStatusResponse:
+    job = get_ingest_job(db, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return IngestJobStatusResponse(
+        job_id=job.id,
+        doc_id=job.doc_id,
+        status=job.status,
+        attempts=job.attempts,
+        error=job.error,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+    )
 
 
 # --- P3 chat routes ------------------------------------------------------
