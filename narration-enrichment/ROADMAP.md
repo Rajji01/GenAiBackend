@@ -404,9 +404,13 @@ This section is the day plan; that file is the *why*.
       policy_ingest.ingest, dedup-by-claim x3, transient→FAILED with
       no partial chunks, FAILED reclaim→DONE, budget→DEAD,
       deterministic→DEAD-on-first-attempt x3; full suite 202 green)*
-- [ ] `SqsJobQueue` behind the same interface, moto-tested + DLQ
+- [x] `SqsJobQueue` behind the same interface, moto-tested + DLQ
       semantics + Terraform for queue+DLQ authored for Rajat (real
-      `apply` is his, rule 3-2) *(Day 4)*
+      `apply` is his, rule 3-2) *(Day 4, this commit — 7 moto tests
+      re-proving the in-memory fake's behavioural claims against the
+      real boto3 surface incl. the get_queue() factory end-to-end;
+      `infra/main.tf` = queue (900s visibility, 20s long-poll) + DLQ
+      (redrive at 5 ≥ app's 3 attempts + 1); full suite 209 green)*
 - [ ] Recovery sweep (stale QUEUED re-send, stale PROCESSING→FAILED,
       FAILED re-enqueue / DEAD at max) + `GET /ops/ingest`
       (depth/status rollups/oldest-age) *(Day 5)*
