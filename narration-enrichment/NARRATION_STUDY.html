@@ -727,6 +727,29 @@
     <p class="iq-hint">Hint for (c): ticketing's domain write (booking state) and its event were two different facts needing one transaction — hence a second table. Here the job row IS the domain fact; there's nothing else to keep atomic with it, so the jobs table is its own outbox. Anchor: P4_DESIGN.md §5.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p4-d3">
+    <h3>P4 · Day 3 — The Worker (claim-by-CAS + DONE/FAILED/DEAD)</h3>
+    <span class="iq-anchor">files: <code>worker.py</code>, <code>db.py</code> (claim_ingest_job + finish_ingest_job), <code>tests/test_worker.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>db.py</code>'s <code>claim_ingest_job</code>. It uses <code>.update({...}, synchronize_session=False)</code> and reads the UPDATE's rowcount instead of SELECT-then-modify on an ORM object. Two parts: (a) why is SELECT-then-set-then-commit a race here when two workers hold the same job_id, and what makes the single UPDATE safe? (b) what does <code>IngestJob.attempts: IngestJob.attempts + 1</code> (a column expression, not Python <code>+=</code>) do differently from reading the value into Python and writing it back?</p>
+    <p class="iq-hint">Hint: the WHERE clause carries the allowed source states, so the database evaluates check-and-set atomically per row; two racing UPDATEs serialize and exactly one reports rowcount 1. The column expression makes the increment happen IN the database — no read-modify-write window.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>process_one_message</code> for a message whose job is already DONE (the dedup test <code>test_duplicate_delivery_for_done_job_is_dropped_without_touching_it</code>). List, in order, every DB and queue call that happens, and name the two things the test asserts did NOT change. Then: why does the function return <code>None</code> here instead of <code>JOB_DONE</code> — what would a caller mis-conclude if a dropped duplicate reported the same outcome as real work?</p>
+    <p class="iq-hint">Hint: claim (0 rows) → log → <code>queue.delete</code> → return None. Untouched: <code>status</code> stays DONE and <code>attempts</code> stays 1. None vs DONE distinguishes "I did the work" from "nothing was mine to do" — metrics built on the return value would double-count completions otherwise.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The worker acks (deletes) the message in EVERY outcome — including FAILED, where the job still needs a retry. The alternative design leaves the message un-acked on failure so the queue's visibility timeout redelivers it "for free." Argue both sides: (a) what does ack-always + sweep-re-enqueues buy in terms of where retry policy lives and what an operator can inspect; (b) what does the un-acked design buy (hint: one less moving part), and which SQS feature becomes your retry counter in that world; (c) why does THIS codebase's choice fit its "job row = truth" principle — and name the concrete bug you'd invite if the sweep re-enqueued a FAILED job while its original message was ALSO still un-acked.</p>
+    <p class="iq-hint">Hint for (c): two live deliveries for one job — the CAS absorbs the duplicate, but only because ack-always guarantees at most one pending wake-up per job per source. Mixing both retry mechanisms means retry pacing lives half in config, half in queue settings nobody reads. Anchor: worker.py module docstring, contract step 4.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

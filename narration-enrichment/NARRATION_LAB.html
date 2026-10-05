@@ -306,6 +306,7 @@
       <div class="nav-group-title">P4 — Async doc pipeline</div>
       <a class="nav-link" href="#p4-intro"><span class="nav-tag">·</span>The idea</a>
       <a class="nav-link" href="#p4-day2"><span class="nav-tag">D2</span>Job table + queue + 202 intake</a>
+      <a class="nav-link" href="#p4-day3"><span class="nav-tag">D3</span>The Worker (claim-by-CAS + DONE/FAILED/DEAD)</a>
     </div>
 
     <div class="nav-group">
@@ -1968,6 +1969,54 @@ Full suite:               168 passed (was 158)</div>
 Full suite:                 189 passed (was 168)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 3): the Worker half — <code>python -m narration_enrichment.worker</code>, claim-by-CAS (<code>QUEUED|FAILED → PROCESSING</code>, a redelivered duplicate matches zero rows and gets dropped), chunk→embed→upsert, and the DONE / FAILED / DEAD transitions with call-retry (tenacity whitelist) kept strictly separate from job-retry (attempts).</p>
+    </article>
+
+    <article class="card day-card" id="p4-day3">
+      <div class="day-head">
+        <span class="day-stamp">P4 · D3</span>
+        <span class="day-title">The Worker — claim-by-CAS, one ingest implementation, DONE/FAILED/DEAD</span>
+      </div>
+      <span class="day-files">worker.py (new) · db.py (claim + finish) · config.py · tests/test_worker.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> the slow half of the split — <code>python -m narration_enrichment.worker</code>, a separate <em>process</em> that drains the queue and does the chunk→embed→store work. The API and the worker now meet only at the DB (truth) and the queue (hints). This is the first time the narration track runs as two processes — the "microservice split" P4 was named for.</p>
+
+      <div class="why-box">
+        <div class="why-label">The claim IS the dedup — one UPDATE, not a seen-messages table</div>
+        <p><code>claim_ingest_job</code> flips <code>QUEUED|FAILED → PROCESSING</code> and increments <code>attempts</code> in ONE compare-and-set UPDATE. A redelivered duplicate (queue timeout, sweep racing the send) matches <strong>zero rows</strong> — the worker acks and drops without touching the job or burning an attempt. The worker never asks "have I seen this <em>message</em>?"; it asks "is this <em>job</em> still claimable?" — the status column plays the role ticketing Day-7's <code>processed_event</code> table played, for free.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>One ingest implementation, two deliveries</h4>
+          <p>The worker calls the SAME <code>policy_ingest.ingest</code> the sync route uses — async is a different <em>delivery</em> of the same operation, not a second implementation to drift out of sync. Bonus: its checksum fast-path makes a re-run of an already-applied job converge to "unchanged" — idempotency layer 3 came along for free.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Call-retry ≠ job-retry</h4>
+          <p>Tenacity's 429/503/504 retry lives INSIDE one attempt (per embed call). The job-level budget is <code>attempts</code>, counted by the claim: transient failure with budget left → <strong>FAILED</strong> (the Day-5 sweep re-enqueues); at <code>INGEST_MAX_ATTEMPTS</code> → <strong>DEAD</strong>. Two knobs, two failure meanings — conflating them is how systems end up retrying forever or giving up instantly.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Retryable is a whitelist, never a default</h4>
+          <p>Only <code>APIError</code> 429/503/504 and httpx timeouts are transient. <code>ValueError</code> (empty content), a 400 from the provider (same request will 400 forever), a surprise <code>RuntimeError</code> — all go <strong>DEAD on the first attempt</strong>, reason preserved on the row. Retrying a deterministic failure is quota arson. Same Bug-5 thinking as ticketing's Resilience4j rule.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Ack in every path — the message's job ends at delivery</h4>
+          <p>DONE, FAILED, DEAD, duplicate, unknown id: the message is deleted in all of them. What happened to the JOB is row state; the retry wake-up for a FAILED job is the sweep's to send. A message that stayed un-acked "to retry later" would couple the retry schedule to the queue's visibility timeout — the design keeps those decisions in the DB where they're inspectable.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_worker.py — 13 new, all green
+  · happy path (DONE, chunks via the shared upsert, acked,
+    attempts=1), run_once batch drain, empty-queue 0
+  · dedup: duplicate-after-DONE dropped without burning an
+    attempt, PROCESSING delivery dropped, ghost job_id acked
+  · transient: 503 → FAILED (error kept, no partial chunks),
+    timeout → FAILED, FAILED reclaim → DONE (attempts carry,
+    stale error cleared), budget exhausted → DEAD
+  · deterministic: empty content / RuntimeError / provider
+    400 → DEAD on attempt 1
+Full suite:                202 passed (was 189)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 4): <code>SqsJobQueue</code> behind the same four-method interface (moto-tested), DLQ semantics, and the Terraform for queue + DLQ authored for Rajat — real <code>apply</code> is his per rule 3-2.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

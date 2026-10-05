@@ -397,9 +397,13 @@ This section is the day plan; that file is the *why*.
       semantics incl. visibility-timeout redelivery + fresh-receipt,
       10 API incl. dedup x2, 429-leaves-zero-rows, queue-outage-still-202;
       full suite 189 green)*
-- [ ] Worker: `python -m narration_enrichment.worker` — CAS claim,
+- [x] Worker: `python -m narration_enrichment.worker` — CAS claim,
       chunk→embed→upsert, DONE/FAILED/DEAD transitions, call-retry
-      (tenacity whitelist) vs job-retry (attempts) separation *(Day 3)*
+      (tenacity whitelist) vs job-retry (attempts) separation *(Day 3,
+      this commit — 13 new tests: happy path via the SHARED
+      policy_ingest.ingest, dedup-by-claim x3, transient→FAILED with
+      no partial chunks, FAILED reclaim→DONE, budget→DEAD,
+      deterministic→DEAD-on-first-attempt x3; full suite 202 green)*
 - [ ] `SqsJobQueue` behind the same interface, moto-tested + DLQ
       semantics + Terraform for queue+DLQ authored for Rajat (real
       `apply` is his, rule 3-2) *(Day 4)*
