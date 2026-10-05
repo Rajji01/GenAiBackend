@@ -460,10 +460,14 @@ Rajat-greenlit unit; this is the Python half.
 ### DoD (Definition of Done)
 
 - [x] `P5_DESIGN.md` shipped as Day 1 deliverable *(2026-10-04)*
-- [ ] `tools.py` — Tool dataclass + TOOL_REGISTRY whitelist + the four
+- [x] `tools.py` — Tool dataclass + TOOL_REGISTRY whitelist + the four
       tools (count_transactions / category_breakdown /
       find_transactions / list_policy_docs) with per-tool Pydantic
-      args models; pure read-only functions over the Session *(Day 2)*
+      args models; pure read-only functions over the Session *(Day 2,
+      this commit — 13 tests: per-tool exactness incl.
+      substring-must-not-match, the gate's three failure legs
+      (unknown/invalid/runtime), catalog-renders-from-registry;
+      full suite 230 green)*
 - [ ] The loop in `chat_service.py` — `_ChatLLMStep` (flat, not a
       union), up to 3 iterations, forced-final with the catalog
       withheld, data-framed observations; `tool_invocations` table +
