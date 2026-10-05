@@ -104,6 +104,20 @@ class IngestJobStatusResponse(BaseModel):
     finished_at: datetime | None = None
 
 
+class OpsIngestResponse(BaseModel):
+    """P4 Day 5 — GET /ops/ingest. The backpressure dashboard:
+    queue_depth is visible+in-flight on the work queue; dlq_depth is
+    None (not 0) when no DLQ exists, so 'empty DLQ' and 'no DLQ' are
+    distinguishable; jobs carries every status with explicit zeros;
+    oldest_queued_age_seconds is the staleness headline — None on an
+    empty QUEUED set."""
+
+    queue_depth: int
+    dlq_depth: int | None = None
+    jobs: dict[str, int]
+    oldest_queued_age_seconds: float | None = None
+
+
 class PolicyIngestResponse(BaseModel):
     doc_id: str
     chunks_ingested: int

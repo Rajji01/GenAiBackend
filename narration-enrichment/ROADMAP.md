@@ -411,9 +411,13 @@ This section is the day plan; that file is the *why*.
       real boto3 surface incl. the get_queue() factory end-to-end;
       `infra/main.tf` = queue (900s visibility, 20s long-poll) + DLQ
       (redrive at 5 ≥ app's 3 attempts + 1); full suite 209 green)*
-- [ ] Recovery sweep (stale QUEUED re-send, stale PROCESSING→FAILED,
+- [x] Recovery sweep (stale QUEUED re-send, stale PROCESSING→FAILED,
       FAILED re-enqueue / DEAD at max) + `GET /ops/ingest`
-      (depth/status rollups/oldest-age) *(Day 5)*
+      (depth/status rollups/oldest-age) *(Day 5, this commit — 8 new
+      tests: decision tree leg-by-leg incl. same-sweep re-arm of a
+      stale PROCESSING, the zero-sleep full cycle
+      (transient→FAILED→sweep→reclaim→DONE), and /ops honest-nulls +
+      rollups; full suite 217 green)*
 - [ ] Closeout: README "Async ingestion (P4)" section, LAB day-cards
       + "P4 shipped" banner, STUDY 3-Qs-per-code-day (rule 3-11),
       this DoD ticked, AGENTS/FILE_GUIDE synced *(Day 6)*

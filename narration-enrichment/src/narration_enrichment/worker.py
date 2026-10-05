@@ -39,6 +39,7 @@ The loop's contract per message, in order:
 
 import logging
 import time
+from datetime import datetime, timezone
 
 import httpx
 from google.genai.errors import APIError
@@ -50,10 +51,13 @@ from narration_enrichment.db import (
     JOB_DEAD,
     JOB_DONE,
     JOB_FAILED,
+    JOB_PROCESSING,
+    JOB_QUEUED,
     SessionLocal,
     claim_ingest_job,
     finish_ingest_job,
     get_ingest_job,
+    list_ingest_jobs_by_status,
 )
 from narration_enrichment.job_queue import JobQueue, QueueMessage, get_queue
 from narration_enrichment.policy_ingest import EmbedFn, ingest
@@ -160,6 +164,87 @@ def run_once(
     return len(messages)
 
 
+def _as_utc(dt: datetime) -> datetime:
+    """SQLite hands timestamps back naive or aware depending on how
+    they were written; normalize to aware-UTC so age arithmetic never
+    raises (naive vs aware subtraction is a TypeError, the worst kind
+    of bug to meet only in production at 3am)."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def run_sweep(
+    db: Session,
+    queue: JobQueue,
+    *,
+    stale_queued_seconds: float,
+    stale_processing_seconds: float,
+    max_attempts: int,
+    now: datetime | None = None,
+) -> dict[str, int]:
+    """P4 Day 5 — the recovery decision tree (P4_DESIGN.md §10c), the
+    Python edition of ticketing's BookingRecoveryService. Repairs the
+    crash windows the happy path cannot see:
+
+    - QUEUED older than `stale_queued_seconds` → the post-commit send
+      was lost (API crashed in the window, or the queue was down) —
+      re-send the hint. A duplicate hint is harmless by design: the
+      claim CAS absorbs it. The cost of the sweep re-sending every
+      cycle while the worker is down is a few duplicate drops on
+      recovery — accepted, documented, cheaper than tracking a
+      last-enqueued timestamp nothing else needs (rule 3-7).
+    - PROCESSING older than `stale_processing_seconds` → the worker
+      died mid-job. Mark FAILED; the next pass (below, same sweep)
+      decides retry vs DEAD. The threshold must exceed the queue's
+      visibility timeout or healthy slow jobs get declared dead.
+    - FAILED with attempts < max → re-enqueue for another claim.
+      FAILED at budget → DEAD, error preserved.
+
+    Returns per-action counts — the worker logs them, and the Day-6
+    closeout's live run reads them as evidence.
+    """
+    now = now or datetime.now(timezone.utc)
+    actions = {
+        "requeued_stale_queued": 0,
+        "failed_stale_processing": 0,
+        "requeued_failed": 0,
+        "dead_at_budget": 0,
+    }
+
+    for job in list_ingest_jobs_by_status(db, JOB_QUEUED):
+        if (now - _as_utc(job.created_at)).total_seconds() > stale_queued_seconds:
+            queue.send(job.id)
+            actions["requeued_stale_queued"] += 1
+
+    for job in list_ingest_jobs_by_status(db, JOB_PROCESSING):
+        started = job.started_at or job.created_at
+        if (now - _as_utc(started)).total_seconds() > stale_processing_seconds:
+            finish_ingest_job(
+                db, job.id, status=JOB_FAILED,
+                error="stale PROCESSING: worker presumed dead mid-job",
+            )
+            actions["failed_stale_processing"] += 1
+
+    # Fresh query on purpose: a job the pass above just flipped to
+    # FAILED is handled in THIS sweep, not left dangling until the
+    # next one.
+    for job in list_ingest_jobs_by_status(db, JOB_FAILED):
+        if job.attempts >= max_attempts:
+            finish_ingest_job(db, job.id, status=JOB_DEAD, error=job.error)
+            actions["dead_at_budget"] += 1
+        else:
+            queue.send(job.id)
+            actions["requeued_failed"] += 1
+
+    if any(actions.values()):
+        logger.info(
+            "sweep_actions requeued_stale_queued=%d failed_stale_processing=%d "
+            "requeued_failed=%d dead_at_budget=%d",
+            actions["requeued_stale_queued"], actions["failed_stale_processing"],
+            actions["requeued_failed"], actions["dead_at_budget"],
+        )
+    return actions
+
+
 def main() -> None:  # pragma: no cover - thin process wrapper over run_once
     from narration_enrichment.service import get_raw_client
 
@@ -171,9 +256,19 @@ def main() -> None:  # pragma: no cover - thin process wrapper over run_once
 
     queue = get_queue()
     logger.info("worker_started poll_interval=%ss", settings.worker_poll_interval_seconds)
+    last_sweep = 0.0
     while True:
         db = SessionLocal()
         try:
+            if time.monotonic() - last_sweep >= settings.sweep_interval_seconds:
+                run_sweep(
+                    db,
+                    queue,
+                    stale_queued_seconds=settings.sweep_stale_queued_seconds,
+                    stale_processing_seconds=settings.sweep_stale_processing_seconds,
+                    max_attempts=settings.ingest_max_attempts,
+                )
+                last_sweep = time.monotonic()
             handled = run_once(
                 db,
                 queue,
