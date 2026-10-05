@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE**, **P3 DONE**; **P4 IN PROGRESS — Day 1 (design) done 2026-10-04** |
-| **Next work unit** | P4 Days 2–6 per §3C — Async doc-processing pipeline (API + Worker split, queue + DLQ + sweep). Real SQS queue/DLQ creation is Rajat's per rule 3-2; code runs on an in-memory queue + moto until then. |
+| **Current position** | **P2 DONE**, **P3 DONE**; **P4 code-side DONE (Days 1–6, 2026-10-04) — 217 tests green** |
+| **Next work unit** | Rajat's live-SQS leg of P4 (terraform apply + the `infra/README.md` verification script, rule 3-2) — then P5 (tool-calling assistant) per §4 when Rajat greenlights. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -58,7 +58,7 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 | P1 | Transaction Enrichment API | Structured output | — | Modular monolith | ✅ **DONE** |
 | P2 | Transaction + policy RAG | Embeddings, retrieval, citations | S3 (docs) | Modular monolith | ✅ **DONE** |
 | P3 | Knowledge assistant | Auth, memory, eval pipeline | S3 | Modular monolith | ✅ **DONE** |
-| **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | 🚧 **IN PROGRESS** (Day 1 done) |
+| **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | ✅ **code-side DONE** (live-SQS leg = Rajat's) |
 | P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | future |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
 | P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | future |
@@ -418,11 +418,15 @@ This section is the day plan; that file is the *why*.
       stale PROCESSING, the zero-sleep full cycle
       (transient→FAILED→sweep→reclaim→DONE), and /ops honest-nulls +
       rollups; full suite 217 green)*
-- [ ] Closeout: README "Async ingestion (P4)" section, LAB day-cards
-      + "P4 shipped" banner, STUDY 3-Qs-per-code-day (rule 3-11),
-      this DoD ticked, AGENTS/FILE_GUIDE synced *(Day 6)*
+- [x] Closeout: README "Async ingestion (P4)" section, LAB day-cards
+      + "P4 shipped (code-side)" Day-6 card, STUDY Qs for every day
+      incl. the closeout review (rule 3-11), this DoD ticked,
+      AGENTS/FILE_GUIDE synced *(Day 6, this commit)*
 - [ ] Live end-to-end against real SQS — **Rajat-driven** session
-      once his Terraform apply creates the queue/DLQ
+      once his Terraform apply creates the queue/DLQ. The ONLY open
+      box, deliberately not Claude's to tick (rule 3-2); the run
+      script incl. the kill-the-worker failure experiment is in
+      `infra/README.md`
 
 ### Concepts to keep tight
 

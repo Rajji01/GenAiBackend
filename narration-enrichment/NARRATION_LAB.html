@@ -309,6 +309,7 @@
       <a class="nav-link" href="#p4-day3"><span class="nav-tag">D3</span>The Worker (claim-by-CAS + DONE/FAILED/DEAD)</a>
       <a class="nav-link" href="#p4-day4"><span class="nav-tag">D4</span>SQS behind the same door + Terraform</a>
       <a class="nav-link" href="#p4-day5"><span class="nav-tag">D5</span>Recovery sweep + /ops/ingest</a>
+      <a class="nav-link" href="#p4-day6"><span class="nav-tag">D6</span>Closeout (P4 code-side shipped)</a>
     </div>
 
     <div class="nav-group">
@@ -2109,6 +2110,35 @@ Full suite:                209 passed (was 202)</div>
 Full suite:                217 passed (was 209)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (Day 6): P4 closeout — README "Async ingestion (P4)" section, "P4 shipped" banner here, ROADMAP DoD, AGENTS/FILE_GUIDE sync. The one DoD box that stays open: the live SQS end-to-end, which is Rajat's run (infra/README.md has the script, including the kill-the-worker failure experiment).</p>
+    </article>
+
+    <article class="card day-card" id="p4-day6">
+      <div class="day-head">
+        <span class="day-stamp">P4 · D6</span>
+        <span class="day-title">P4 closeout — docs + ROADMAP + AGENTS sync</span>
+      </div>
+      <span class="day-files">README.md · NARRATION_LAB.html · NARRATION_STUDY.html · ROADMAP.md · AGENTS.md · FILE_GUIDE.md</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> close out P4's code side. No new endpoints or tables — Day 6 is the discipline layer (rule 3-9): every doc a fresh agent reads now matches what the code actually does.</p>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">P4 shipped (code-side) — the whole arc in one line</div>
+        <p>Day 1 = design paper. Day 2 = ingest_jobs (row = truth) + queue abstraction + the 202 intake with dedup fast-paths and an honest 429 valve. Day 3 = the Worker in its own process — claim-by-CAS as the dedup, one shared ingest implementation, DONE/FAILED/DEAD with a whitelisted-transient retry budget. Day 4 = SqsJobQueue behind the same four methods (moto-proven) + the queue/DLQ Terraform authored for Rajat. Day 5 = the recovery sweep owning every crash window + <code>/ops/ingest</code>. The narration track now runs as <strong>two processes meeting only at the DB and a queue</strong> — the first genuine microservice split of the GenAI track.</p>
+        <p style="margin-top:8px;"><strong>217 tests green</strong> (was 168 at P3 close). <strong>49 new tests</strong> across Days 2–5. Zero regressions.</p>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">The one open box — deliberately not Claude's to tick</div>
+        <p>The live end-to-end against <em>real</em> SQS (apply the <code>infra/</code> Terraform, flip <code>INGEST_QUEUE_URL</code>, run the kill-the-worker failure experiment from <code>infra/README.md</code>) is <strong>Rajat's run</strong> per standing rule 3-2. Everything moto/in-memory could prove honestly has been proven; claiming the live leg from a session that cannot create AWS resources would be exactly the cherry-picking rule 3-6 forbids.</p>
+      </div>
+
+      <div class="terminal">P4 commits, in chronological order:
+  091c046  P4 Day 1  design paper + ROADMAP sec 3C
+  4ace8dd  P4 Day 2  ingest_jobs + queue + 202 intake (21 tests)
+  31268dc  P4 Day 3  the Worker: CAS claim + DONE/FAILED/DEAD (13 tests)
+  149c778  P4 Day 4  SqsJobQueue + queue/DLQ Terraform (7 tests)
+  05a8e7c  P4 Day 5  recovery sweep + /ops/ingest (8 tests)
+  &lt;this commit&gt;  P4 Day 6  docs + ROADMAP + AGENTS + FILE_GUIDE sync</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
