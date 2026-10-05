@@ -93,12 +93,12 @@ Each service directory has the standard Maven layout:
 - `README.md` — dev-facing service doc (API surface, config keys, run instructions, package layout)
 - `src/main/java/com/ticketing/{inventory,booking,payment}/**` — source
 - `src/main/resources/application.yml` — config
-- `src/test/java/**` — tests (Weeks 1+2 have them; Week 3 tests deferred per user directive)
+- `src/test/java/**` — tests (all four services covered since the Week 3 JUnit clean-pass, commit `3344957`)
 
 **Booking-service Week 3 packages:**
 - `outbox/` — `OutboxEvent`, `OutboxRepository`, `OutboxService` (write within tx), `OutboxPublisher` (`@Scheduled` drain), `EventBus` (stub, will become SNS in Phase 3)
 
-**Test count check (Week 3 JUnit clean-pass DONE 2026-09-30, uncommitted — 124 ticketing tests total):**
+**Test count check (Week 3 JUnit clean-pass DONE 2026-09-30, commit `3344957` — 124 ticketing tests total):**
 - `inventory-service`: 40 tests green
 - `booking-service`: **42 tests green** — 26 baseline + 16 new Week 3 (`OutboxEventTest` 3, `OutboxServiceTest` 3, `OutboxPublisherTest` 4, `BookingRecoveryServiceTest` 6). New ones are pure Mockito; the baseline still uses Testcontainers
 - `payment-service`: **37 tests green** — pure JUnit/Mockito, no Testcontainers (Docker-free by design, §7). `PaymentStateMachineTest` 13, `PaymentGatewayFactoryTest` 2, `UPIAdapterTest` 5, `PaymentServiceTest` 17
@@ -106,21 +106,23 @@ Each service directory has the standard Maven layout:
 
 ### 🐍 Narration track (`narration-enrichment/`)
 
-Python/FastAPI/Gemini/Instructor/RAG track. **P1 done (Weeks 1–4, last commit `20cb3c6`); P2 up next (see `ROADMAP.md` + `P2_DESIGN.md`).**
+Python/FastAPI/Gemini/Instructor/RAG track. **P1 + P2 + P3 done (last commit `fab8f9e`, 168 tests green); P4 (async doc pipeline, AWS) up next — awaiting Rajat's greenlight (see `ROADMAP.md` status snapshot).**
 
 | File | Category | Purpose |
 |---|---|---|
 | `README.md` | 📖 Build log | Week-by-week daily entries + engineering-decisions section |
 | `ROADMAP.md` | 🗺️ Track roadmap | **Narration-specific ordered plan** — P1 done recap with commit refs + P2 day-by-day plan + P3-P8 outline. Complements the generic `Jarvis_GenAI_Path.md` at repo root (2026-09-20) |
-| `P2_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for the next work unit (Transaction + policy RAG) — data model, chunking strategy, S3+SQLite split, citation contract, failure matrix, sequence diagrams + 6 interview Qs (2026-09-20) |
+| `P2_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P2 (Transaction + policy RAG) — data model, chunking strategy, S3+SQLite split, citation contract, failure matrix, sequence diagrams + 6 interview Qs (2026-09-20) |
+| `P3_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P3 (Knowledge assistant) — auth model, chat session/turn schema, memory strategy, grounding + earned citations, eval-as-a-system + 6 interview Qs (2026-09-20) |
 | `LEARNING_NOTES.md` | 📖 Prose revision | Self-check Qs, no answers |
 | `NARRATION_LAB.html` | 🔨 Showcase HTML | Deep concept HTML — **Narration Lab design (mint/teal)**, distinct from Java-track's Corner Notes |
-| `NARRATION_STUDY.html` | 📘 Personal learning | **Rajat's Q&A journal** for the narration track. Scaffolded with 6 empty sections (structured output / RAG / retry / rate limiter / correlation IDs / degrade-not-fail), each section anchored to files + commits, waiting for teaching-mode sessions to fill Q&A blocks. Uses Narration Lab mint/teal base + amber Q&A accent (parallel to TICKET_STUDY's teal-on-cream) (2026-09-20) |
+| `NARRATION_STUDY.html` | 📘 Personal learning | **Rajat's Q&A journal** for the narration track. 6 concept sections (structured output / RAG / retry / rate limiter / correlation IDs / degrade-not-fail) + "Daily interview questions" blocks for P2 Days 2–6 and P3 Days 2–6 (3 Qs per day, per rule 3-11). Teaching-mode Q&A still to come. Narration Lab mint/teal base + amber Q&A accent (parallel to TICKET_STUDY's teal-on-cream) |
 | `Dockerfile`, `docker-compose.yml` | Config | Local run |
 | `pyproject.toml`, `uv.lock` | Config | Python deps (uv-managed) |
-| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py, schemas.py + 3 dayN scratch scripts kept as historical record |
-| `tests/**` | Tests | 68 tests, pytest (LLM + embedding boundaries mocked, real DB via in-memory SQLite + StaticPool) |
-| `eval/**` | Eval | 12-example golden dataset + run_eval.py — costs real API quota, run manually |
+| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py, schemas.py + P2: chunker.py, policy_ingest.py, s3_store.py + P3: auth.py, chat_service.py + 3 dayN scratch scripts kept as historical record |
+| `scripts/create_api_key.py` | Code | CLI-only API-key mint (P3 Day 2) — prints raw key once, stores only the sha256 hash |
+| `tests/**` | Tests | 168 tests, pytest (LLM + embedding boundaries mocked, real DB via in-memory SQLite + StaticPool; `conftest.py` sets a placeholder GEMINI_API_KEY so a fresh clone runs the suite with no `.env`) |
+| `eval/**` | Eval | 17-example golden dataset (12 base + 5 policy-driven) + policy_seeds.json + run_eval.py — costs real API quota, run manually; persists eval_runs/eval_results since P3 Day 5 |
 | `narration_enrichment.db` | Runtime | SQLite persistence (gitignored) |
 
 ### ☕ Original Java baseline (`backend/`)

@@ -1,4 +1,4 @@
-# Narration Enrichment — Learning Notes (Week 1)
+# Narration Enrichment — Learning Notes
 
 Same format as the Java project's notes: what changed, the concept behind
 it, and self-check questions — try answering those yourself before we
@@ -633,6 +633,178 @@ exactly what the unit tests assert for the same starting state.
   Is mixing "live" and "historical" data in one response a reasonable
   design, or does it deserve to be two separate endpoints — and what
   would the actual argument be, either way?
+
+---
+
+# P2 — Policy RAG: retrieval over documents, citations earned in code
+
+**Files:** `chunker.py` (new), `policy_ingest.py` (new), `s3_store.py`
+(new), `models.py` (Citation), `db.py` (PolicyDoc + PolicyChunk),
+`rag.py`, `service.py`, `main.py`, `eval/policy_seeds.json` (new),
+`tests/test_chunker.py`, `tests/test_policy_ingest.py`,
+`tests/test_policy_api.py`, `tests/test_policy_retrieval.py`,
+`tests/test_s3_store.py` (all new)
+
+**The shift from P1's RAG:** Week 3's RAG retrieved the service's *own
+past enrichments* — self-retrieval, no new data entering the system. P2
+retrieves from *documents someone ingested*: policy text that is chunked,
+embedded, stored, and then woven into the `/enrich` prompt as a second,
+separately-labeled context block ("applicable policy excerpts" vs
+"similar past classifications"). Same cosine code in `rag.py` reads both,
+because both stores persist embeddings in the same JSON-encoded shape —
+a deliberate reuse, not an accident.
+
+**Chunking is a pure function, and that's the whole design:**
+`chunk(text, chunk_size, overlap) → list[Chunk]` takes no DB, no
+network, no config object. Every boundary condition (empty input,
+whitespace-only, exact-fit final chunk, overlap ≥ chunk_size rejected)
+is a plain unit test that runs in microseconds. The API layer was not
+allowed to touch the chunker until those tests existed. Fixed-size +
+overlap, not semantic chunking — the same anti-overengineering rule as
+"SQLite over a vector DB": reach for the clever version only when the
+eval proves the boring version is losing accuracy.
+
+**Idempotent-by-checksum ingest:** `POST /policies/ingest` hashes the
+incoming content. Same `doc_id` + same checksum → `unchanged: true`, no
+re-embedding, no quota spent. Same `doc_id` + different checksum →
+replace (old chunks cascade-deleted via the FK). This is the same
+idempotency instinct as the ticketing track's consumer dedup, applied at
+the point where re-running an ingest script is the *expected* usage
+pattern, not an error.
+
+**S3 backing is optional and off by default:** an empty
+`POLICY_S3_BUCKET` means raw docs simply aren't backed to S3 and
+`source_uri` stays NULL — the feature degrades to "SQLite holds
+everything," which is exactly what dev needs. Tests run against `moto`'s
+mock S3; the real bucket is Rajat's to create (standing rule 3-2 — this
+codebase wires boto3 but never creates AWS resources).
+
+**The P2 headline — citations are earned, not decorated:** the response
+schema gained `policy_citations: list[Citation]`, but the LLM does not
+get to decide what goes in it. `_enrich_and_persist` *overwrites*
+whatever citations the model emitted with ground truth: only the chunks
+that were actually retrieved and actually placed in the prompt. The
+regression test `test_llm_provided_citations_are_overwritten_not_appended`
+pins this — a model hallucinating a plausible-looking citation cannot
+smuggle it past the code. Hallucination fixed by architecture, not by
+prompt-engineering pleas.
+
+**Degrade, never fail:** policy retrieval failing (embedding down, empty
+corpus) logs and proceeds without policy context — `/enrich` still
+returns 200 with empty citations. Same rule as Week 3's RAG: a broken
+retrieval path must never turn a working classification into a 500.
+
+**Where this landed:** 128 tests green at P2 close (up from 68), the
+golden dataset grew 5 policy-driven cases seeded from
+`eval/policy_seeds.json`, and the live before/after classification-flip
+proof was deferred to a Rajat-driven run because it burns real Gemini
+quota — the mocked contract test covers the code-side invariant
+meanwhile. Honest deferral, documented, not skipped quietly.
+
+**Self-check:**
+- The chunker rejects `overlap >= chunk_size` with a ValueError instead
+  of clamping it. What infinite-loop shape is that guard actually
+  preventing, and why is failing loud better than clamping here?
+- Re-ingesting a changed doc replaces all its chunks rather than diffing
+  old vs new chunks and updating only what moved. What would diffing buy,
+  what would it cost, and at what corpus size does that trade flip?
+- The citation overwrite happens in the service layer, *after* the LLM
+  call returns. Why is validating citations with a Pydantic validator on
+  the response model (reject if unknown chunk id) a weaker design, even
+  though it "catches" the same hallucination?
+- `source_uri` is nullable and S3 is optional. If the bucket is
+  configured but the S3 PUT fails mid-ingest, what *should* happen to
+  the chunks already embedded — commit without the backing, or roll
+  back? What does the degrade-not-fail rule say, and does it even apply
+  to an ingest (vs a read) path?
+
+---
+
+# P3 — Knowledge assistant: auth, memory, and eval as a system
+
+**Files:** `auth.py` (new), `scripts/create_api_key.py` (new),
+`chat_service.py` (new), `db.py` (chat_sessions, chat_turns, eval_runs,
+eval_results), `schemas.py` (ChatReply), `main.py`, `eval/run_eval.py`,
+`tests/test_auth.py`, `tests/test_chat_api.py`, `tests/test_chat_llm.py`,
+`tests/test_eval_history.py`, `tests/test_eval_logic.py` (all new)
+
+**Auth first, chat second — ordering as a design decision:** the chat
+endpoints did not exist for a single commit without
+`Depends(auth.require_api_key)` on them. "Add auth later" is how an
+unauthed API reaches prod; building the auth layer on Day 2, before any
+chat route, made auth the default posture every later route inherits
+for free.
+
+**What the auth actually does, and the three deliberate choices in it:**
+keys are stored as sha256 hashes — a leaked DB leaks no usable keys.
+Comparison goes through `hmac.compare_digest`, not `==` — a string
+compare that short-circuits on the first differing byte leaks, through
+timing, how much of a guessed key was right. And a *missing* key and a
+*wrong* key both return 401 with the *same* body — a different message
+for "key format recognized" would confirm to an attacker that they're
+getting warmer. Key creation is a CLI script, not an HTTP endpoint: an
+endpoint that mints keys needs auth, which needs a key, which needs the
+endpoint — the bootstrap circle is broken by stepping outside HTTP
+entirely.
+
+**Existence-hiding on 404:** "no such session" and "session exists but
+belongs to a different key" return the identical 404 body. If those two
+cases were distinguishable (404 vs 403), an attacker with any valid key
+could enumerate which session UUIDs exist by watching status codes.
+Same pattern as `/policies/{id}` — by P3 this is a codebase-wide
+convention, not a per-route choice.
+
+**Stub before LLM — Day 3's `[stub-echo]` answer:** the session/turn
+plumbing (UUIDv4 ids, FK CASCADE, role CHECK constraint at the DB
+level, memory cap) was proven with a deterministic echo responder
+before any real LLM call entered the path. When the real integration
+landed on Day 4, every failure could only be in the new code — the
+plumbing already had green tests. Cost and flakiness enter the system
+one layer at a time.
+
+**The chat prompt is built from three sources, with one embed:**
+`chat_service.answer_message` takes the last N=6 turns (window memory —
+the simplest of the three memory strategies, chosen because nothing yet
+justifies summary- or vector-recall memory), plus retrieved enrichments,
+plus retrieved policy chunks. The user message is embedded *once* and
+that one vector searches both stores — two retrievals, one quota spend.
+`ChatReply.cited_enrichment_ids` / `cited_policy_chunk_ids` are then
+overwritten from retrieval ground truth — the P2 rule, applied to its
+second surface, with its own regression test
+(`test_llm_provided_citations_get_overwritten_from_ground_truth`). The
+LLM chooses the answer; the service chooses the citations.
+
+**Eval graduated from a script to a system:** `run_eval.py` still prints
+and still writes its dated JSON report, but now also persists an
+`eval_runs` row + per-case `eval_results` rows. Persistence is
+deliberately non-fatal — a DB hiccup must not kill an eval run that
+just spent real API quota. `GET /eval/history` reads it back in two
+modes from one endpoint: no params → per-case pass-rate rollup across
+every run; `case_id=` → that case's newest-first history with latency.
+This is the same "observability persisted alongside expensive ops"
+shape the ticketing track's outbox established, and the pattern P4's
+queue-depth/DLQ metrics will replicate.
+
+**Where this landed:** 168 tests green at P3 close (up from 128), 45
+new tests across auth timing-safety, session ownership, existence-
+hiding, earned citations, memory cap, retrieval degrade, and eval
+persistence. Zero P1/P2 regressions.
+
+**Self-check:**
+- `hmac.compare_digest` only gives its timing guarantee when both
+  inputs are the same length. The code compares *hashes*, not raw keys.
+  Why does hashing first make the length question disappear entirely?
+- The memory cap keeps the last 6 turns verbatim. At what kind of
+  conversation does window memory visibly break, and which of the two
+  alternatives (summary memory, vector-recall memory) fixes *that*
+  specific break — not just "is fancier"?
+- Eval persistence is non-fatal, but the *report JSON write* was already
+  non-fatal-adjacent (a dated file). If both the DB write and the file
+  write failed, the run's results would exist only in stdout. Is that
+  acceptable for a manually-triggered eval? Would it be for a CI-run one?
+- Session ids are UUIDv4 and ownership is enforced per key. Given both,
+  what does the existence-hiding 404 still protect against that "UUIDs
+  are unguessable" doesn't already cover?
 
 ---
 

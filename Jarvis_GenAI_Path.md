@@ -63,7 +63,12 @@ Complements LLD track (Strategy → Observer → Prototype → Decorator). LLD =
 
 ---
 
-## WEEK 1 (P1) — ACTIVE
+## WEEK 1 (P1) — ✅ DONE (and P2 + P3 done after it)
+
+> **Live status moved:** this section was the kickoff brief. Current
+> position + day-by-day history now live in
+> `narration-enrichment/ROADMAP.md` (status snapshot: P1 ✅, P2 ✅,
+> P3 ✅, **P4 next**) — that file is the source of truth, not this one.
 
 **Goal:** working `POST /enrich` → validated structured JSON. Local, tested, pushed.
 
@@ -80,12 +85,12 @@ Complements LLD track (Strategy → Observer → Prototype → Decorator). LLD =
 - Weekend: README + `.env.example` + run instructions, commit + push
 
 **Definition of Done:**
-- [ ] `POST /enrich` schema-valid JSON on sample txns
-- [ ] LLM fail/timeout pe clean error, no crash
-- [ ] key env se, `.env.example` present
-- [ ] happy-path + 1 failure test pass
-- [ ] README with setup + example call (curl **PowerShell** mein, repo path quote karo)
-- [ ] pushed to `GenAiBackend` (`enrichment-api/` folder)
+- [x] `POST /enrich` schema-valid JSON on sample txns
+- [x] LLM fail/timeout pe clean error, no crash
+- [x] key env se, `.env.example` present
+- [x] happy-path + 1 failure test pass
+- [x] README with setup + example call (curl **PowerShell** mein, repo path quote karo)
+- [x] pushed to `GenAiBackend` (folder became `narration-enrichment/`, not `enrichment-api/`)
 
 DoD tick → LinkedIn GenAI claims green-light.
 
