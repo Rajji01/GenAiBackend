@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2 DONE**, **P3 DONE**; **P4 code-side DONE (Days 1–6, 2026-10-04) — 217 tests green** |
-| **Next work unit** | Rajat's live-SQS leg of P4 (terraform apply + the `infra/README.md` verification script, rule 3-2) — then P5 (tool-calling assistant) per §4 when Rajat greenlights. |
+| **Current position** | **P2–P3 DONE**; **P4 code-side DONE** (217 tests at close); **P5 IN PROGRESS — Day 1 (design) done 2026-10-04** (greenlit by Rajat's "krta rh") |
+| **Next work unit** | P5 Days 2–5 per §3D — tool registry, the bounded loop, guardrails, closeout. Also open: Rajat's live-SQS leg of P4 (`infra/README.md`). |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -42,6 +42,7 @@ after it's proven against a real Gemini call, real SQLite, real HTTP.
 3. [P2 daily plan — Transaction + policy RAG](#3-p2-daily-plan--transaction--policy-rag)
 3b. [P3 daily plan — Knowledge assistant](#3b-p3-daily-plan--knowledge-assistant)
 3c. [P4 daily plan — Async doc-processing pipeline](#3c-p4-daily-plan--async-doc-processing-pipeline)
+3d. [P5 daily plan — Tool-calling assistant](#3d-p5-daily-plan--tool-calling-assistant)
 4. [P4-P8 outline (from Jarvis_GenAI_Path.md)](#4-p4-p8-outline)
 5. [Companion files — which is which](#5-companion-files)
 6. [How to use this file](#6-how-to-use-this-file)
@@ -59,7 +60,7 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 | P2 | Transaction + policy RAG | Embeddings, retrieval, citations | S3 (docs) | Modular monolith | ✅ **DONE** |
 | P3 | Knowledge assistant | Auth, memory, eval pipeline | S3 | Modular monolith | ✅ **DONE** |
 | **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | ✅ **code-side DONE** (live-SQS leg = Rajat's) |
-| P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | future |
+| P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | 🚧 **IN PROGRESS** (Day 1 done) |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
 | P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | future |
 | P8 | Capstone platform | Full prod system | full | full | future |
@@ -440,6 +441,55 @@ This section is the day plan; that file is the *why*.
 - **The queue is the backpressure** — plus an honest 429 at intake
   when the backlog cap is hit, and the existing RateLimiter pacing
   the worker at the true scarce resource (embed quota).
+
+---
+
+## 3D. P5 daily plan — Tool-calling assistant
+
+**Goal:** P3's chat gains four deterministic, read-only, whitelisted
+tools over the DB, a bounded loop (max 3 iterations + forced-final),
+and the guardrails that make the loop safe: typed args, data-framed
+observations, and an earned tool-trail (`tools_used` + a
+`tool_invocations` audit table written by the executor, never the
+model).
+
+**Design paper:** [`P5_DESIGN.md`](P5_DESIGN.md) — read it first.
+The Spring AI port the master plan pairs with P5 is a separate,
+Rajat-greenlit unit; this is the Python half.
+
+### DoD (Definition of Done)
+
+- [x] `P5_DESIGN.md` shipped as Day 1 deliverable *(2026-10-04)*
+- [ ] `tools.py` — Tool dataclass + TOOL_REGISTRY whitelist + the four
+      tools (count_transactions / category_breakdown /
+      find_transactions / list_policy_docs) with per-tool Pydantic
+      args models; pure read-only functions over the Session *(Day 2)*
+- [ ] The loop in `chat_service.py` — `_ChatLLMStep` (flat, not a
+      union), up to 3 iterations, forced-final with the catalog
+      withheld, data-framed observations; `tool_invocations` table +
+      `ChatReply.tools_used` earned from the executor *(Day 3)*
+- [ ] Guardrail regression pass — unknown tool, invalid args, tool
+      exception (`ok=false` row), budget exhaustion, catalog withheld
+      on forced-final, audit-matches-tools_used exactly; injection
+      framing in the system header *(Day 4)*
+- [ ] Closeout: README "Tool calling (P5)" section, LAB cards +
+      banner, STUDY Qs per rule 3-11, this DoD, AGENTS/FILE_GUIDE
+      sync *(Day 5)*
+- [ ] Live "does the real model pick good tools" eval — deferred to a
+      Rajat-quota-approved run (rule 3-6; mocked sequences cover every
+      code-side invariant meanwhile)
+
+### Concepts to keep tight
+
+- **Capability is a whitelist.** Registry miss = error observation,
+  never execution. Same posture as the retry whitelist and rule 3-10.
+- **Read-only is the load-bearing injection defence.** Prompt framing
+  is probabilistic; the blast radius is structural.
+- **The loop must land.** Budget exhaustion forces a final answer —
+  no silent ends, no unbounded wandering.
+- **The executor writes the record.** tools_used and tool_invocations
+  come from the code path that ran the tool — the model's narrative
+  is never the audit.
 
 ---
 
