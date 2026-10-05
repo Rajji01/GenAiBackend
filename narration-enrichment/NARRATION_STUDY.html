@@ -888,6 +888,29 @@
     <p class="iq-hint">Hint for (a): with a scripted mock, "the model obeyed" is an assertion about your script, not the model. (b): ≤4 LLM calls, 4 read-only whitelisted queries max, every attempt audited, trail unfakeable. (c): adversarial cases in eval/ run live against the real model on Rajat's quota — the same live-proof discipline P2 deferred under rule 3-6.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p5-d5">
+    <h3>P5 · Day 5 — Closeout: the tool-calling design, reviewed whole</h3>
+    <span class="iq-anchor">files: the whole P5 arc — <code>P5_DESIGN.md</code>, <code>tools.py</code>, <code>chat_service.py</code>, <code>db.py</code> (ToolInvocation)</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Across P5, the same value often exists as "one source, two views": the registry renders the catalog; the executor's record becomes both audit rows and <code>tools_used</code>. Find a THIRD example anywhere in this repo (earlier projects count) of one-source-two-views, and name the drift bug each instance prevents. Then the inverse: find one place where the repo deliberately keeps TWO sources for similar data and justifies it — why is that not a violation?</p>
+    <p class="iq-hint">Hint for the third: P4's intake valve and /ops both read the same jobs table; or eval's JSON report + DB rows... careful, that LAST one is the two-sources example (file for humans/archive, rows for queries — different consumers, both written by the same run, divergence detectable).</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> A user sends "which rulebooks do you have, and how many food orders this month?" Trace the IDEAL two-iteration path through <code>answer_message</code>: which tool each step should request, what each observation contains, and what the final <code>ChatReply</code> looks like (all four fields). Now the degraded variant: the embed call fails at the top. Which parts of your trace change, and why do the TOOLS still work when retrieval doesn't?</p>
+    <p class="iq-hint">Hint: list_policy_docs then count_transactions(category=food_delivery, days=30); tools_used in that order; cited_* empty-or-not depends on retrieval, which is a SEPARATE channel — embed failure empties evidence/policy but the tool channel needs no embedding at all. Two independent channels is the architecture's quiet win.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> P5 closes with the same shape P2/P3/P4 closed with: a code-complete arc whose LIVE leg is deferred to Rajat's quota/resources (rule 3-6 + 3-2). An interviewer asks the uncomfortable version: "so none of your last three projects has run end-to-end against the real services — isn't that a portfolio of mocks?" Build the defence from this repo's actual evidence: (a) which invariants are PROVEN regardless (name three with their test files), (b) which claims are explicitly NOT made (find the honest flags in LAB/README), (c) why deferred-live beats faked-live for credibility — and then concede the one thing the critic is right about, and what the standing plan to fix it is.</p>
+    <p class="iq-hint">Hint for (c): the repo's whole epistemic stance — rule 3-6 'live verification, no cherry-picking' — is WHY the live legs are flagged open instead of claimed. The concession: until Rajat's runs happen, model-behaviour claims (tool choice quality, injection obedience) are genuinely unverified; the plan is named in each closeout card.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P3 DONE**; **P4 code-side DONE** (217 tests at close); **P5 IN PROGRESS — Day 1 (design) done 2026-10-04** (greenlit by Rajat's "krta rh") |
-| **Next work unit** | P5 Days 2–5 per §3D — tool registry, the bounded loop, guardrails, closeout. Also open: Rajat's live-SQS leg of P4 (`infra/README.md`). |
+| **Current position** | **P2–P3 DONE**; **P4 + P5 code-side DONE (2026-10-04) — 244 tests green** |
+| **Next work unit** | Rajat's open legs: P4 live-SQS (`infra/README.md`), P5 live tool-choice eval, Spring AI port greenlight. Then P6 (agentic workflow) per §4 on Rajat's go. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -60,7 +60,7 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 | P2 | Transaction + policy RAG | Embeddings, retrieval, citations | S3 (docs) | Modular monolith | ✅ **DONE** |
 | P3 | Knowledge assistant | Auth, memory, eval pipeline | S3 | Modular monolith | ✅ **DONE** |
 | **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | ✅ **code-side DONE** (live-SQS leg = Rajat's) |
-| P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | 🚧 **IN PROGRESS** (Day 1 done) |
+| P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | ✅ **code-side DONE** (live eval + Spring port = Rajat's) |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
 | P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | future |
 | P8 | Capstone platform | Full prod system | full | full | future |
@@ -485,12 +485,13 @@ Rajat-greenlit unit; this is the Python half.
       outside the read-only whitelist executes, no unframed path into
       the prompt, fabricated narratives ship with an empty trail;
       full suite 244 green)*
-- [ ] Closeout: README "Tool calling (P5)" section, LAB cards +
+- [x] Closeout: README "Tool calling (P5)" section, LAB cards +
       banner, STUDY Qs per rule 3-11, this DoD, AGENTS/FILE_GUIDE
-      sync *(Day 5)*
+      sync *(Day 5, this commit)*
 - [ ] Live "does the real model pick good tools" eval — deferred to a
       Rajat-quota-approved run (rule 3-6; mocked sequences cover every
-      code-side invariant meanwhile)
+      code-side invariant meanwhile). **The only open box**, alongside
+      the master plan's Spring AI port (its own Rajat-greenlit unit)
 
 ### Concepts to keep tight
 
