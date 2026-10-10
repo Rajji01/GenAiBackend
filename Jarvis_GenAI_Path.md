@@ -63,12 +63,13 @@ Complements LLD track (Strategy → Observer → Prototype → Decorator). LLD =
 
 ---
 
-## WEEK 1 (P1) — ✅ DONE (and P2 + P3 done after it)
+## WEEK 1 (P1) — ✅ DONE (and P2–P5 done after it)
 
 > **Live status moved:** this section was the kickoff brief. Current
 > position + day-by-day history now live in
 > `narration-enrichment/ROADMAP.md` (status snapshot: P1 ✅, P2 ✅,
-> P3 ✅, **P4 next**) — that file is the source of truth, not this one.
+> P3 ✅, P4 ✅, P5 ✅ — code-side, **P6 next**) — that file is the
+> source of truth, not this one.
 
 **Goal:** working `POST /enrich` → validated structured JSON. Local, tested, pushed.
 

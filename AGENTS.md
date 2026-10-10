@@ -15,8 +15,8 @@ A **self-directed multi-week mentorship-style engineering project** by **Rajat A
 | Track | Folder | Language / Stack | Purpose |
 |---|---|---|---|
 | **A — Java baseline** | `backend/` | Spring Boot 3, JPA, MySQL, Flyway | UFC/betting backend — production-grade Java baseline (mostly complete) |
-| **B — GenAI (Python)** | `narration-enrichment/` | FastAPI + Pydantic + Instructor + Gemini + SQLite | Transaction narration → structured JSON. RAG + rate limiter + observability added. Weeks 1–4 done |
-| **C — Ticketing microservices (Java)** | `ticketing-platform/` | Spring Boot, Postgres, Redis, docker-compose, Resilience4j | District/BookMyShow-style ticketing. Week 1 (`inventory-service`) done. **Week 2 (`booking-service`) live-verified through Day 4** |
+| **B — GenAI (Python)** | `narration-enrichment/` | FastAPI + Pydantic + Instructor + Gemini + SQLite | Transaction narration → structured JSON → RAG → policy RAG → knowledge assistant → async pipeline → tool-calling. **P1–P5 code-side done (244 tests); P6 next** |
+| **C — Ticketing microservices (Java)** | `ticketing-platform/` | Spring Boot, Postgres, Redis, docker-compose, Resilience4j | District/BookMyShow-style ticketing. **Weeks 1–3 done (inventory/booking/payment/notification, 124 tests); Week 4 (AWS) = design + Terraform skeleton done, real `apply` = Rajat** |
 
 The user runs Tracks B and C in parallel — alternate work weeks, side-by-side.
 
@@ -240,13 +240,14 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 
 ### GenAI track (Python)
 - `Jarvis_GenAI_Path.md` — master plan (P1 → P8)
-- `narration-enrichment/ROADMAP.md` — **narration-specific ordered plan** (P1 done recap + P2 day-by-day + P3-P8 outline)
-- `narration-enrichment/P2_DESIGN.md` — Day 1 design paper for the next work unit (RAG over policy docs) + 6 interview Qs
-- `narration-enrichment/README.md` — full build log (Weeks 1–4 prose)
+- `narration-enrichment/ROADMAP.md` — **narration-specific ordered plan** (P1–P5 done recap + P6-P8 outline)
+- `narration-enrichment/P2_DESIGN.md` / `P3_DESIGN.md` / `P4_DESIGN.md` / `P5_DESIGN.md` — Day-1 design papers (policy RAG / knowledge assistant / async pipeline / tool-calling), each + interview Qs
+- `narration-enrichment/README.md` — full build log (P1–P5 prose)
 - `narration-enrichment/LEARNING_NOTES.md` — prose revision with self-check Qs (no answers)
-- `narration-enrichment/NARRATION_LAB.html` — showcase HTML (mint/teal design)
-- `narration-enrichment/NARRATION_STUDY.html` — **Rajat's Q&A journal** for this track, scaffolded, empty of Q&A until teaching-mode begins here
-- `narration-enrichment/src/` — Weeks 1–4 code (P1 complete)
+- `narration-enrichment/NARRATION_LAB.html` — showcase HTML (mint/teal design) — P1–P5 cards
+- `narration-enrichment/NARRATION_STUDY.html` — **Rajat's Q&A journal** for this track (interview Qs across P2–P5)
+- `narration-enrichment/src/` — P1–P5 code (enrich/RAG/policy/auth/chat + P4 `job_queue.py`+`worker.py` + P5 `tools.py`)
+- `narration-enrichment/infra/` — P4 SQS/DLQ Terraform skeleton (NOT applied — Rajat's, §3-2)
 
 ### Java baseline (reference)
 - `backend/LEARNING_NOTES.md` + `CORNER_NOTES.html`

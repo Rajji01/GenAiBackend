@@ -35,13 +35,18 @@ DoD green na ho."** Same rule for both tracks.
 - Pending on Rajat: terraform validate+apply, §7 lean confirmations,
   WEEK3/WEEK4_DESIGN interview answers.
 
-### Narration — P1 + P2 + P3 done, P4 next
+### Narration — P1–P5 code-side done, P6 next
 
 - P1 (enrichment API) + P2 (policy RAG, earned citations) + P3 (knowledge
-  assistant: auth, chat memory, eval-as-a-system) all shipped.
-- **168 tests green**, 0 live calls in the suite. Last commit `fab8f9e`.
-- **P4 (async doc pipeline — SQS + DLQ + S3 + worker split) not started;
-  awaiting Rajat's greenlight.** AWS resource creation is Rajat's (§3-2).
+  assistant: auth, chat memory, eval-as-a-system) + **P4 (async doc pipeline:
+  API+Worker split, in-memory + SQS-behind-same-interface, DLQ/DEAD, recovery
+  sweep) + P5 (tool-calling: whitelisted read-only tools, bounded loop,
+  guardrails)** all shipped.
+- **244 tests green**, 0 live calls in the suite (SQS via moto). Merged from a
+  cloud branch + reauthored to Rajat; last commit on `main` `cffe9dd`.
+- **P6 (agentic workflow) is next** on Rajat's greenlight. Open legs (Rajat's):
+  live-SQS `terraform apply`, live tool-choice eval, Spring AI port. AWS
+  resource creation is Rajat's (§3-2).
 
 ---
 
