@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P3 DONE**; **P4 + P5 code-side DONE (2026-10-04) — 244 tests green** |
-| **Next work unit** | Rajat's open legs: P4 live-SQS (`infra/README.md`), P5 live tool-choice eval, Spring AI port greenlight. Then P6 (agentic workflow) per §4 on Rajat's go. |
+| **Current position** | **P2–P5 code-side DONE (244 tests)**; **P6 STARTED 2026-10-10 — Day 1 (design) done** |
+| **Next work unit** | P6 Day 2 — disputes schema + state machine + CRUD routes (§3E). Rajat's open legs unchanged: P4 live-SQS, P5 live tool-eval, Spring AI port. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -504,6 +504,53 @@ Rajat-greenlit unit; this is the Python half.
 - **The executor writes the record.** tools_used and tool_invocations
   come from the code path that ran the tool — the model's narrative
   is never the audit.
+
+---
+
+## 3E. P6 daily plan — Agentic workflow (transaction disputes)
+
+**Goal:** an agent loop applied to a genuinely case-varying workflow —
+transaction disputes — with the interview-signature "when NOT to agent"
+framework, a structural human gate, and **LLM-as-judge eval** (the #1
+market-signal deliverable from `JARVIS_CHAIN.md` §2).
+
+**Design paper:** [`P6_DESIGN.md`](P6_DESIGN.md) — read it first.
+
+### DoD (Definition of Done)
+
+- [x] `P6_DESIGN.md` shipped as Day 1 deliverable *(this commit)*
+- [ ] `disputes` + `agent_steps` tables (UUIDv4 ids, CHECK-constrained
+      state machine, named transitions) + CRUD routes (auth-gated,
+      existence-hiding), NO agent yet *(Day 2)*
+- [ ] Agent loop: flat step model extended (`tool_call | classify |
+      propose | escalate`), checkpoint-then-execute, resumable from
+      `step_index`, dual budgets (AGENT_MAX_STEPS=6 per run,
+      AGENT_MAX_LLM_CALLS=8 per lifetime, CAS counter), forced-escalate
+      on exhaust *(Day 3)*
+- [ ] Human gate: `/approve` + `/reject` human-only routes (409 unless
+      PROPOSED, unreachable from the loop by whitelist construction) +
+      adversarial pass (claim-text injection, self-approve attempts,
+      budget-exhaust observability) *(Day 4)*
+- [ ] LLM-as-judge: `eval/golden_disputes.json` (~8 cases) +
+      `JudgeVerdict` rubric (grounded/policy 0-2 + classification
+      cross-checked by `==` in code) + reuse of eval_runs/eval_results +
+      **threshold gate** (exit non-zero: grounded<1.5 or class-acc<80%)
+      *(Day 5)*
+- [ ] Closeout: README "Agentic disputes (P6)" section, LAB D2–D5 cards
+      + "P6 shipped" banner, STUDY interview Qs (3/day), ROADMAP DoD
+      ticked, AGENTS §4 + JARVIS_CHAIN §1+§3 synced, memory synced
+      *(Day 6)*
+
+### Concepts to keep tight
+
+- **When NOT to agent is a framework, not a vibe** — three conditions
+  (§2 of the design), and P4's ingestion is the deliberate counter-example.
+- **The agent proposes; it never disposes.** Approve/reject routes are
+  structurally unreachable from the loop (not in the registry).
+- **Checkpoint before execute.** A recorded intention with no effect is
+  re-runnable; an effect with no record is unauditable.
+- **The judge is cross-checked.** Objective fields get `==` in code;
+  divergence = judge-reliability finding, not silently trusted.
 
 ---
 
