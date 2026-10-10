@@ -59,7 +59,7 @@ from narration_enrichment.db import (
 from narration_enrichment.models import Citation, TransactionEnrichment
 from narration_enrichment.policy_ingest import compute_checksum, ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
-from narration_enrichment import auth, chat_service, job_queue, s3_store
+from narration_enrichment import auth, chat_service, dispute_agent, job_queue, s3_store
 from narration_enrichment.schemas import (
     AgentStepResponse,
     BatchEnrichRequest,
@@ -772,6 +772,56 @@ def disputes_get(
         **base.model_dump(),
         steps=[AgentStepResponse.model_validate(s) for s in steps],
     )
+
+
+@app.post("/disputes/{dispute_id}/run", response_model=DisputeResponse)
+def disputes_run(
+    dispute_id: str,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> DisputeResponse:
+    """P6 Day 3 — drive the agent loop to PROPOSED/ESCALATED.
+
+    Idempotent-ish: an already-PROPOSED dispute returns as-is (no LLM
+    spent); a terminal dispute is 409. LLM failures leave the dispute
+    at its last checkpoint — a retry resumes from there (the loop's
+    whole design). Error ladder mirrors /chat: everything
+    provider-shaped is a 503/504, never a leaked exception message.
+    """
+    dispute = get_dispute_owned_by(db, dispute_id=dispute_id, api_key_hash=key_hash)
+    if dispute is None:
+        raise HTTPException(status_code=404, detail="Dispute not found.")
+
+    try:
+        result = dispute_agent.run_dispute_agent(db, dispute_id=dispute_id)
+        return _dispute_response(result)
+    except ValueError as exc:
+        # Terminal dispute — the state machine refused. 409, state shown.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except InstructorRetryException as exc:
+        cause = exc.__cause__
+        code = 503
+        detail = "The agent's LLM provider is temporarily unavailable. The dispute is resumable — retry."
+        if not (isinstance(cause, APIError) and cause.code in {429, 503, 504}):
+            logger.warning("dispute_agent_reply_invalid dispute=%s error=%s", dispute_id, exc)
+        else:
+            logger.warning("dispute_agent_provider_error dispute=%s code=%s", dispute_id, cause.code)
+        raise HTTPException(status_code=code, detail=detail) from exc
+    except httpx.TimeoutException as exc:
+        logger.warning("dispute_agent_timeout dispute=%s", dispute_id)
+        raise HTTPException(
+            status_code=504,
+            detail="The agent's LLM provider took too long. The dispute is resumable — retry.",
+        ) from exc
+    except APIError as exc:
+        logger.warning("dispute_agent_provider_error dispute=%s code=%s", dispute_id, exc.code)
+        raise HTTPException(
+            status_code=503,
+            detail="The agent's LLM provider is temporarily unavailable. The dispute is resumable — retry.",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.error("dispute_agent_unexpected dispute=%s", dispute_id, exc_info=exc)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
 
 
 def _dispute_response(d) -> DisputeResponse:

@@ -246,6 +246,7 @@
   <nav class="nav-group">
     <div class="nav-group-title">P6 daily interview Qs</div>
     <a class="nav-link" href="#iq-p6-d2"><span class="nav-tag">D2</span> Dispute machine + CRUD</a>
+    <a class="nav-link" href="#iq-p6-d3"><span class="nav-tag">D3</span> The agent loop</a>
   </nav>
 
   <nav class="nav-group">
@@ -937,6 +938,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> Day 2 shipped the ENTIRE state machine — including <code>mark_approved</code>/<code>mark_rejected</code> — before any agent code exists (Day 3) or any approve route exists (Day 4). Defend this ordering in an interview: what class of bug becomes impossible when the state machine + its 7 unit tests land before anything can drive it? Connect to P3-D3's stub-before-LLM and ticketing's design-before-code Day-1 pattern — what's the common principle?</p>
     <p class="iq-hint">Hint: "plumbing proved before intelligence." When Day 3's loop misbehaves, the state machine is already trusted — one plausible failure source, not two. The principle: layer N's correctness is established before layer N+1 can blame it.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p6-d3">
+    <h3>P6 · Day 3 — The agent loop (checkpoint-then-execute, dual budgets, resume)</h3>
+    <span class="iq-anchor">files: <code>dispute_agent.py</code>, <code>main.py</code> (/run route), <code>tests/test_dispute_agent.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>_AgentStepReply.action</code> defaults to <code>"escalate"</code>, while chat's <code>_ChatLLMReply.action</code> defaults to <code>"final_answer"</code>. Same flat-step pattern, opposite defaults. Explain why each default is the SAFE one for its surface, and what could go wrong if the dispute loop copied chat's default.</p>
+    <p class="iq-hint">Hint: a garbled step in chat should land the conversation (answer). A garbled step in a dispute should hand off to a human — defaulting into "propose" would let model noise generate resolution proposals.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace one <code>tool_call</code> iteration in <code>run_dispute_agent</code>: which DB writes happen, in what order, around the <code>tools.execute_tool</code> call? Now put a crash between the checkpoint insert and the execute — what's in the DB, and why is re-running safe? Put the crash after execute but before the observation commit — what changed?</p>
+    <p class="iq-hint">Hint: insert(intention) → execute (read-only!) → update(observation). Crash #1 leaves intention-with-null-observation (rerunnable). Crash #2: the tool ran but it's read-only, so re-running re-reads — nothing double-mutates. Now ask: what breaks if a tool ever becomes a WRITE?</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The two budgets look redundant — "why isn't 6 steps/run enough?" Construct the exact attack the lifetime CAS budget catches that the per-run step budget cannot (hint: crash-resume), then explain why the budget check happens BEFORE the LLM call (test: <code>mock_llm.assert_not_called()</code>) and not after. What real money does that ordering save, and which P4 mechanism is <code>reserve_llm_call</code> structurally identical to?</p>
+    <p class="iq-hint">Hint: a loop that crashes after 5 steps and resumes gets a FRESH step budget every run — 5 calls per crash, forever. The lifetime CAS (used &lt; max, one atomic UPDATE) caps total spend across all resumes. Check-before-call = zero provider spend once exhausted. P4 parallel: claim-by-CAS / attempts budget.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">
