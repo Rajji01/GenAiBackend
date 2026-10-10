@@ -247,6 +247,7 @@
     <div class="nav-group-title">P6 daily interview Qs</div>
     <a class="nav-link" href="#iq-p6-d2"><span class="nav-tag">D2</span> Dispute machine + CRUD</a>
     <a class="nav-link" href="#iq-p6-d3"><span class="nav-tag">D3</span> The agent loop</a>
+    <a class="nav-link" href="#iq-p6-d4"><span class="nav-tag">D4</span> The human gate</a>
   </nav>
 
   <nav class="nav-group">
@@ -961,6 +962,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> The two budgets look redundant — "why isn't 6 steps/run enough?" Construct the exact attack the lifetime CAS budget catches that the per-run step budget cannot (hint: crash-resume), then explain why the budget check happens BEFORE the LLM call (test: <code>mock_llm.assert_not_called()</code>) and not after. What real money does that ordering save, and which P4 mechanism is <code>reserve_llm_call</code> structurally identical to?</p>
     <p class="iq-hint">Hint: a loop that crashes after 5 steps and resumes gets a FRESH step budget every run — 5 calls per crash, forever. The lifetime CAS (used &lt; max, one atomic UPDATE) caps total spend across all resumes. Check-before-call = zero provider spend once exhausted. P4 parallel: claim-by-CAS / attempts budget.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p6-d4">
+    <h3>P6 · Day 4 — The human gate + 3-layer adversarial proof</h3>
+    <span class="iq-anchor">files: <code>main.py</code> (/approve, /reject), <code>tests/test_dispute_gate.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> The first version of the layer-3 test did <code>assert "mark_approved" not in inspect.getsource(dispute_agent)</code> — and FAILED on correct code. Why? What does the fixed version (<code>ast.walk</code> collecting <code>ast.Call</code> nodes with <code>ast.Attribute</code> funcs) check instead, and why does the fixed test also assert <code>mark_escalated in called</code>?</p>
+    <p class="iq-hint">Hint: the module docstring DOCUMENTS the gate by naming the methods — mention ≠ call. The sanity assert proves the AST walk actually sees method calls, so "not in called" can't pass vacuously because the walk was broken.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace the adversarial sequence in <code>test_approve_dispute_tool_call_is_audited_noop</code>: the model asks for <code>tool_call approve_dispute</code>. Walk through what <code>execute_tool</code> does, what lands in the <code>agent_steps</code> row, what the observation tells the model, and why "the error names the real menu" is a deliberate choice rather than a leak.</p>
+    <p class="iq-hint">Hint: registry miss → ok=False + {"error": "unknown tool", "available": [...]}. The whitelist's NAMES aren't secret — the capability boundary is what's enforced. A model that knows the menu recovers in one step instead of guessing.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> Defense-in-depth ke 3 layers hain (schema Literal, registry whitelist, AST no-call proof) — par teeno STRUCTURAL hain, ek bhi prompt-based nahi. Interview framing: "why do you need three if each one alone already blocks the approval?" Answer karte waqt: (a) kaunsi layer kis FUTURE change se tootegi, (b) baaki do tab kya pakdenge, (c) ye "N independent guards for one invariant" pattern is repo mein aur kahan dikha hai?</p>
+    <p class="iq-hint">Hint: schema toot sakti hai agar koi action Literal mein "approve" add kare (registry + AST still hold); registry toot sakti hai agar koi approve_dispute tool register kare (AST still holds); AST test hi wo tripwire hai jo dono ke pehle fire hota hai. Pattern-parallel: ticketing ki 2-tier concurrency defense (SETNX + @Version) — alag layers, alag failure classes.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

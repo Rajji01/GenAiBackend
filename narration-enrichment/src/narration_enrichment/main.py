@@ -73,6 +73,7 @@ from narration_enrichment.schemas import (
     ChatTurnResponse,
     DisputeCreateRequest,
     DisputeDetail,
+    DisputeRejectRequest,
     DisputeResponse,
     EnrichmentRecordResponse,
     EvalCasePassRate,
@@ -822,6 +823,54 @@ def disputes_run(
     except Exception as exc:  # noqa: BLE001
         logger.error("dispute_agent_unexpected dispute=%s", dispute_id, exc_info=exc)
         raise HTTPException(status_code=500, detail="An unexpected error occurred.") from exc
+
+
+# --- P6 Day 4: the human gate ---------------------------------------------
+#
+# These two routes are the ONLY paths across PROPOSED → terminal.
+# They are not registry tools, so the agent loop cannot reach them by
+# construction (P6_DESIGN §6) — the gate is structural, same philosophy
+# as earned citations: enforced in code, not requested in prompt.
+
+
+@app.post("/disputes/{dispute_id}/approve", response_model=DisputeResponse)
+def disputes_approve(
+    dispute_id: str,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> DisputeResponse:
+    dispute = get_dispute_owned_by(db, dispute_id=dispute_id, api_key_hash=key_hash)
+    if dispute is None:
+        raise HTTPException(status_code=404, detail="Dispute not found.")
+    try:
+        dispute.mark_approved()
+    except ValueError as exc:
+        # Not PROPOSED — nothing to approve (or already resolved). The
+        # state machine's message names the actual state; no probing
+        # value in hiding it from the resource's own owner.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    db.commit()
+    logger.info("dispute_approved dispute=%s", dispute_id)
+    return _dispute_response(dispute)
+
+
+@app.post("/disputes/{dispute_id}/reject", response_model=DisputeResponse)
+def disputes_reject(
+    dispute_id: str,
+    request: DisputeRejectRequest,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> DisputeResponse:
+    dispute = get_dispute_owned_by(db, dispute_id=dispute_id, api_key_hash=key_hash)
+    if dispute is None:
+        raise HTTPException(status_code=404, detail="Dispute not found.")
+    try:
+        dispute.mark_rejected(reason=request.reason.strip())
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    db.commit()
+    logger.info("dispute_rejected dispute=%s", dispute_id)
+    return _dispute_response(dispute)
 
 
 def _dispute_response(d) -> DisputeResponse:

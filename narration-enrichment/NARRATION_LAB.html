@@ -326,6 +326,7 @@
       <a class="nav-link" href="#p6-intro"><span class="nav-tag">·</span>The idea + when NOT to agent</a>
       <a class="nav-link" href="#p6-day2"><span class="nav-tag">D2</span>Dispute state machine + CRUD</a>
       <a class="nav-link" href="#p6-day3"><span class="nav-tag">D3</span>The agent loop (checkpoint + budgets)</a>
+      <a class="nav-link" href="#p6-day4"><span class="nav-tag">D4</span>The human gate (3-layer proof)</a>
     </div>
 
     <div class="nav-group">
@@ -2430,6 +2431,55 @@ Full suite:               261 passed (was 244)</div>
 Full suite:               275 passed (was 261)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next (Day 4): the human gate — <code>/approve</code> + <code>/reject</code> routes + the full adversarial pass against the dispute surface.</p>
+    </article>
+
+    <article class="card day-card" id="p6-day4">
+      <div class="day-head">
+        <span class="day-stamp">P6 · D4</span>
+        <span class="day-title">The human gate — and the 3-layer proof the agent can't cross it</span>
+      </div>
+      <span class="day-files">main.py (/approve, /reject) · schemas.py · tests/test_dispute_gate.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> the two routes that cross PROPOSED → terminal — and the adversarial pass proving the agent loop can never reach them. "The agent proposes, the human disposes" is now enforced three independent ways, each with its own test.</p>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">The 3-layer structural gate</div>
+        <ol style="margin:6px 0 0 20px;">
+          <li><strong>The schema.</strong> <code>_AgentStepReply.action</code> is a <code>Literal</code> of four values — <code>action="approve"</code> cannot even be constructed. A model that insists gets Instructor validation failures, never an approval. Test: <code>ValidationError</code> raised.</li>
+          <li><strong>The registry.</strong> A model that invents an <code>approve_dispute</code> tool gets the unknown-tool observation (naming the real menu), the step is audited, the loop continues — the dispute is never approved. Test drives exactly this sequence.</li>
+          <li><strong>The source.</strong> An AST walk over <code>dispute_agent.py</code> asserts no CALL to <code>mark_approved</code>/<code>mark_rejected</code> exists in any executable path (while sanity-checking the walk sees <code>mark_escalated</code>/<code>mark_proposed</code>). A future refactor that adds one fails the suite before any prompt gets a say.</li>
+        </ol>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Approve/reject: PROPOSED-only, terminal-sticky</h4>
+          <p>Both routes 409 on anything but PROPOSED, with the state machine's own message (no probing value in hiding state from the resource's owner). Approve-then-approve = 409; approve-then-reject = 409 — APPROVED is forever. Running the agent on a terminal dispute: 409, and the mock proves the provider is never called.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Reject requires a reason</h4>
+          <p>Pydantic <code>min_length=3</code> — a rejection without a reason is useless to the next human reading the dispute, and the required field keeps /reject from becoming a one-click dismissal habit. The reason lands on the row (<code>rejection_reason</code>), part of the audit.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Existence-hiding holds at the gate too</h4>
+          <p>Foreign-key approve → 404 byte-identical to not-found, and the victim's dispute is asserted UNTOUCHED after the probe. Invariant #2, fourth surface.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Why the docstring-vs-AST distinction matters</h4>
+          <p>First version of the layer-3 test did <code>"mark_approved" not in source</code> — and failed, because the module's own docstring <em>documents</em> the gate. Mentioning the rule is documentation; CALLING the method is a breach. The AST walk checks calls only. Small bug, good lesson: assert on semantics, not strings.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_dispute_gate.py — 10 passed
+  · 7 gate (auth, approve→APPROVED+resolved_at, reject+reason
+    recorded, 409 non-PROPOSED, terminal-sticky both ways,
+    foreign 404 + victim untouched, run-after-terminal 409 with
+    zero provider calls)
+  · 3 adversarial layers (schema Literal, registry noop audited
+    with menu named, AST no-call proof)
+Full suite:               285 passed (was 275)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next (Day 5): LLM-as-judge — golden disputes + JudgeVerdict rubric + the threshold gate, reusing P3-D5's eval tables. The #1 market-signal deliverable.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

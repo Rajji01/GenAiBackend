@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P5 code-side DONE**; **P6 Days 1–3 done (275 tests)** |
-| **Next work unit** | P6 Day 4 — human gate (/approve, /reject) + adversarial pass (§3E). Rajat's open legs unchanged: P4 live-SQS, P5 live tool-eval, Spring AI port. |
+| **Current position** | **P2–P5 code-side DONE**; **P6 Days 1–4 done (285 tests)** |
+| **Next work unit** | P6 Day 5 — LLM-as-judge (golden disputes + JudgeVerdict + threshold gate) (§3E). Rajat's open legs unchanged: P4 live-SQS, P5 live tool-eval, Spring AI port. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -530,10 +530,12 @@ market-signal deliverable from `JARVIS_CHAIN.md` §2).
       on exhaust *(Day 3 — 14 tests incl. safe-default-is-escalate,
       lifetime-budget-refuses-before-provider-spend, resume replays
       observations; full suite 275)*
-- [ ] Human gate: `/approve` + `/reject` human-only routes (409 unless
+- [x] Human gate: `/approve` + `/reject` human-only routes (409 unless
       PROPOSED, unreachable from the loop by whitelist construction) +
       adversarial pass (claim-text injection, self-approve attempts,
-      budget-exhaust observability) *(Day 4)*
+      budget-exhaust observability) *(Day 4 — 10 tests; the gate proven
+      3 independent structural ways: schema Literal, registry noop,
+      AST no-call tripwire; full suite 285)*
 - [ ] LLM-as-judge: `eval/golden_disputes.json` (~8 cases) +
       `JudgeVerdict` rubric (grounded/policy 0-2 + classification
       cross-checked by `==` in code) + reuse of eval_runs/eval_results +

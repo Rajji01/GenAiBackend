@@ -261,3 +261,10 @@ class DisputeResponse(BaseModel):
 
 class DisputeDetail(DisputeResponse):
     steps: list[AgentStepResponse] = Field(default_factory=list)
+
+
+class DisputeRejectRequest(BaseModel):
+    # A rejection without a reason is useless to the next human who
+    # reads the dispute — and "reason required" is also what keeps
+    # the reject route from being a one-click dismissal habit.
+    reason: str = Field(..., min_length=3, max_length=1000)
