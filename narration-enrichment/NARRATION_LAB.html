@@ -322,6 +322,12 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">P6 — Agentic disputes</div>
+      <a class="nav-link" href="#p6-intro"><span class="nav-tag">·</span>The idea + when NOT to agent</a>
+      <a class="nav-link" href="#p6-day2"><span class="nav-tag">D2</span>Dispute state machine + CRUD</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -2323,6 +2329,53 @@ Full suite:                244 passed (was 235)</div>
   3dbba4e  P5 Day 3  the loop + earned tool-trail (5 tests)
   e6592f3  P5 Day 4  guardrails, adversarial pass (9 tests)
   &lt;this commit&gt;  P5 Day 5  docs + ROADMAP + AGENTS + FILE_GUIDE sync</div>
+    </article>
+
+    <!-- ================ P6 — Agentic disputes (Days 2–…) ================ -->
+
+    <section id="p6-intro" style="margin-top:64px;">
+      <p class="eyebrow">Project 6 · Agentic workflow</p>
+      <h2>An agent that proposes — and a human who disposes</h2>
+      <p>P5 gave the assistant tools for one question. P6 gives it a <em>workflow</em>: a transaction dispute ("ye charge mera nahi hai") travels OPEN → evidence-gathering → a typed <strong>ResolutionProposal</strong> → a human approves/rejects. The agent loop is P5's loop with durable state: every iteration checkpointed to a <code>agent_steps</code> row, dual budgets (6 steps/run + 8 LLM calls/lifetime), forced-escalate on exhaust — and the approve/reject routes <em>structurally unreachable</em> from inside the loop.</p>
+      <p style="font-size:14.5px;">The interview-signature piece: <strong>"when NOT to agent"</strong> — a 3-condition framework (steps vary per case / evidence changes the path / wrong decisions recoverable-or-gated), with P4's ingestion as the deliberate counter-example we did NOT agent. Design paper: <code><a href="P6_DESIGN.md">P6_DESIGN.md</a></code>; plan: <code><a href="ROADMAP.md">ROADMAP.md</a> §3E</code>.</p>
+    </section>
+
+    <article class="card day-card" id="p6-day2">
+      <div class="day-head">
+        <span class="day-stamp">P6 · D2</span>
+        <span class="day-title">Dispute state machine + agent_steps + CRUD routes</span>
+      </div>
+      <span class="day-files">db.py · schemas.py · main.py · tests/test_disputes_api.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> the durable skeleton — tables, named-transition state machine, budget counter, and three auth-gated CRUD routes. No agent, no LLM anywhere today: plumbing proved before intelligence (same Day-3-of-P3 discipline).</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Named transitions, Python edition</h4>
+          <p><code>mark_evidence_gathered / mark_proposed / mark_approved / mark_rejected / mark_escalated</code> — the ONLY way status moves, each guarding its legal source states and raising <code>ValueError</code> otherwise. Ticketing Week-2's rule crossing the language border: a terminal dispute cannot be moved by any transition, and the test <code>test_terminal_states_are_sticky</code> pins it.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Budget as CAS, the P4 pattern reused</h4>
+          <p><code>reserve_llm_call</code> = one atomic <code>UPDATE ... SET used=used+1 WHERE id=? AND used &lt; max</code>. Exactly max grants, then False forever — across resumes, across concurrent runners. Test proves grants == [T,T,T,F,F] at max=3. Same CAS shape as P4's claim-by-status.</p>
+        </div>
+        <div class="mini-card">
+          <h4>(dispute_id, step_index) UNIQUE</h4>
+          <p>A resumed loop that miscounts its step index collides with <code>IntegrityError</code> instead of silently double-writing history. The checkpoint trail is audit data — better loud than wrong.</p>
+        </div>
+        <div class="mini-card">
+          <h4>All three P3 invariants, day one</h4>
+          <p>Auth-first (every route <code>Depends(require_api_key)</code>), existence-hiding (missing + foreign dispute = byte-identical 404 — regression test asserts <code>r_missing.json() == r_foreign.json()</code>), and <code>ON DELETE SET NULL</code> on enrichment_id so deleting a transaction never destroys the dispute's audit row.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_disputes_api.py — 17 passed
+  · 7 state machine unit (transitions, guards, sticky terminals)
+  · 3 CAS budget + step-index collision + cascade
+  · 7 CRUD integration (auth-gate, UUID shape, owner isolation,
+    detail-with-steps ordering, same-404, trim)
+Full suite:               261 passed (was 244)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next (Day 3): the loop itself — flat step model extended (<code>tool_call | classify | propose | escalate</code>), checkpoint-then-execute, resume from <code>step_index</code>, forced-escalate on either budget.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

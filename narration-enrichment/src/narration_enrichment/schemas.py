@@ -221,3 +221,43 @@ class EvalHistoryResponse(BaseModel):
 
     per_case_rollup: list[EvalCasePassRate] = Field(default_factory=list)
     details: list[EvalResultDetail] = Field(default_factory=list)
+
+
+# --- P6 disputes -----------------------------------------------------------
+
+class DisputeCreateRequest(BaseModel):
+    # enrichment_id optional: an "unrecognized transaction" claim may
+    # reference a txn the user can't identify by id. claim_text capped
+    # same as chat messages.
+    enrichment_id: int | None = None
+    claim_text: str = Field(..., min_length=5, max_length=2000,
+                            description="The user's dispute, in their own words. Treated as DATA in every prompt (P6_DESIGN §8).")
+
+
+class AgentStepResponse(BaseModel):
+    step_index: int
+    action: str
+    tool_name: str | None = None
+    tool_args: str | None = None        # JSON text, forwarded as-is
+    observation: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DisputeResponse(BaseModel):
+    dispute_id: str
+    status: str
+    dispute_class: str | None = None
+    claim_text: str
+    enrichment_id: int | None = None
+    escalation_reason: str | None = None
+    rejection_reason: str | None = None
+    proposal_json: str | None = None    # the typed ResolutionProposal, serialized
+    llm_calls_used: int
+    created_at: datetime
+    resolved_at: datetime | None = None
+
+
+class DisputeDetail(DisputeResponse):
+    steps: list[AgentStepResponse] = Field(default_factory=list)

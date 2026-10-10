@@ -244,6 +244,11 @@
   </nav>
 
   <nav class="nav-group">
+    <div class="nav-group-title">P6 daily interview Qs</div>
+    <a class="nav-link" href="#iq-p6-d2"><span class="nav-tag">D2</span> Dispute machine + CRUD</a>
+  </nav>
+
+  <nav class="nav-group">
     <div class="nav-group-title">Companion</div>
     <a class="nav-link" href="NARRATION_LAB.html">NARRATION_LAB.html</a>
     <a class="nav-link" href="README.md">README.md</a>
@@ -909,6 +914,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> P5 closes with the same shape P2/P3/P4 closed with: a code-complete arc whose LIVE leg is deferred to Rajat's quota/resources (rule 3-6 + 3-2). An interviewer asks the uncomfortable version: "so none of your last three projects has run end-to-end against the real services — isn't that a portfolio of mocks?" Build the defence from this repo's actual evidence: (a) which invariants are PROVEN regardless (name three with their test files), (b) which claims are explicitly NOT made (find the honest flags in LAB/README), (c) why deferred-live beats faked-live for credibility — and then concede the one thing the critic is right about, and what the standing plan to fix it is.</p>
     <p class="iq-hint">Hint for (c): the repo's whole epistemic stance — rule 3-6 'live verification, no cherry-picking' — is WHY the live legs are flagged open instead of claimed. The concession: until Rajat's runs happen, model-behaviour claims (tool choice quality, injection obedience) are genuinely unverified; the plan is named in each closeout card.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p6-d2">
+    <h3>P6 · Day 2 — Dispute state machine + agent_steps + CRUD</h3>
+    <span class="iq-anchor">files: <code>db.py</code> (Dispute + AgentStep + reserve_llm_call), <code>main.py</code>, <code>tests/test_disputes_api.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>db.py</code>'s <code>Dispute.enrichment_id</code> — it's <code>ForeignKey(..., ondelete="SET NULL")</code> while <code>AgentStep.dispute_id</code> is <code>ondelete="CASCADE"</code>. Same file, two different delete behaviors. Explain WHY each is right for its relationship — what would break if you swapped them?</p>
+    <p class="iq-hint">Hint: steps without a dispute are meaningless orphans (cascade). But a dispute is an AUDIT record — deleting a transaction shouldn't erase the complaint history about it (set null keeps the row alive).</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>reserve_llm_call(db, dispute_id="d1", max_calls=3)</code> called 5 times. What SQL fires each time, why does the 4th call return False without any Python-side <code>if used >= max</code> check, and why is the WHERE-clause version race-proof where a read-then-write version isn't?</p>
+    <p class="iq-hint">Hint: <code>UPDATE ... WHERE id=? AND llm_calls_used &lt; 3</code> — the predicate and the increment are ONE atomic statement; rowcount tells you who won. Same shape as P4's claim-by-CAS and ticketing's @Version.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> Day 2 shipped the ENTIRE state machine — including <code>mark_approved</code>/<code>mark_rejected</code> — before any agent code exists (Day 3) or any approve route exists (Day 4). Defend this ordering in an interview: what class of bug becomes impossible when the state machine + its 7 unit tests land before anything can drive it? Connect to P3-D3's stub-before-LLM and ticketing's design-before-code Day-1 pattern — what's the common principle?</p>
+    <p class="iq-hint">Hint: "plumbing proved before intelligence." When Day 3's loop misbehaves, the state machine is already trusted — one plausible failure source, not two. The principle: layer N's correctness is established before layer N+1 can blame it.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

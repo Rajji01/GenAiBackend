@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P5 code-side DONE (244 tests)**; **P6 STARTED 2026-10-10 — Day 1 (design) done** |
-| **Next work unit** | P6 Day 2 — disputes schema + state machine + CRUD routes (§3E). Rajat's open legs unchanged: P4 live-SQS, P5 live tool-eval, Spring AI port. |
+| **Current position** | **P2–P5 code-side DONE**; **P6 Days 1–2 done (261 tests)** |
+| **Next work unit** | P6 Day 3 — the agent loop (checkpoint-then-execute, dual budgets, resume) (§3E). Rajat's open legs unchanged: P4 live-SQS, P5 live tool-eval, Spring AI port. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -519,9 +519,10 @@ market-signal deliverable from `JARVIS_CHAIN.md` §2).
 ### DoD (Definition of Done)
 
 - [x] `P6_DESIGN.md` shipped as Day 1 deliverable *(this commit)*
-- [ ] `disputes` + `agent_steps` tables (UUIDv4 ids, CHECK-constrained
+- [x] `disputes` + `agent_steps` tables (UUIDv4 ids, CHECK-constrained
       state machine, named transitions) + CRUD routes (auth-gated,
-      existence-hiding), NO agent yet *(Day 2)*
+      existence-hiding), NO agent yet *(Day 2 — 17 tests: 7 state
+      machine, 3 CAS/collision/cascade, 7 CRUD; full suite 261)*
 - [ ] Agent loop: flat step model extended (`tool_call | classify |
       propose | escalate`), checkpoint-then-execute, resumable from
       `step_index`, dual budgets (AGENT_MAX_STEPS=6 per run,

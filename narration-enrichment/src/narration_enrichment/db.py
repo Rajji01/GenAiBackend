@@ -910,3 +910,261 @@ def count_ingest_jobs_by_status(db: Session) -> dict[str, int]:
     counts = {status: 0 for status in _JOB_STATUSES}
     counts.update({status: count for status, count in rows})
     return counts
+
+
+# ---------------------------------------------------------------------------
+# P6 Day 2 — disputes + agent steps (agentic workflow)
+# ---------------------------------------------------------------------------
+
+DISPUTE_OPEN = "OPEN"
+DISPUTE_EVIDENCE_GATHERED = "EVIDENCE_GATHERED"
+DISPUTE_PROPOSED = "PROPOSED"
+DISPUTE_APPROVED = "APPROVED"
+DISPUTE_REJECTED = "REJECTED"
+DISPUTE_ESCALATED = "ESCALATED"
+
+_DISPUTE_STATUSES = (
+    DISPUTE_OPEN, DISPUTE_EVIDENCE_GATHERED, DISPUTE_PROPOSED,
+    DISPUTE_APPROVED, DISPUTE_REJECTED, DISPUTE_ESCALATED,
+)
+_DISPUTE_TERMINAL = (DISPUTE_APPROVED, DISPUTE_REJECTED, DISPUTE_ESCALATED)
+
+DISPUTE_CLASSES = (
+    "category_correction", "duplicate_charge", "unrecognized", "amount_mismatch",
+)
+
+
+class Dispute(Base):
+    """One row per transaction dispute — the P6 workflow aggregate.
+
+    State machine (P6_DESIGN.md §4): OPEN → EVIDENCE_GATHERED →
+    PROPOSED → APPROVED/REJECTED (human-only), any non-terminal →
+    ESCALATED. Transitions go through the named mark_* methods ONLY —
+    the ticketing Week-2 rule in Python: a raw status write from a
+    bug can't silently move a terminal dispute.
+
+    id is UUIDv4 (URL-exposed — ChatSession enumeration argument).
+    llm_calls_used is the lifetime budget counter (P4 attempts
+    pattern): the loop CAS-increments it so resume-loops can't buy
+    themselves a fresh budget.
+    """
+
+    __tablename__ = "disputes"
+
+    id = Column(String, primary_key=True)
+    api_key_hash = Column(
+        String,
+        ForeignKey("api_keys.key_hash", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    enrichment_id = Column(
+        Integer,
+        ForeignKey("enrichment_records.id", ondelete="SET NULL"),
+        nullable=True,  # SET NULL on enrichment deletion keeps the dispute's audit row alive
+    )
+    claim_text = Column(String, nullable=False)
+    dispute_class = Column(String, nullable=True)
+    status = Column(String, nullable=False, default=DISPUTE_OPEN, index=True)
+    escalation_reason = Column(String, nullable=True)
+    rejection_reason = Column(String, nullable=True)
+    proposal_json = Column(String, nullable=True)
+    llm_calls_used = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    resolved_at = Column(DateTime, nullable=True)
+
+    steps = relationship(
+        "AgentStep",
+        back_populates="dispute",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="AgentStep.step_index",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('OPEN','EVIDENCE_GATHERED','PROPOSED','APPROVED','REJECTED','ESCALATED')",
+            name="ck_disputes_status",
+        ),
+        CheckConstraint(
+            "dispute_class IS NULL OR dispute_class IN "
+            "('category_correction','duplicate_charge','unrecognized','amount_mismatch')",
+            name="ck_disputes_class",
+        ),
+    )
+
+    # --- named transitions (the ONLY way status moves) ----------------
+
+    def _expect_not_terminal(self, action: str) -> None:
+        if self.status in _DISPUTE_TERMINAL:
+            raise ValueError(
+                f"{action} not allowed: dispute {self.id} is already terminal ({self.status})"
+            )
+
+    def mark_evidence_gathered(self) -> None:
+        if self.status != DISPUTE_OPEN:
+            raise ValueError(
+                f"mark_evidence_gathered requires OPEN, was {self.status} ({self.id})"
+            )
+        self.status = DISPUTE_EVIDENCE_GATHERED
+
+    def mark_proposed(self, *, dispute_class: str, proposal_json: str) -> None:
+        if self.status not in (DISPUTE_OPEN, DISPUTE_EVIDENCE_GATHERED):
+            raise ValueError(
+                f"mark_proposed requires OPEN/EVIDENCE_GATHERED, was {self.status} ({self.id})"
+            )
+        if dispute_class not in DISPUTE_CLASSES:
+            raise ValueError(f"unknown dispute_class {dispute_class!r}")
+        self.dispute_class = dispute_class
+        self.proposal_json = proposal_json
+        self.status = DISPUTE_PROPOSED
+
+    def mark_approved(self) -> None:
+        # Human-only route calls this; the agent loop has no path here
+        # (P6_DESIGN §6 — the gate is structural).
+        if self.status != DISPUTE_PROPOSED:
+            raise ValueError(f"mark_approved requires PROPOSED, was {self.status} ({self.id})")
+        self.status = DISPUTE_APPROVED
+        self.resolved_at = datetime.now(timezone.utc)
+
+    def mark_rejected(self, *, reason: str) -> None:
+        if self.status != DISPUTE_PROPOSED:
+            raise ValueError(f"mark_rejected requires PROPOSED, was {self.status} ({self.id})")
+        self.rejection_reason = reason
+        self.status = DISPUTE_REJECTED
+        self.resolved_at = datetime.now(timezone.utc)
+
+    def mark_escalated(self, *, reason: str) -> None:
+        # Agent OR human can escalate — but never out of a terminal state.
+        self._expect_not_terminal("mark_escalated")
+        self.escalation_reason = reason
+        self.status = DISPUTE_ESCALATED
+        self.resolved_at = datetime.now(timezone.utc)
+
+
+class AgentStep(Base):
+    """One row per agent-loop iteration — the checkpoint + the earned
+    trail (P6_DESIGN §5). Written BEFORE the action executes
+    (checkpoint-then-execute): a crash between the two leaves a
+    recorded intention with no effect — safe to re-run because every
+    registry tool is read-only. (dispute_id, step_index) UNIQUE so a
+    resumed loop that miscounts collides loudly instead of silently
+    double-writing history.
+    """
+
+    __tablename__ = "agent_steps"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dispute_id = Column(
+        String,
+        ForeignKey("disputes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    step_index = Column(Integer, nullable=False)
+    action = Column(String, nullable=False)
+    tool_name = Column(String, nullable=True)
+    tool_args = Column(String, nullable=True)      # JSON
+    observation = Column(String, nullable=True)    # data-framed digest (P5 rule)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    dispute = relationship("Dispute", back_populates="steps")
+
+    __table_args__ = (
+        UniqueConstraint("dispute_id", "step_index", name="uq_agent_steps_dispute_index"),
+        CheckConstraint(
+            "action IN ('tool_call','classify','propose','escalate')",
+            name="ck_agent_steps_action",
+        ),
+    )
+
+
+def create_dispute(
+    db: Session, *, dispute_id: str, api_key_hash: str,
+    enrichment_id: int | None, claim_text: str,
+) -> Dispute:
+    row = Dispute(
+        id=dispute_id,
+        api_key_hash=api_key_hash,
+        enrichment_id=enrichment_id,
+        claim_text=claim_text,
+        status=DISPUTE_OPEN,
+        llm_calls_used=0,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def get_dispute_owned_by(
+    db: Session, *, dispute_id: str, api_key_hash: str
+) -> Dispute | None:
+    """None for BOTH 'no such dispute' and 'someone else's dispute' —
+    the route 404s identically either way (P3 existence-hiding,
+    invariant #2)."""
+    return (
+        db.query(Dispute)
+        .filter(Dispute.id == dispute_id)
+        .filter(Dispute.api_key_hash == api_key_hash)
+        .one_or_none()
+    )
+
+
+def list_disputes_for_key(
+    db: Session, *, api_key_hash: str, limit: int = 20
+) -> list[Dispute]:
+    return (
+        db.query(Dispute)
+        .filter(Dispute.api_key_hash == api_key_hash)
+        .order_by(Dispute.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def append_agent_step(
+    db: Session, *, dispute_id: str, step_index: int, action: str,
+    tool_name: str | None = None, tool_args: str | None = None,
+    observation: str | None = None,
+) -> AgentStep:
+    step = AgentStep(
+        dispute_id=dispute_id,
+        step_index=step_index,
+        action=action,
+        tool_name=tool_name,
+        tool_args=tool_args,
+        observation=observation,
+    )
+    db.add(step)
+    db.commit()
+    db.refresh(step)
+    return step
+
+
+def list_agent_steps(db: Session, *, dispute_id: str) -> list[AgentStep]:
+    return (
+        db.query(AgentStep)
+        .filter(AgentStep.dispute_id == dispute_id)
+        .order_by(AgentStep.step_index.asc())
+        .all()
+    )
+
+
+def reserve_llm_call(db: Session, *, dispute_id: str, max_calls: int) -> bool:
+    """CAS-increment the lifetime LLM-call budget (P4 claim pattern).
+    UPDATE ... SET used = used + 1 WHERE id = ? AND used < max — one
+    atomic statement, so a resumed/concurrent loop can't double-spend
+    past the cap. True = call reserved; False = budget exhausted
+    (caller must force-escalate, P6_DESIGN §5)."""
+    updated = (
+        db.query(Dispute)
+        .filter(Dispute.id == dispute_id)
+        .filter(Dispute.llm_calls_used < max_calls)
+        .update(
+            {Dispute.llm_calls_used: Dispute.llm_calls_used + 1},
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    return updated == 1

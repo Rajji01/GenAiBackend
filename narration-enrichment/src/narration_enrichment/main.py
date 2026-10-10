@@ -36,6 +36,7 @@ from narration_enrichment.db import (
     count_ingest_jobs_by_status,
     list_ingest_jobs_by_status,
     create_chat_session,
+    create_dispute,
     create_ingest_job,
     delete_chat_session,
     delete_policy_doc,
@@ -43,6 +44,9 @@ from narration_enrichment.db import (
     get_category_counts,
     get_chat_session_owned_by,
     get_db,
+    get_dispute_owned_by,
+    list_agent_steps,
+    list_disputes_for_key,
     get_eval_history_for_case,
     get_eval_pass_rate_by_case,
     get_ingest_job,
@@ -57,6 +61,7 @@ from narration_enrichment.policy_ingest import compute_checksum, ingest as inges
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
 from narration_enrichment import auth, chat_service, job_queue, s3_store
 from narration_enrichment.schemas import (
+    AgentStepResponse,
     BatchEnrichRequest,
     BatchEnrichResponse,
     BatchItemResult,
@@ -66,6 +71,9 @@ from narration_enrichment.schemas import (
     ChatSessionHistory,
     ChatSessionResponse,
     ChatTurnResponse,
+    DisputeCreateRequest,
+    DisputeDetail,
+    DisputeResponse,
     EnrichmentRecordResponse,
     EvalCasePassRate,
     EvalHistoryResponse,
@@ -711,6 +719,75 @@ def chat_delete_session(
     # not. Same "don't leak existence" rule -- distinguishing 'not
     # found' from 'not yours' would enumerate valid session ids.
     delete_chat_session(db, session_id=session_id, api_key_hash=key_hash)
+
+
+# --- P6 disputes (Day 2: CRUD only — the agent loop lands Day 3, the
+#     human gate Day 4) ----------------------------------------------------
+#
+# All routes auth-gated from the moment they exist (P3 invariant #1).
+# "No such dispute" and "someone else's dispute" both 404 with the same
+# body (invariant #2 — existence hiding).
+
+
+@app.post("/disputes", response_model=DisputeResponse, status_code=201)
+def disputes_create(
+    request: DisputeCreateRequest,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> DisputeResponse:
+    dispute = create_dispute(
+        db,
+        dispute_id=str(_uuid.uuid4()),
+        api_key_hash=key_hash,
+        enrichment_id=request.enrichment_id,
+        claim_text=request.claim_text.strip(),
+    )
+    return _dispute_response(dispute)
+
+
+@app.get("/disputes", response_model=list[DisputeResponse])
+def disputes_list(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> list[DisputeResponse]:
+    return [
+        _dispute_response(d)
+        for d in list_disputes_for_key(db, api_key_hash=key_hash, limit=limit)
+    ]
+
+
+@app.get("/disputes/{dispute_id}", response_model=DisputeDetail)
+def disputes_get(
+    dispute_id: str,
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> DisputeDetail:
+    dispute = get_dispute_owned_by(db, dispute_id=dispute_id, api_key_hash=key_hash)
+    if dispute is None:
+        raise HTTPException(status_code=404, detail="Dispute not found.")
+    steps = list_agent_steps(db, dispute_id=dispute_id)
+    base = _dispute_response(dispute)
+    return DisputeDetail(
+        **base.model_dump(),
+        steps=[AgentStepResponse.model_validate(s) for s in steps],
+    )
+
+
+def _dispute_response(d) -> DisputeResponse:
+    return DisputeResponse(
+        dispute_id=d.id,
+        status=d.status,
+        dispute_class=d.dispute_class,
+        claim_text=d.claim_text,
+        enrichment_id=d.enrichment_id,
+        escalation_reason=d.escalation_reason,
+        rejection_reason=d.rejection_reason,
+        proposal_json=d.proposal_json,
+        llm_calls_used=d.llm_calls_used,
+        created_at=d.created_at,
+        resolved_at=d.resolved_at,
+    )
 
 
 @app.delete("/policies/{doc_id}", status_code=204)
