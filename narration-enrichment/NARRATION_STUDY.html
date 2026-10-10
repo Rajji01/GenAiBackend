@@ -249,6 +249,7 @@
     <a class="nav-link" href="#iq-p6-d3"><span class="nav-tag">D3</span> The agent loop</a>
     <a class="nav-link" href="#iq-p6-d4"><span class="nav-tag">D4</span> The human gate</a>
     <a class="nav-link" href="#iq-p6-d5"><span class="nav-tag">D5</span> LLM-as-judge</a>
+    <a class="nav-link" href="#iq-p6-d6"><span class="nav-tag">D6</span> P6 closeout review</a>
   </nav>
 
   <nav class="nav-group">
@@ -1009,6 +1010,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> The interview question this whole day answers: <em>"How do you evaluate an LLM system whose outputs have no exact-match answer?"</em> Structure your answer using what we built: (a) rubric + second-LLM judge, (b) the three honesty rules and WHICH known judge-failure each defeats (sycophancy/injection, objective-fact drift, silent rubric change), (c) the threshold gate's fail-closed semantics, (d) why the trigger is still manual. Bonus: what's the judge's judge — how would you detect YOUR judge degrading over time?</p>
     <p class="iq-hint">Hint for the bonus: the judge_divergence log IS the judge's judge — divergence rate on objective fields over persisted runs (eval_runs history) is a measurable judge-reliability trend. When it climbs, re-pin the judge model or tighten the rubric.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p6-d6">
+    <h3>P6 · Day 6 — Closeout review: the whole project as one interview answer</h3>
+    <span class="iq-anchor">files: the whole P6 arc — P6_DESIGN.md + dispute_agent.py + dispute_judge.py + 53 tests</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace the arc</span>
+    <p class="iq-question"><strong>Q1.</strong> P3 → P5 → P6 mein ek hi loop teen baar evolve hua. Likho: P3 ka single LLM call P5 ke loop ka kya case hai? P5 ka loop P6 ke workflow ka kya case hai? Har jump pe DURABILITY ka kya add hua (kahan state save hoti hai, kya survive karta hai)?</p>
+    <p class="iq-hint">Hint: P3 = loop-of-one (action defaults final_answer). P5 = bounded loop, state = HTTP request ke andar. P6 = checkpointed rows, state survives crash/outage/restart. Degenerate-case chain: P3 ⊂ P5 ⊂ P6.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Spot the pattern</span>
+    <p class="iq-question"><strong>Q2.</strong> "Earned, not claimed" rule ab FOUR surfaces pe hai. Chaaro naam karo, har ek pe kaun si cheez model ke claim ki jagah CODE se aati hai, aur kaunsa test har ek ko pin karta hai?</p>
+    <p class="iq-hint">Hint: P2 /enrich policy_citations; P3/P5 /chat cited_* + tools_used (executor's record); P6-D3 evidence_enrichment_ids (tool results se); P6-D5 classification_correct (judge ki opinion pe == ka override). Tests: *_overwritten_*, earned-evidence, judge-override pair.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The questionnaire asked: "production agentic/GenAI experience?" Build the 90-second interview answer from P6 alone: (a) when NOT to agent (framework + counter-example), (b) durability (checkpoint-then-execute + resume), (c) cost control (dual budgets, check-before-call), (d) safety (3-layer human gate), (e) evaluation (LLM-as-judge + honesty rules + fail-closed gate). Har point pe is repo ki ek concrete file/test ka naam lo — "I read about it" aur "I built and regression-tested it" ka difference wahi naam hai.</p>
+    <p class="iq-hint">Hint: structure = problem → structural solution → test that pins it. Interviewer follow-up hamesha (d) ya (e) pe aata hai — gate aur judge dono ke liye "what if the model tries X" ka jawab architecture hai, prompt nahi.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

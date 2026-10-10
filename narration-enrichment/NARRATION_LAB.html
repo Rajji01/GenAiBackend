@@ -328,6 +328,7 @@
       <a class="nav-link" href="#p6-day3"><span class="nav-tag">D3</span>The agent loop (checkpoint + budgets)</a>
       <a class="nav-link" href="#p6-day4"><span class="nav-tag">D4</span>The human gate (3-layer proof)</a>
       <a class="nav-link" href="#p6-day5"><span class="nav-tag">D5</span>LLM-as-judge + threshold gate</a>
+      <a class="nav-link" href="#p6-day6"><span class="nav-tag">D6</span>Closeout (P6 code-side shipped)</a>
     </div>
 
     <div class="nav-group">
@@ -2534,6 +2535,40 @@ Live leg (Rajat's, rule 3-6): uv run python eval/run_eval_disputes.py
   — real agent + real judge, ~2-4 LLM calls/case, exit 1 on gate fail</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next (Day 6): P6 closeout — README section, "P6 shipped" banner, ROADMAP DoD, AGENTS + CHAIN + memory sync.</p>
+    </article>
+
+    <article class="card day-card" id="p6-day6">
+      <div class="day-head">
+        <span class="day-stamp">P6 · D6</span>
+        <span class="day-title">P6 closeout — docs + ROADMAP + AGENTS + CHAIN sync</span>
+      </div>
+      <span class="day-files">README.md · NARRATION_LAB.html · NARRATION_STUDY.html · ROADMAP.md · AGENTS.md · JARVIS_CHAIN.md · memory</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> the rule-3-9 discipline layer — every doc matches the code, every state file knows P6 shipped, and the chain file's walk-log records how this project got picked (the first market-signal-weighted self-walk).</p>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">P6 shipped (code-side) — the whole arc in one line</div>
+        <p>Day 1 = the design paper, with "when NOT to agent" as its interview-signature section (three conditions; P4's ingestion as the deliberate counter-example). Day 2 = the durable skeleton: named-transition state machine, CAS lifetime budget, (dispute_id, step_index) UNIQUE, three CRUD routes carrying all three P3 invariants from birth. Day 3 = the loop: checkpoint-then-execute, dual budgets both forced-escalate, resume-replays-observations, safe-default-is-escalate. Day 4 = the human gate proven 3 independent structural ways (schema Literal / registry noop / AST tripwire). Day 5 = LLM-as-judge with three honesty rules + a fail-closed threshold gate. The agent investigates; it structurally cannot resolve.</p>
+        <p style="margin-top:8px;"><strong>297 tests green</strong> (was 244 at P5 close). <strong>53 new tests</strong> across Days 2–5. Zero regressions.</p>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">What P6 proves that P5 couldn't</div>
+        <p>P5's loop lived and died inside one HTTP request. P6's survives crashes (checkpoints), survives provider outages (resumable, "the dispute is resumable — retry" is literal), survives hostile claims (data-framed), survives model dithering (budgets), and survives a lying judge (cross-check). That package — durable + bounded + gated + judged — is what "agentic workflow in production" means in the market-signal questionnaire, and every piece is regression-tested without a single live LLM call in the suite.</p>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">The open boxes — deliberately not Claude's to tick</div>
+        <p>(1) The live dispute-eval (<code>run_eval_disputes.py</code>) burns real quota — Rajat-triggered, rule 3-6. (2) P4's live-SQS leg and (3) P5's live tool-choice eval remain open. (4) Spring AI port on its own greenlight. Next project on Rajat's go: <strong>P7 (multi-model platform)</strong> — routing, fallback, pgvector, Secrets Manager.</p>
+      </div>
+
+      <div class="terminal">P6 commits, in chronological order:
+  f0e69fc  P6 Day 1  design paper + ROADMAP sec 3E
+  977591a  P6 Day 2  state machine + checkpoints + CRUD (17 tests)
+  91fbbfb  P6 Day 3  the agent loop (14 tests)
+  a4f7f69  P6 Day 4  the human gate, 3-layer proof (10 tests)
+  a6738e5  P6 Day 5  LLM-as-judge + threshold gate (12 tests)
+  &lt;this commit&gt;  P6 Day 6  docs + ROADMAP + AGENTS + CHAIN sync</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

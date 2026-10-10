@@ -226,6 +226,54 @@ verification script. Job row = source of truth, queue message = a
 delivery hint carrying only the job_id — the dual-write problem is
 dissolved the same way ticketing's outbox dissolved it.
 
+## Agentic disputes (P6) — an agent that proposes, a human who disposes
+
+A transaction dispute ("this UBER charge isn't mine", "ye category
+galat hai") travels a durable workflow: OPEN → evidence-gathering →
+a typed **ResolutionProposal** → a human approves/rejects. The agent
+loop is P5's tool loop with durable state — every iteration
+checkpointed to an `agent_steps` row, dual budgets (6 steps/run +
+8 LLM calls/lifetime via an atomic CAS counter), forced-escalate on
+exhaust — and the approve/reject routes are **structurally
+unreachable from inside the loop** (3 independently-tested layers:
+the step schema's `Literal` has no approve action; the tool registry
+has no approve tool, an invented one gets an audited unknown-tool
+observation; an AST tripwire test asserts no call to
+`mark_approved`/`mark_rejected` exists in the loop's source).
+
+```bash
+# create a dispute (auth required, same X-API-Key as /chat)
+curl -X POST http://localhost:8000/disputes -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"claim_text": "My Swiggy order shows as shopping, should be food delivery", "enrichment_id": 42}'
+
+# run the agent (idempotent on PROPOSED; 409 on terminal; resumable after crashes/outages)
+curl -X POST http://localhost:8000/disputes/<id>/run -H "X-API-Key: $KEY"
+
+# inspect the proposal + full checkpoint trail
+curl http://localhost:8000/disputes/<id> -H "X-API-Key: $KEY"
+
+# the human gate — the ONLY paths across PROPOSED → terminal
+curl -X POST http://localhost:8000/disputes/<id>/approve -H "X-API-Key: $KEY"
+curl -X POST http://localhost:8000/disputes/<id>/reject -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" -d '{"reason": "evidence shows the category was right"}'
+```
+
+**When NOT to agent** (the design's §2): an agent earns its loop only
+when steps vary per case AND mid-flight evidence changes the path AND
+wrong decisions are recoverable or gated. P4's ingestion deliberately
+is NOT an agent (fixed pipeline); dispute approval deliberately stays
+human.
+
+**LLM-as-judge eval:** `eval/golden_disputes.json` (8 hand-labeled
+cases incl. a required injection case) + `eval/run_eval_disputes.py` —
+runs the real agent, grades each proposal with a second LLM against a
+rubric (grounded 0-2, policy 0-2; the objective classification field
+is cross-checked by `==` in code and the judge's opinion overridden on
+divergence), and exits non-zero when the **threshold gate** fails
+(class-accuracy < 80% or grounded-mean < 1.5; zero verdicts fails
+closed). Burns real quota — manual trigger only.
+
 ## Knowledge assistant (P3) — chat over the enrichment history + policy corpus
 
 P3 puts a natural-language chat surface over what P1 + P2 already

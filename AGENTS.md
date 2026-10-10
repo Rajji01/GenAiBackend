@@ -15,7 +15,7 @@ A **self-directed multi-week mentorship-style engineering project** by **Rajat A
 | Track | Folder | Language / Stack | Purpose |
 |---|---|---|---|
 | **A — Java baseline** | `backend/` | Spring Boot 3, JPA, MySQL, Flyway | UFC/betting backend — production-grade Java baseline (mostly complete) |
-| **B — GenAI (Python)** | `narration-enrichment/` | FastAPI + Pydantic + Instructor + Gemini + SQLite | Transaction narration → structured JSON → RAG → policy RAG → knowledge assistant → async pipeline → tool-calling. **P1–P5 code-side done (244 tests); P6 next** |
+| **B — GenAI (Python)** | `narration-enrichment/` | FastAPI + Pydantic + Instructor + Gemini + SQLite | Transaction narration → structured JSON → RAG → policy RAG → knowledge assistant → async pipeline → tool-calling → agentic disputes. **P1–P6 code-side done (297 tests); P7 next** |
 | **C — Ticketing microservices (Java)** | `ticketing-platform/` | Spring Boot, Postgres, Redis, docker-compose, Resilience4j | District/BookMyShow-style ticketing. **Weeks 1–3 done (inventory/booking/payment/notification, 124 tests); Week 4 (AWS) = design + Terraform skeleton done, real `apply` = Rajat** |
 
 The user runs Tracks B and C in parallel — alternate work weeks, side-by-side.
@@ -156,6 +156,16 @@ These have been established across many sessions. Break them and the user will c
 - Day 5 — closeout: README "Tool calling (P5)" section, LAB D2–D5 cards + nav, STUDY 12 Qs (D2–D5), ROADMAP §3D ticked + snapshot flipped, this file + FILE_GUIDE synced.
 - **244 tests green** (was 217 at P4 close; 27 new). Zero regressions. Rule 3-11 held every code day.
 - **Open (Rajat's):** live tool-choice eval on real Gemini quota (rule 3-6), and the Spring AI port the master plan pairs with P5 (own greenlight). Next project on his go: P6 (agentic workflow).
+
+**P6 (Agentic dispute workflow) — code-side DONE 2026-10-10** (greenlit by "chl ab self walk krna start"; first unit chosen under the JARVIS_CHAIN §2 market-signal rule — P6 was the roadmap's next AND carried the signal's #1 priority, LLM-as-judge). Six day-commits:
+- Day 1 `f0e69fc` — P6_DESIGN.md (12 sections: the "when NOT to agent" 3-condition framework with P4-ingestion as the deliberate counter-example; dispute state machine; checkpoint-then-execute; dual budgets; structural human gate; LLM-as-judge honesty rules; 6 interview Qs) + ROADMAP §3E.
+- Day 2 `977591a` — disputes + agent_steps tables (named transitions only, CHECK constraints, (dispute_id, step_index) UNIQUE, enrichment FK ON DELETE SET NULL to keep audit rows alive) + `reserve_llm_call` CAS budget + 3 auth-gated CRUD routes with existence-hiding. 17 tests.
+- Day 3 `91fbbfb` — `dispute_agent.py`: the loop. Checkpoint-then-execute (intention row before the tool runs), dual budgets both forced-escalate (step budget mock-proven at exactly 6 calls; lifetime CAS refuses BEFORE any provider spend), resume replays observations (the trail is the memory), **safe default action = escalate** (a garbled step can never accidentally propose), earned evidence ids. 14 tests.
+- Day 4 `a4f7f69` — the human gate: `/approve` + `/reject` (PROPOSED-only, terminal-sticky, reason required) + the 3-layer structural proof the agent can't cross it (schema Literal can't construct an approve action; invented approve_dispute tool = audited noop naming the real menu; AST tripwire asserts no call to mark_approved/mark_rejected in the loop's source). 10 tests. Live-caught test lesson: mention-vs-call — assert on AST semantics, not source strings.
+- Day 5 `a6738e5` — LLM-as-judge: `dispute_judge.py` (JudgeVerdict rubric; objective classification cross-checked by `==` with the judge's opinion surgically overridden + judge_divergence logged — the divergence rate IS the judge's judge; judged material data-framed so an injected proposal can't instruct its own judge; rubric versioned into eval_runs.notes) + `eval/golden_disputes.json` (8 cases, injection case REQUIRED by the shape test) + `eval/run_eval_disputes.py` (isolated eval DB, escalation-correct-only-when-needs_human, fail-closed threshold gate, exit 1 on gate failure). 12 tests.
+- Day 6 — closeout: README "Agentic disputes (P6)" section, LAB D6 card + "P6 shipped" banner, STUDY 15 P6 interview Qs total, ROADMAP flipped, this file + JARVIS_CHAIN + memory synced.
+- **297 tests green** (was 244 at P5 close; 53 new). Zero regressions. Rule 3-11 held every code day.
+- **Open (Rajat's):** live dispute-eval run (`eval/run_eval_disputes.py`, burns quota, rule 3-6) joins the P4 live-SQS + P5 live tool-eval + Spring AI port legs. Next project on his go: **P7 (multi-model platform)** — routing, fallback, RDS+pgvector, Secrets Manager.
 
 **Cross-track parallels worth remembering** (these keep the two tracks reinforcing each other):
 - Ticketing's `CorrelationIdFilter` (Java thread-local MDC) ↔ narration's `correlation.py` (Python `ContextVar`).

@@ -36,7 +36,7 @@
 ## 1. Current state (pointer — full detail in AGENTS.md §4)
 
 - **Ticketing (Track C):** Weeks 1–3 done+pushed; Week 4 (AWS) = design paper + Terraform skeleton + WEEK4_CLOUD + ARCHITECTURE.html done; **real `terraform apply` + RDS/ECS/bucket = Rajat's.** 124 Java tests.
-- **Narration (Track B):** **P1–P5 code-side done** (P4 async pipeline + P5 tool-calling), **244 tests**. P6 (agentic workflow) next. Open legs (Rajat's): live-SQS apply, live tool-eval, Spring AI port.
+- **Narration (Track B):** **P1–P6 code-side done** (… + P6 agentic dispute workflow w/ LLM-as-judge), **297 tests**. P7 (multi-model platform) next on Rajat's go. Open legs (Rajat's): live-SQS apply, live tool-eval, **live dispute-eval (`eval/run_eval_disputes.py`)**, Spring AI port.
 - **Pending (Rajat's own):** WEEK3_DESIGN §9 + WEEK4_DESIGN §8 interview answers; the GenAI job questionnaire stashed in §2.
 - Update this pointer when §4 changes.
 
@@ -131,6 +131,7 @@ The 10 questions are a hiring team's blueprint of a **production GenAI engineer*
 
 ## 3. Self-walk log (append newest on top)
 
+- **[2026-10-10]** (local session, walk 2) **P6 built end-to-end, Days 1–6** (`f0e69fc`→Day-6 commit): agentic dispute workflow — design paper (when-NOT-to-agent), state machine + checkpoints + CRUD, the loop (checkpoint-then-execute, dual budgets, safe-default-escalate), the 3-layer human gate, LLM-as-judge + fail-closed threshold gate (the §2 market-signal's #1 deliverable), closeout. 244→297 tests, zero regressions, rule 3-11 every code day. First unit chosen under the §2 market-signal weighting. All commits LOCAL (author Rajat) — push awaits Rajat's ask (§3-2). Rajat's new open leg: live dispute-eval run.
 - **[2026-10-10]** (local session) Pulled 24 commits (`fab8f9e→67ad5bf`), full state re-read after Rajat called out the miss ("sab files pdhni hai sari state maintain krne vli"). Machine-local memory synced to P1–P5/244-tests + Week-4 reality (it was stale at P3 — cloud sessions can't touch it). **§2 stash purpose extended per Rajat:** job posts/URLs = market signal → extract what-companies-want → long-term study topics + self-walk priority weights. Derived topic-map from the questionnaire added under §2. Local memory got `self_walk_chain.md` (post-pull re-read discipline + ccr-* author gotcha). Uncommitted: this file's §2 additions + this log line.
 - **[2026-10-10]** Full docs-sync sweep: un-staled the narration status everywhere it still said "P1–P3 / P4 next" → now **P1–P5 done, P6 next, 244 tests** (AGENTS §1 table + §8 key-files, `NEXT_PATH.md` narration block, `Jarvis_GenAI_Path.md` snapshot). Ticketing §1 row updated to Weeks 1–3 + Week 4 design/skeleton. Verified paths exist (`narration-enrichment/infra`, `ticketing-platform/infra/terraform`). FILE_GUIDE narration rows were already current (cloud session synced them).
 - **[2026-10-10]** Created this chain file. Pull clean (HEAD `67ad5bf`). Stashed the GenAI job "Additional Questions" self-assessment in §2 (not answered — Rajat asked to store only). Wired this file into `AGENTS.md` §8 + rule §3-9 and `FILE_GUIDE.md` so every future session reads it before self-walk.
