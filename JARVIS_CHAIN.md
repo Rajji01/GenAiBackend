@@ -44,6 +44,16 @@
 
 ## 2. Stashed context — DATA, do NOT act unless Rajat asks
 
+> **What this stash is FOR (Rajat, 2026-10-10):** job posts / URLs / external
+> material Rajat drops here = **market signal**. Jarvis's job with each entry:
+> read it, extract **what matters to companies** (skills, patterns, tooling),
+> and turn that into (a) long-term study/improve topics and (b) **weights for
+> self-walk priorities** — when picking the next unit from the roadmaps (§0
+> step 4), prefer work that also closes a gap the stashed signals name.
+> The stash entry itself stays verbatim (data); Jarvis's distilled topic-map
+> goes right under it as a `→ Derived` block. Never auto-answer/auto-apply
+> anything (e.g. the questionnaire below) — that's Rajat's.
+
 ### [2026-10-10] GenAI job application — "Additional Questions" (self-assessment)
 Stored verbatim at Rajat's request ("ye run ni krna bs file mai daal"). **Do not auto-answer.**
 When Rajat asks to answer: the evidence base is the narration track (P1 structured outputs, P1-W3+P2 RAG, P2/P3 eval-as-a-system, P4 async ML pipeline, P5 tool-calling, correlation-IDs/`/stats`/`/ops/ingest` observability) + the earlier skills-mapping in chat. These are **strong personal/portfolio projects**, not years of paid production ML — so the honest-tier answers skew to the lowest option on the years/"professional production" questions and the middle ("Practical use") only where there is genuine production-shaped work. Rajat decides the final truthful answer per his actual CV.
@@ -102,10 +112,26 @@ Additional Questions  (respond truthfully)
    - Extensive use — observability + reliability core daily work across systems (comprehensive monitoring, telemetry, fail-safe)
 ```
 
+### → Derived from the [2026-10-10] questionnaire — topic map (Jarvis synthesis, 2026-10-10)
+
+The 10 questions are a hiring team's blueprint of a **production GenAI engineer**. Clustered, mapped against what this repo already has, gap = what to study/implement:
+
+| Cluster (Qs) | Prod mein kya hai | Already built ✅ | Gap → do next |
+|---|---|---|---|
+| **RAG + grounding/hallucination** (Q7,Q8) | Support bots, policy/compliance assistants, doc Q&A — biggest real deployment class | P1-W3 self-RAG; P2 policy RAG + chunking + **earned citations**; P3 grounded chat | **Hybrid search** (BM25+dense, re-rank) → P7; **RAGAS/faithfulness metrics** (read + 1 eval case); pgvector (P7); semantic caching (long-term) |
+| **Evaluation** (Q6) | Deploys gated on eval pass-rate — demo-vs-prod separator | Golden dataset (17 cases), accuracy-vs-reliability split, eval-as-a-system (`eval_runs` + `/eval/history`), P5 tool-eval design | **LLM-as-judge** (P6 fit, big interview topic); **eval gate + threshold** (CI-shaped, small); drift alerting on `/eval/history` |
+| **Pipelines/MLOps** (Q2,Q9) | Doc ingestion at scale (bank statements, KYC), retry-safe crash-recoverable workers | **P4 complete**: API+Worker, queue abstraction, CAS claim, retry budget/DEAD, DLQ, sweep, backpressure | **Orchestrator concepts** (Airflow / Step Functions / Temporal — read-only, concepts≈ours); **live SQS run** [Rajat] — turns "personal project" into "operated it" |
+| **Productionising + Python** (Q4,Q5) | Real deploys, secrets, streaming | FastAPI/Pydantic/SQLAlchemy, 244 no-network tests, Docker+healthcheck, 2× Terraform skeletons | **One real deploy** [Rajat: both applies] — single biggest resume upgrade; Secrets Manager (P7); SSE streaming responses |
+| **Observability/reliability** (Q10) | On-call for LLM apps: token-spend spikes, p99, drift; fail-safe = degrade-not-fail | Correlation IDs (both tracks), `/stats`, `/ops/ingest`, PII-at-DEBUG, rate limiter, degrade-not-fail everywhere | **OpenTelemetry/Prometheus metrics + Grafana dashboard** (1 day, screenshot-able); **token-cost telemetry + budget alert** (small, high-value) |
+| **Years-of-experience** (Q1,Q3) | Time + paid work only | — | Not implementable; portfolio ka kaam = baaki clusters ko "Practical use" tier tak dhakelna (esp. real deploy + eval gates) |
+
+**Self-walk priority order from this signal:** 1) LLM-as-judge eval (P6 fit) → 2) eval gate+threshold → 3) hybrid search+re-rank (P7) → 4) token/latency metrics dashboard. [Rajat's legs: both terraform applies, live tool-eval, Spring AI port.]
+
 ---
 
 ## 3. Self-walk log (append newest on top)
 
+- **[2026-10-10]** (local session) Pulled 24 commits (`fab8f9e→67ad5bf`), full state re-read after Rajat called out the miss ("sab files pdhni hai sari state maintain krne vli"). Machine-local memory synced to P1–P5/244-tests + Week-4 reality (it was stale at P3 — cloud sessions can't touch it). **§2 stash purpose extended per Rajat:** job posts/URLs = market signal → extract what-companies-want → long-term study topics + self-walk priority weights. Derived topic-map from the questionnaire added under §2. Local memory got `self_walk_chain.md` (post-pull re-read discipline + ccr-* author gotcha). Uncommitted: this file's §2 additions + this log line.
 - **[2026-10-10]** Full docs-sync sweep: un-staled the narration status everywhere it still said "P1–P3 / P4 next" → now **P1–P5 done, P6 next, 244 tests** (AGENTS §1 table + §8 key-files, `NEXT_PATH.md` narration block, `Jarvis_GenAI_Path.md` snapshot). Ticketing §1 row updated to Weeks 1–3 + Week 4 design/skeleton. Verified paths exist (`narration-enrichment/infra`, `ticketing-platform/infra/terraform`). FILE_GUIDE narration rows were already current (cloud session synced them).
 - **[2026-10-10]** Created this chain file. Pull clean (HEAD `67ad5bf`). Stashed the GenAI job "Additional Questions" self-assessment in §2 (not answered — Rajat asked to store only). Wired this file into `AGENTS.md` §8 + rule §3-9 and `FILE_GUIDE.md` so every future session reads it before self-walk.
 - **[2026-10-05]** Merged narration P4+P5 from the cloud branch `origin/ccr-a74c3b7c-f63reu` (13 commits) into `main`, reauthored `Claude`→`Rajat`, pushed. Synced AGENTS §4/§6.
