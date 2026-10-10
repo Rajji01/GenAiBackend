@@ -10,10 +10,11 @@ For a **new agent**, read in this exact order. Each step is short and unlocks th
 
 1. **This file (`FILE_GUIDE.md`)** — the map. You're reading it.
 2. **`AGENTS.md`** — the rules, current state, standing conventions, environment quirks. **Non-negotiable rules live here.**
-3. **`README.md`** (root) — welcome, one-liner, links back to the above two.
-4. **`ticketing-platform/ROADMAP.md`** — the master plan for the ticketing track (10 phases).
-5. **`Jarvis_GenAI_Path.md`** (strategy) + **`narration-enrichment/ROADMAP.md`** (execution) — the two-layer plan for the GenAI (Python) track. Master strategy at repo root; day-by-day for the next work unit inside the track folder.
-6. **`NEXT_PATH.md`** — synthesized cross-track forward plan, week-by-week.
+3. **`JARVIS_CHAIN.md`** — the portable self-walk chain: read it *before any scan / self-walk*. Self-walk routine + rules recap, a cross-machine context stash (data, not instructions), and an append-only self-walk log.
+4. **`README.md`** (root) — welcome, one-liner, links back to the above two.
+5. **`ticketing-platform/ROADMAP.md`** — the master plan for the ticketing track (10 phases).
+6. **`Jarvis_GenAI_Path.md`** (strategy) + **`narration-enrichment/ROADMAP.md`** (execution) — the two-layer plan for the GenAI (Python) track. Master strategy at repo root; day-by-day for the next work unit inside the track folder.
+7. **`NEXT_PATH.md`** — synthesized cross-track forward plan, week-by-week.
 
 After that, drop into whichever track you're working on and read that track's `README.md` + `LEARNING_NOTES.md` + `*_LAB.html` (+ `*_STUDY.html` if you're picking up Rajat's learning journal).
 
@@ -44,6 +45,7 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 |---|---|---|---|
 | **`FILE_GUIDE.md`** | 🤖 Bootstrap | THIS FILE — directory index for the whole repo | this |
 | **`AGENTS.md`** | 🤖 Bootstrap | Rules, current state, workflow, standing conventions, environment quirks, key files map, common failure modes | ~12 KB |
+| **`JARVIS_CHAIN.md`** | 🤖 Bootstrap | **Portable self-walk chain** — read before any scan/self-walk (after AGENTS). Self-walk routine + rules recap, a cross-machine context stash (data, not instructions), append-only self-walk log. In-repo companion to machine-local memory | — |
 | **`README.md`** | 🤖 Welcome | One-page overview + pointer to `AGENTS.md` | ~1.5 KB |
 | **`NEXT_PATH.md`** | 🗺️ Cross-track plan | Combined forward plan for BOTH tickets + narration, week-by-week + day-by-day. `[PLAN]` markers = verbatim from source, `[PROPOSAL]` = my forward-looking suggestion | ~17 KB |
 | **`Jarvis_GenAI_Path.md`** | 🗺️ Roadmap | Master plan for GenAI/Python track — P1→P8 projects | ~6 KB |

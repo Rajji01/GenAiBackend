@@ -55,7 +55,7 @@ These have been established across many sessions. Break them and the user will c
 
 8. **JUnit strategy (Week 2 update, reconfirmed Week 3):** For learning-first sessions, **defer JUnit-writing to end-of-week clean pass**. Implement + mentally verify + document reasoning first; write proper tests over the finished shape. Manual/live verification is fine and encouraged where feasible.
 
-9. **Track continuously; never leave state stale (added 2026-09-20).** After every meaningful chunk of work, update: (a) local memory (`~/.claude/projects/.../memory/`), (b) `AGENTS.md` §4/§5 if state changed, (c) `FILE_GUIDE.md` if a new file class was added, (d) track README (build log). Rule: every user-facing directive I'm told to follow ("do X from now on", "don't do Y again", "the pattern is Z") gets captured in this file's §3 or the appropriate memory. Future sessions must not have to re-learn what this one already learned.
+9. **Track continuously; never leave state stale (added 2026-09-20).** After every meaningful chunk of work, update: (a) local memory (`~/.claude/projects/.../memory/`), (b) `AGENTS.md` §4/§5 if state changed, (c) `FILE_GUIDE.md` if a new file class was added, (d) track README (build log), (e) **`JARVIS_CHAIN.md`** §1 pointer + append to its §3 log (the portable, cross-machine chain — read before every self-walk; added 2026-10-10). Rule: every user-facing directive I'm told to follow ("do X from now on", "don't do Y again", "the pattern is Z") gets captured in this file's §3 or the appropriate memory. Future sessions must not have to re-learn what this one already learned.
 
 10. **Schema evolution = Flyway, never Hibernate `ddl-auto: update` (added 2026-09-20 hardening).** Every service in `ticketing-platform/` uses `spring.jpa.hibernate.ddl-auto: validate` + Flyway migrations in `src/main/resources/db/migration/`. Bug 4 (Postgres init-script skipped on populated volume) and Bug 7 (Hibernate silently skipped adding a NOT-NULL column without DEFAULT on a populated table) are both permanently defused by this. `baseline-on-migrate: true` + `baseline-version: 0` lets Flyway adopt already-populated volumes (V1 skipped as baseline) while running V1 normally on fresh volumes — same terminal schema either way. **Add a new migration as `V<N+1>__<snake_desc>.sql` — never edit V1 after it's shipped.** Spring Boot 3 needs `flyway-database-postgresql` as a separate dep alongside `flyway-core`.
 
@@ -215,6 +215,7 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 ### Bootstrap (READ FIRST in a new session)
 - **`FILE_GUIDE.md`** — directory index for every file, categories, reading order, HTML design systems, discovery patterns
 - `AGENTS.md` (this file) — rules, current state, teaching arc, environment quirks
+- **`JARVIS_CHAIN.md`** — **portable self-walk chain**: read this right after AGENTS + FILE_GUIDE, *before any scan / self-walk*. Holds the self-walk routine, a cross-machine context stash (data, not instructions), and an append-only self-walk log. It's the in-repo (portable) companion to machine-local memory. Append to its §3 log after each walk.
 - `README.md` — one-liner + pointer to the two above
 - `NEXT_PATH.md` — cross-track forward plan (weeks + days)
 
