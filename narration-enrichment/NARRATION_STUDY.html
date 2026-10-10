@@ -248,6 +248,7 @@
     <a class="nav-link" href="#iq-p6-d2"><span class="nav-tag">D2</span> Dispute machine + CRUD</a>
     <a class="nav-link" href="#iq-p6-d3"><span class="nav-tag">D3</span> The agent loop</a>
     <a class="nav-link" href="#iq-p6-d4"><span class="nav-tag">D4</span> The human gate</a>
+    <a class="nav-link" href="#iq-p6-d5"><span class="nav-tag">D5</span> LLM-as-judge</a>
   </nav>
 
   <nav class="nav-group">
@@ -985,6 +986,29 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> Defense-in-depth ke 3 layers hain (schema Literal, registry whitelist, AST no-call proof) — par teeno STRUCTURAL hain, ek bhi prompt-based nahi. Interview framing: "why do you need three if each one alone already blocks the approval?" Answer karte waqt: (a) kaunsi layer kis FUTURE change se tootegi, (b) baaki do tab kya pakdenge, (c) ye "N independent guards for one invariant" pattern is repo mein aur kahan dikha hai?</p>
     <p class="iq-hint">Hint: schema toot sakti hai agar koi action Literal mein "approve" add kare (registry + AST still hold); registry toot sakti hai agar koi approve_dispute tool register kare (AST still holds); AST test hi wo tripwire hai jo dono ke pehle fire hota hai. Pattern-parallel: ticketing ki 2-tier concurrency defense (SETNX + @Version) — alag layers, alag failure classes.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-p6-d5">
+    <h3>P6 · Day 5 — LLM-as-judge + the threshold gate</h3>
+    <span class="iq-anchor">files: <code>dispute_judge.py</code>, <code>eval/golden_disputes.json</code>, <code>eval/run_eval_disputes.py</code>, <code>tests/test_dispute_judge.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>judge_proposal</code> corrects the judge's <code>classification_correct</code> via <code>verdict.model_copy(update={...})</code> instead of <code>verdict.classification_correct = ...</code>. Why? What does Pydantic's <code>model_copy</code> give you here, and when WOULD direct attribute assignment work on a Pydantic model?</p>
+    <p class="iq-hint">Hint: immutability discipline — the original verdict (what the judge actually said) stays intact for the divergence log; the corrected copy is a NEW value. Direct assignment works only on mutable models (model_config without frozen) and silently loses the "what did the judge originally say" record.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> In <code>run_eval_disputes.py</code>, an ESCALATED dispute is counted correct ONLY when <code>expected_resolution == "needs_human"</code> — and the judge is never called for it. Trace both branches: which golden cases legitimately land here, and why is "grade the escalation with the judge anyway" a worse design?</p>
+    <p class="iq-hint">Hint: unrecognized_no_record, unrecognized_but_exists, amount_mismatch, injection_claim — all needs_human. There's no proposal to grade grounding against; a judge call would burn quota to grade an empty artifact. Knowing when NOT to call the judge is the eval-side version of "when NOT to agent."</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The interview question this whole day answers: <em>"How do you evaluate an LLM system whose outputs have no exact-match answer?"</em> Structure your answer using what we built: (a) rubric + second-LLM judge, (b) the three honesty rules and WHICH known judge-failure each defeats (sycophancy/injection, objective-fact drift, silent rubric change), (c) the threshold gate's fail-closed semantics, (d) why the trigger is still manual. Bonus: what's the judge's judge — how would you detect YOUR judge degrading over time?</p>
+    <p class="iq-hint">Hint for the bonus: the judge_divergence log IS the judge's judge — divergence rate on objective fields over persisted runs (eval_runs history) is a measurable judge-reliability trend. When it climbs, re-pin the judge model or tighten the rubric.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

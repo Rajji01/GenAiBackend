@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P5 code-side DONE**; **P6 Days 1–4 done (285 tests)** |
-| **Next work unit** | P6 Day 5 — LLM-as-judge (golden disputes + JudgeVerdict + threshold gate) (§3E). Rajat's open legs unchanged: P4 live-SQS, P5 live tool-eval, Spring AI port. |
+| **Current position** | **P2–P5 code-side DONE**; **P6 Days 1–5 done (297 tests)** |
+| **Next work unit** | P6 Day 6 — closeout (README + LAB banner + AGENTS/CHAIN/memory sync) (§3E). Rajat's open legs: P4 live-SQS, P5 live tool-eval, **P6 live dispute-eval run**, Spring AI port. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -536,11 +536,14 @@ market-signal deliverable from `JARVIS_CHAIN.md` §2).
       budget-exhaust observability) *(Day 4 — 10 tests; the gate proven
       3 independent structural ways: schema Literal, registry noop,
       AST no-call tripwire; full suite 285)*
-- [ ] LLM-as-judge: `eval/golden_disputes.json` (~8 cases) +
-      `JudgeVerdict` rubric (grounded/policy 0-2 + classification
-      cross-checked by `==` in code) + reuse of eval_runs/eval_results +
-      **threshold gate** (exit non-zero: grounded<1.5 or class-acc<80%)
-      *(Day 5)*
+- [x] LLM-as-judge: `eval/golden_disputes.json` (8 cases incl. a
+      REQUIRED injection case) + `JudgeVerdict` rubric (grounded/policy
+      0-2 + classification cross-checked by `==` in code, judge's
+      opinion surgically overridden + divergence logged) + reuse of
+      eval_runs/eval_results + **threshold gate** (fails closed on zero
+      verdicts; exits non-zero: grounded<1.5 or class-acc<80%) *(Day 5
+      — 12 no-network tests; live runner `run_eval_disputes.py` is
+      Rajat's leg per rule 3-6; full suite 297)*
 - [ ] Closeout: README "Agentic disputes (P6)" section, LAB D2–D5 cards
       + "P6 shipped" banner, STUDY interview Qs (3/day), ROADMAP DoD
       ticked, AGENTS §4 + JARVIS_CHAIN §1+§3 synced, memory synced
