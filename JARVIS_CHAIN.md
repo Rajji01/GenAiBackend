@@ -112,6 +112,40 @@ Additional Questions  (respond truthfully)
    - Extensive use — observability + reliability core daily work across systems (comprehensive monitoring, telemetry, fail-safe)
 ```
 
+### [2026-10-10] LinkedIn post — "GraphRAG in Production: When Does It Actually Make Sense?"
+Stored at Rajat's drop (pasted content, no URL). Verbatim, trimmed to substance:
+
+```
+GraphRAG is not a universal upgrade over RAG. Useful when RELATIONSHIPS
+between entities matter as much as content.
+Core difference: Vector RAG finds similar content; GraphRAG finds
+connections between entities.
+Architecture: extract entities+relationships → build knowledge graph →
+traverse at query time → multi-hop reasoning context → LLM answer.
+Two approaches:
+  1. Full GraphRAG — complete maintained graph. For complex/stable
+     domains with deep relationship queries. Cost: infra + indexing +
+     maintenance.
+  2. Graph-as-Reranker (practical prod path):
+     Vector Search → Entity Extraction → Graph Expansion → Reranking.
+     Graph benefits without making retrieval graph-dependent.
+Works well: multi-hop questions, hidden cross-document relationships,
+fraud/financial investigations, legal, biomedical, code dependency graphs.
+Don't need it: simple QA, basic semantic retrieval, fast-changing data
+(graph maintenance cost), retrieval problems solvable by hybrid
+search / reranking.
+Biggest risk: graph maintenance — bad entity resolution / stale
+relationships make the system CONFIDENTLY WRONG.
+Takeaway: use it when reasoning depends on relationships, not text
+similarity.
+```
+
+**→ Derived (Jarvis synthesis, 2026-10-10):**
+- **Interview gold — the third "when NOT to X" framework.** We now hold: when-NOT-to-microservices (ticketing), when-NOT-to-agent (P6 §2), and now when-NOT-to-GraphRAG. Same answer shape: a decision framework + a deliberate counter-example. For us the counter-example is OUR OWN stack: bank narrations are short formulaic strings — similarity + policy rules + exact tools already answer our question shapes; full GraphRAG here would be rule-3-7 overengineering, and the post itself says so ("solvable by hybrid search or reranking" — which is already our P7 plan).
+- **Where it WOULD apply in our domain (name this in interviews):** fraud-ring style multi-hop — "merchants sharing a device/account with disputed duplicate charges" — i.e., P6's dispute data becomes graph-shaped the day relationships (merchant↔holder↔dispute↔policy) drive the question instead of content. That's a P8-capstone-flavoured extension, not a P7 need.
+- **Study topics (read, don't build yet):** entity resolution (the "confidently wrong" risk), multi-hop retrieval patterns, graph-as-reranker pipeline shape, when graph maintenance cost beats its value.
+- **Implement weight for self-walks:** LOW for full GraphRAG (skip). MEDIUM for **graph-as-reranker-lite** as an optional Day inside P7's hybrid-search unit (entity extraction from narrations + a relationships table + expansion step before re-rank) — only if P7's eval shows hybrid search alone missing relationship-shaped queries; otherwise it stays a design-note + interview answer. Priority order from the questionnaire stash is UNCHANGED: eval gate → hybrid search → metrics dashboard still come first.
+
 ### → Derived from the [2026-10-10] questionnaire — topic map (Jarvis synthesis, 2026-10-10)
 
 The 10 questions are a hiring team's blueprint of a **production GenAI engineer**. Clustered, mapped against what this repo already has, gap = what to study/implement:
