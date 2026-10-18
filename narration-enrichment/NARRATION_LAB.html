@@ -332,6 +332,12 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">Hardening (P5.5) — prod failure modes</div>
+      <a class="nav-link" href="#hard-intro"><span class="nav-tag">·</span>The catalog</a>
+      <a class="nav-link" href="#hard-h2"><span class="nav-tag">H2</span>Circuit breaker</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -2569,6 +2575,61 @@ Live leg (Rajat's, rule 3-6): uv run python eval/run_eval_disputes.py
   a4f7f69  P6 Day 4  the human gate, 3-layer proof (10 tests)
   a6738e5  P6 Day 5  LLM-as-judge + threshold gate (12 tests)
   &lt;this commit&gt;  P6 Day 6  docs + ROADMAP + AGENTS + CHAIN sync</div>
+    </article>
+
+    <section id="hard-intro" style="margin-top:64px;">
+      <p class="eyebrow">Hardening arc (P5.5) · Netflix-class prod failure modes</p>
+      <h2>The sync path gets the survival kit the async path already has</h2>
+      <p>Rajat's ask: "realistic tough prod problems, jaise Netflix ke microservices." The honest finding (<code><a href="PROD_HARDENING.md">PROD_HARDENING.md</a></code> §1 — a 10-class failure catalog in post-mortem language, each row marked solved-where / built-now / honestly-out-of-scope): P4/P5 already built the async side's survival kit — DLQ, outbox-shape recovery, CAS dedup, bounded audited tools. What was missing is the <strong>synchronous request path's</strong>: a provider that is DOWN (not just briefly unlucky), clients that retry expensive calls into double-spend, and overload that accepts work it can't finish. An LLM provider is exactly the flaky, expensive, metered upstream these patterns were invented for.</p>
+      <p style="font-size:14.5px;">Four "stop calling" mechanisms now coexist, each reading a different signal: <strong>retry</strong> (this call failed) · <strong>rate limiter</strong> (quota math) · <strong>circuit breaker</strong> (the provider is down) · <strong>load shed</strong> (we are full). Day plan: <code><a href="ROADMAP.md">ROADMAP.md</a> §3E</code>.</p>
+    </section>
+
+    <article class="card day-card" id="hard-h2">
+      <div class="day-head">
+        <span class="day-stamp">P5.5 · H2</span>
+        <span class="day-title">Circuit breaker — "stop asking a dead provider"</span>
+      </div>
+      <span class="day-files">circuit_breaker.py (new) · service.py · chat_service.py · main.py · config.py · tests/conftest.py · tests/test_circuit_breaker.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>The problem, measured in this system's own numbers:</strong> during a sustained Gemini outage every <code>/enrich</code> burns the full 20s timeout, holds a threadpool worker, runs tenacity's 3 bounded retries into the dead upstream, and 503s anyway. tenacity answers "this CALL failed"; nothing answered "this PROVIDER is down." Now: 5 consecutive counted failures → <strong>OPEN</strong> → every request answers 503 + Retry-After in <em>microseconds</em>; after a 30s cooldown, <strong>exactly one probe</strong> tests recovery (HALF_OPEN) — success closes for everyone, failure re-opens with a fresh cooldown.</p>
+
+      <div class="why-box">
+        <div class="why-label">The breaker counts; the CALLER judges — and "unhappy" ≠ "dead"</div>
+        <p><code>counts_as_provider_down</code> (service.py) is the single judgement both routes share: the transient whitelist (429/503/504) <em>plus timeouts</em> (gray failure — consistently slow IS down). Everything else — a 400, a validation failure — means the provider ANSWERED: the wiring records that as breaker-<em>success</em> even while re-raising the error. A breaker that trips on caller bugs turns one weird request into a self-inflicted outage (ticketing Bug-5 whitelist thinking, fourth appearance).</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>One breaker, two routes — shared fate is honest</h4>
+          <p><code>/enrich</code> and every <code>/chat</code> loop iteration gate through the SAME instance: same upstream, same fate. Per-route breakers would just burn two thresholds against one dead provider. The chat test proves it: open via enrich-side failures → chat fails fast with <code>call_count == 0</code> on the LLM mock.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Consecutive-failures, not an error-rate window</h4>
+          <p>Hystrix uses rolling error-rate — correct at Netflix RPS, noise at this traffic (one request per 12s makes a "10% error rate over 10s" meaningless). Threshold 5 ≈ 15 failed wire attempts after per-call retries. The design paper names the flip condition: real sustained RPS where single-request noise stops dominating.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Lazy transitions, no timer thread</h4>
+          <p>OPEN→HALF_OPEN happens inside the next caller's <code>allow()</code> once the cooldown has lapsed — the rate limiter's evict-on-access pattern again. No background thread to leak, and the injectable clock keeps every staleness test sleep-free.</p>
+        </div>
+        <div class="mini-card">
+          <h4>One gotcha: shared state almost broke the SUITE</h4>
+          <p>A process-wide breaker means a test that drives 5 failures would leave the circuit OPEN for every later test — order-dependent failures, the test-suite version of the blast-radius problem itself. Fix: an autouse reset fixture in <code>conftest.py</code>. (And a second gotcha for free: <code>narration_enrichment/__init__.py</code>'s <code>main()</code> entry-point function shadows the <code>main</code> submodule on package-attribute access — <code>import narration_enrichment.main as main_module</code> dodges it.)</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_circuit_breaker.py — 12 new, all green
+  unit (fake clock): starts CLOSED; below-threshold stays;
+    threshold opens w/ Retry-After; success resets CONSECUTIVE
+    count; retry_after shrinks with time; exactly one probe;
+    probe-success fully resets; probe-failure = fresh cooldown;
+    counts_as_provider_down truth table (503/timeout yes,
+    400/ValueError no)
+  integration (real route): 6th request fails fast —
+    provider mock call_count stays 5; recovery probe closes
+    end-to-end; chat gated by the SAME breaker (0 LLM calls)
+Full suite:                256 passed (was 244)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (H3): idempotency keys on <code>/enrich</code> — the Stripe contract. Client timeout + retry must cost ONE LLM call, not two.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

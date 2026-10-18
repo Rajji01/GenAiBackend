@@ -574,10 +574,14 @@ built-now / honestly-out-of-scope).
 
 - [x] `PROD_HARDENING.md` — the 10-class failure catalog mapped to
       this repo + H2–H5 designs + 6 interview Qs *(H1, 2026-10-18)*
-- [ ] `circuit_breaker.py` — CLOSED/OPEN/HALF_OPEN, whitelist-only
-      trips, consecutive-failure threshold, injectable clock; wired
-      around the generative boundary in enrich + chat; OPEN → instant
-      503 + Retry-After *(H2)*
+- [x] `circuit_breaker.py` — CLOSED/OPEN/HALF_OPEN, whitelist-only
+      trips (+ timeouts: gray failure), consecutive-failure threshold,
+      injectable clock, lazy transitions, ONE shared breaker for
+      enrich + chat (shared upstream = shared fate); OPEN → instant
+      503 + Retry-After *(H2, this commit — 12 tests incl. the
+      6th-request-never-reaches-the-provider integration proof and
+      the chat-gated-by-the-same-breaker proof; full suite 256
+      green)*
 - [ ] Idempotency keys on `/enrich` — Stripe contract: replay on
       (key, same body-hash) with zero LLM spend + replay header, 422
       on key reuse with different body, store 200s only, race resolved

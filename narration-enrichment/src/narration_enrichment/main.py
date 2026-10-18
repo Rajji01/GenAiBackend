@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from narration_enrichment import rag
+from narration_enrichment.circuit_breaker import CircuitOpenError
 from narration_enrichment.config import get_settings
 from narration_enrichment.correlation import (
     HEADER_NAME,
@@ -218,6 +219,19 @@ def enrich(request: EnrichRequest, db: Session = Depends(get_db)) -> Transaction
         raise HTTPException(
             status_code=429,
             detail=f"Rate limit exceeded ({exc.scope}). Retry after {exc.retry_after_seconds:.0f}s.",
+            headers={"Retry-After": str(int(exc.retry_after_seconds) + 1)},
+        ) from exc
+
+    except CircuitOpenError as exc:
+        # Hardening H2 — the provider is DOWN (breaker open): answer in
+        # microseconds instead of holding a thread through a 20s
+        # timeout. Distinct detail from the plain provider-503 so an
+        # operator reading client logs can tell "we stopped asking"
+        # from "we asked and it failed."
+        logger.warning("enrich_circuit_open retry_after=%.1f", exc.retry_after_seconds)
+        raise HTTPException(
+            status_code=503,
+            detail="The enrichment provider is unavailable (circuit open). Please retry later.",
             headers={"Retry-After": str(int(exc.retry_after_seconds) + 1)},
         ) from exc
 
@@ -658,6 +672,13 @@ def chat_send_message(
         return chat_service.answer_message(
             db, session_id=session_id, user_message=request.message.strip()
         )
+    except CircuitOpenError as exc:
+        logger.warning("chat_circuit_open retry_after=%.1f", exc.retry_after_seconds)
+        raise HTTPException(
+            status_code=503,
+            detail="The chat provider is unavailable (circuit open). Please retry later.",
+            headers={"Retry-After": str(int(exc.retry_after_seconds) + 1)},
+        ) from exc
     except InstructorRetryException as exc:
         cause = exc.__cause__
         if isinstance(cause, APIError) and cause.code in {429, 503, 504}:

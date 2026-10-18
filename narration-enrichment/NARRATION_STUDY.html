@@ -1035,6 +1035,29 @@
     <p class="iq-hint">Hint: structure = problem → structural solution → test that pins it. Interviewer follow-up hamesha (d) ya (e) pe aata hai — gate aur judge dono ke liye "what if the model tries X" ka jawab architecture hai, prompt nahi.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-hard-h2">
+    <h3>P5.5 · H2 — Circuit breaker on the generative boundary</h3>
+    <span class="iq-anchor">files: <code>circuit_breaker.py</code>, <code>service.py</code> (counts_as_provider_down + wiring), <code>chat_service.py</code>, <code>tests/test_circuit_breaker.py</code>, <code>PROD_HARDENING.md</code> §2</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>circuit_breaker.py</code>. The OPEN→HALF_OPEN transition happens inside <code>_effective_state()</code>, called under the lock from <code>allow()</code>/<code>state</code> — there is no timer thread. (a) Name the two costs a background-timer design would add that this "lazy transition on access" avoids. (b) What SPECIFIC bug would appear if <code>_effective_state()</code> were called WITHOUT holding the lock? (c) Which earlier component in this repo uses the same evict-on-access idea?</p>
+    <p class="iq-hint">Hint: (a) a thread to manage/leak + a shutdown story; (b) two racing callers both see cooldown-elapsed and BOTH get the probe slot — the one-probe guarantee dies; (c) RateLimiter's stale-entry eviction inside acquire()/remaining().</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace the wiring in <code>service.enrich_narration</code> for three calls: (i) provider raises a wrapped 503, (ii) provider raises a 400, (iii) breaker already OPEN. For each: does <code>_call_llm</code> run, what does the breaker record, what does the ROUTE return, and — the subtle one — in case (iii), was a rate-limiter slot already spent? Read the comment above <code>llm_breaker.allow()</code> and explain why that ordering (limiter first, breaker second) was kept despite the "wasted" slot.</p>
+    <p class="iq-hint">Hint: (i) runs, record_failure, 503 provider-flavoured; (ii) runs, record_SUCCESS (alive!), 503-defensive/422 path; (iii) never runs, CircuitOpenError → 503 circuit-flavoured + Retry-After — and yes, the slot is spent: while the provider is down the quota is worthless anyway, and reordering would couple two mechanisms that read different signals.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The arc's signature question (PROD_HARDENING §7 Q1, now half-built): retry, rate limiter, circuit breaker — three "stop calling" mechanisms live in this codebase tonight. For each, name the SIGNAL it reads, the RESOURCE it protects, and one production failure only IT catches. Then the integration question: a client sees 503 + Retry-After from this API — describe how it can tell "provider failed" from "circuit open" from (soon) "load shed", and argue whether exposing that distinction to clients is good API design or an internal leak.</p>
+    <p class="iq-hint">Hint: retry reads one call's error (protects the REQUEST from blips); limiter reads local math (protects the QUOTA before spend); breaker reads consecutive whitelisted failures (protects THREADS + recovery headroom during sustained outage). The detail strings differ on purpose — operators debugging from client logs need the distinction; a stricter API might hide it behind an error code enum instead of prose.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

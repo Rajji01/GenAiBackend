@@ -43,6 +43,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from narration_enrichment import rag, tools
+from narration_enrichment.circuit_breaker import llm_breaker
 from narration_enrichment.db import (
     ChatTurn,
     EnrichmentRecord,
@@ -308,11 +309,27 @@ def answer_message(db: Session, *, session_id: str, user_message: str) -> ChatRe
             content = content + "\n\n" + "\n\n".join(observations)
         if epilogue:
             content = content + "\n\n" + epilogue
-        return _client.create(
-            response_model=_ChatLLMReply,
-            messages=[{"role": "user", "content": content}],
-            max_retries=_settings.max_retries,
-        )
+        # Hardening H2 — same shared breaker as /enrich (same upstream,
+        # shared fate). Every loop iteration is gated: a provider that
+        # dies mid-conversation fails the NEXT step fast instead of
+        # burning (iterations × 20s) of held thread.
+        llm_breaker.allow()
+        try:
+            step = _client.create(
+                response_model=_ChatLLMReply,
+                messages=[{"role": "user", "content": content}],
+                max_retries=_settings.max_retries,
+            )
+        except Exception as exc:
+            from narration_enrichment.service import counts_as_provider_down
+
+            if counts_as_provider_down(exc):
+                llm_breaker.record_failure()
+            else:
+                llm_breaker.record_success()
+            raise
+        llm_breaker.record_success()
+        return step
 
     observations: list[str] = []
     executed_ok: list[tools.ToolOutcome] = []
