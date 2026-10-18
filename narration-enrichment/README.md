@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-244 tests, no network calls, no API key required — the LLM and the
+278 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 `tests/conftest.py` sets a placeholder `GEMINI_API_KEY` so the suite runs
@@ -134,6 +134,39 @@ the *next* `/enrich` call would succeed, without spending one to find
 out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
 `AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
 would misleadingly imply there's data behind it.
+
+## Production hardening (P5.5) — the sync path's survival kit
+
+Netflix-class failure modes, mapped honestly to this system in
+`PROD_HARDENING.md` (a 10-class catalog: solved-where / built-now /
+out-of-scope-at-this-scale). The async path already had its kit
+(DLQ, recovery sweep, CAS dedup); this arc armed the sync path:
+
+- **Circuit breaker** (`circuit_breaker.py`) — 5 consecutive
+  whitelisted failures (429/503/504 + timeouts; a 400 means the
+  provider is ALIVE) → OPEN: microsecond `503 (circuit open)` +
+  Retry-After instead of 20s-timeout threads and retry storms. One
+  cooldown later, exactly one probe heals it. ONE breaker shared by
+  `/enrich` and `/chat` — same upstream, shared fate.
+- **Idempotency keys** (`Idempotency-Key` header on `/enrich`) — the
+  Stripe contract: a client timeout + retry costs ONE LLM call;
+  replay returns the stored bytes verbatim (`X-Idempotent-Replay:
+  true`), same key + different body → loud 422, only 200s stored,
+  PK races resolve to the winner's row.
+- **Load shedding** (`load_shed.py`) — beyond `ENRICH_MAX_IN_FLIGHT`
+  (8) in-flight requests, `503 (load shed)` + `Retry-After: 1` in
+  microseconds; a batch holds one slot; every path releases.
+- **The rejection order, pinned by test:** replay → shed → quota
+  (429) → breaker. Distinct detail strings per gate so client logs
+  can tell "we're full" from "we stopped asking" from "we asked and
+  it failed".
+- **Chaos suite** (`tests/test_chaos.py`) — combined failures:
+  outage + idempotent retry storm absorbed at exactly
+  threshold provider calls with nothing garbage-stored; an open
+  circuit never strands the async worker; embedding failures never
+  trip the generative breaker; chat tools keep working with
+  retrieval down; the saturated+open worst-morning recovers in the
+  documented order.
 
 ## Tool calling (P5) — the exact channel next to the fuzzy one
 

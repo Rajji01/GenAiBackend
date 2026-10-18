@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P6 code-side DONE (297 tests)**; **Hardening arc (P5.5) IN PROGRESS — H1 (plan) done 2026-10-18** (Rajat's ask: "Netflix jaise realistic tough prod problems") |
-| **Next work unit** | H2–H5 per §3F — circuit breaker, idempotency keys, load shedding, chaos suite. Rajat's open legs: P4 live-SQS, P5 live tool-eval, **P6 live dispute-eval run** (`eval/run_eval_disputes.py`), Spring AI port. P7 after the arc, on his go. |
+| **Current position** | **P2–P6 + Hardening arc (P5.5) code-side DONE (2026-10-20) — 331 tests green** |
+| **Next work unit** | Rajat's open legs: P4 live-SQS, P5 live tool-eval, **P6 live dispute-eval run** (`eval/run_eval_disputes.py`), the live chaos drill (PROD_HARDENING §6), Spring AI port. Then P7 (multi-model platform) on his go. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -600,9 +600,15 @@ built-now / honestly-out-of-scope).
       defends it) *(H4, this commit — 10 tests incl.
       shed-with-exploding-mocks, leak-proof finally, double-release
       guard, replay-served-at-full-capacity; full suite 272 green)*
-- [ ] Chaos suite + closeout — combined-failure invariants
-      (`tests/test_chaos.py`), README "Production hardening" section,
-      LAB/STUDY per rule 3-11, this DoD, AGENTS/FILE_GUIDE sync *(H5)*
+- [x] Chaos suite + closeout — combined-failure invariants
+      (`tests/test_chaos.py`: outage+idempotent-retry-storm absorbed
+      at exactly threshold provider calls with nothing garbage-stored;
+      open circuit never strands the worker; embed failures never trip
+      the generative breaker; chat tools alive with retrieval dead;
+      the saturated+open worst-morning recovers in documented order),
+      README "Production hardening" section, LAB/STUDY per rule 3-11,
+      this DoD, AGENTS/FILE_GUIDE sync *(H5, this commit — 6 tests;
+      full suite 278 green)*
 - [ ] Live chaos drill against real Gemini — **Rajat's** (rules
       3-2/3-6), stays open like P4's SQS leg and P5's live eval
 
