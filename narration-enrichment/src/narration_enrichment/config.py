@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     breaker_failure_threshold: int = 5
     breaker_cooldown_seconds: float = 30.0
 
+    # Hardening H4 — the sync path's in-flight cap. 8 concurrent
+    # enrich/batch requests is already ~8× the 5/min quota's worth of
+    # useful parallelism; anything beyond is threads held to be told
+    # no slowly. Overridable the day a paid tier changes the math.
+    enrich_max_in_flight: int = 8
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -33,4 +33,10 @@ def _reset_llm_breaker():
     from narration_enrichment.circuit_breaker import _reset_for_tests
 
     _reset_for_tests()
+
+    # Same reasoning for H4's in-flight counter: shared process state
+    # must never leak capacity (or the lack of it) across tests.
+    from narration_enrichment.load_shed import _reset_for_tests as _reset_shed
+
+    _reset_shed()
     yield
