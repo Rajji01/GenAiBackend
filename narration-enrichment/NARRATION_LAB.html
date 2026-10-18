@@ -335,6 +335,7 @@
       <div class="nav-group-title">Hardening (P5.5) — prod failure modes</div>
       <a class="nav-link" href="#hard-intro"><span class="nav-tag">·</span>The catalog</a>
       <a class="nav-link" href="#hard-h2"><span class="nav-tag">H2</span>Circuit breaker</a>
+      <a class="nav-link" href="#hard-h3"><span class="nav-tag">H3</span>Idempotency keys</a>
     </div>
 
     <div class="nav-group">
@@ -2630,6 +2631,53 @@ Live leg (Rajat's, rule 3-6): uv run python eval/run_eval_disputes.py
 Full suite:                256 passed (was 244)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (H3): idempotency keys on <code>/enrich</code> — the Stripe contract. Client timeout + retry must cost ONE LLM call, not two.</p>
+    </article>
+
+    <article class="card day-card" id="hard-h3">
+      <div class="day-head">
+        <span class="day-stamp">P5.5 · H3</span>
+        <span class="day-title">Idempotency keys — retry must cost one LLM call, not two</span>
+      </div>
+      <span class="day-files">db.py (IdempotencyKey + race-safe store) · main.py (/enrich) · tests/test_idempotency.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>The problem:</strong> client sends <code>/enrich</code>, the LLM takes 19s, the client's own 10s timeout fires, the client retries — the same transaction gets enriched twice: double quota, two rows for one real event. At Stripe this exact shape is a card charged twice; the defense is the same contract: an optional <code>Idempotency-Key</code> header that makes retries <em>free and consistent</em>. No header = exactly the old behavior (opt-in, pinned by test).</p>
+
+      <div class="why-box">
+        <div class="why-label">Replay is free BY DEFINITION — and nondeterminism is why replay must be verbatim</div>
+        <p>The replay check runs BEFORE the rate limiter, the breaker, and retrieval — proven by the nastiest test in the file: second call with every downstream boundary replaced by an exploding mock AND the circuit held OPEN → still 200, <code>X-Idempotent-Replay: true</code>, zero touches. And because the LLM is nondeterministic, "idempotent" must mean <em>one canonical answer</em>, not two equally-valid ones — the replay test's second mocked answer is deliberately different (confidence 0.1 vs 0.9); if the route ever re-processed instead of replaying stored bytes, the response would change and the test would catch it.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>A key names ONE operation</h4>
+          <p>Same key + different body hash → <strong>422, loudly</strong>, no LLM call. Silently returning the other request's stored answer would be a correctness disaster worse than the double-spend the feature exists to stop.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Only 200s are stored</h4>
+          <p>A 503 is not an outcome worth replaying — the client SHOULD retry that and get a fresh attempt. Pinned: fail → retry same key → processes again → succeeds → NOW stored; third call replays. An idempotency store that replays failures defeats the reason clients retry.</p>
+        </div>
+        <div class="mini-card">
+          <h4>The PK race, ticketing-Day-7 shape</h4>
+          <p>Two concurrent retries can BOTH finish processing; exactly one INSERT wins the primary key, the loser catches <code>IntegrityError</code>, rolls back, re-reads, and returns the <em>winner's</em> row — both clients converge on one answer. Fourth appearance of unique-constraint-as-dedup in this repo.</p>
+        </div>
+        <div class="mini-card">
+          <h4>One gotcha: flagged, not built</h4>
+          <p>No TTL on the table (rule 3-7 — expiry is a product decision and the table is tiny at this scale) and batch items don't take per-item keys yet. Both named in PROD_HARDENING §3/§6 — honest open edges, not silent gaps.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_idempotency.py — 6 new, all green (call-COUNTING mocks:
+call count IS the money)
+  · no key → 2 calls = 2 spends (old behavior pinned)
+  · same key+body → 1 spend, verbatim replay + replay header
+  · same key, different body → loud 422, zero extra spend
+  · failures not stored → retry gets a fresh attempt
+  · replay skips limiter + OPEN breaker + retrieval (exploding
+    mocks, 0 touches)
+  · PK race → loser returns winner's row
+Full suite:                262 passed (was 256)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (H4): load shedding — a bounded in-flight counter on the sync path; beyond N, a microsecond 503 beats a 20-second timeout. Plus the rejection ORDER (shed → breaker → quota) pinned by test.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

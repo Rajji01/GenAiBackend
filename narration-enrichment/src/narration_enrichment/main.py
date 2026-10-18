@@ -9,8 +9,10 @@ code that already exists, not a hand-maintained spec.)
 
 import logging
 
+import hashlib
+
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from google.genai.errors import APIError
 from instructor.core.exceptions import InstructorRetryException
 from pydantic import BaseModel, Field
@@ -43,6 +45,8 @@ from narration_enrichment.db import (
     delete_policy_doc,
     find_ingest_job_by_checksum,
     get_category_counts,
+    get_idempotency_record,
+    store_idempotency_record,
     get_chat_session_owned_by,
     get_db,
     get_dispute_owned_by,
@@ -210,9 +214,50 @@ def _enrich_and_persist(narration: str, db: Session) -> TransactionEnrichment:
 
 
 @app.post("/enrich", response_model=TransactionEnrichment)
-def enrich(request: EnrichRequest, db: Session = Depends(get_db)) -> TransactionEnrichment:
+def enrich(
+    request: EnrichRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> TransactionEnrichment:
+    # Hardening H3 — the Stripe contract (PROD_HARDENING.md §3). A
+    # client that timed out and retried must cost ONE LLM call, not
+    # two. Replay happens BEFORE the rate limiter, the breaker, and
+    # retrieval — a replay is free by definition. No header = exactly
+    # the old behavior.
+    request_hash = None
+    if idempotency_key:
+        request_hash = hashlib.sha256(request.narration.encode("utf-8")).hexdigest()
+        stored = get_idempotency_record(db, idempotency_key)
+        if stored is not None:
+            if stored.request_hash != request_hash:
+                # A key names ONE logical operation. Reusing it for
+                # different bytes is a client bug that must fail
+                # loudly — silently returning the OTHER request's
+                # stored answer would be a correctness disaster.
+                raise HTTPException(
+                    status_code=422,
+                    detail="Idempotency-Key was already used with a different request body.",
+                )
+            response.headers["X-Idempotent-Replay"] = "true"
+            return TransactionEnrichment.model_validate_json(stored.response_json)
+
     try:
-        return _enrich_and_persist(request.narration, db)
+        result = _enrich_and_persist(request.narration, db)
+        if idempotency_key:
+            # Only 200s are stored. Two concurrent retries can both
+            # get here; store_idempotency_record resolves the PK race
+            # by returning the WINNER's row, and we return THAT —
+            # the LLM is nondeterministic, and idempotent must mean
+            # one canonical answer, not two equally-valid ones.
+            winner = store_idempotency_record(
+                db,
+                key=idempotency_key,
+                request_hash=request_hash,
+                response_json=result.model_dump_json(),
+            )
+            return TransactionEnrichment.model_validate_json(winner.response_json)
+        return result
 
     except RateLimitExceededError as exc:
         logger.warning("enrich_rate_limited scope=%s retry_after=%.1f", exc.scope, exc.retry_after_seconds)
