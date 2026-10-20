@@ -102,10 +102,11 @@ def judge_proposal(
     `==` answer; the judge's own opinion on it is only used to detect
     judge drift (logged as `judge_divergence`).
     """
-    from narration_enrichment import telemetry
+    from narration_enrichment import model_router, telemetry
 
-    with telemetry.record("dispute_judge", _settings.model_name):
-        verdict: JudgeVerdict = _client.create(
+    _routed_model = model_router.model_for("dispute_judge")
+    with telemetry.record("dispute_judge", _routed_model):
+        verdict: JudgeVerdict = model_router.client_for(_routed_model).create(
             response_model=JudgeVerdict,
             messages=[{"role": "user", "content": _judge_prompt(golden_case, proposal, trail)}],
             max_retries=_settings.max_retries,

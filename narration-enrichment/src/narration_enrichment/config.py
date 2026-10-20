@@ -108,6 +108,15 @@ class Settings(BaseSettings):
     # dollars from PRICE_TABLE, so treat it as a tripwire, not a bill.
     llm_daily_budget_usd: float = 1.0
 
+    # P7 Day 4 — routing is data, not code. Empty = MODEL_NAME.
+    model_enrich: str = ""
+    model_chat: str = ""
+    model_disputes: str = ""
+    # One secondary model, one narrow trigger (primary attempt
+    # exhausts as provider-down). Empty = fallback off. An OPEN
+    # circuit never consults this — see model_router.py.
+    fallback_model: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
