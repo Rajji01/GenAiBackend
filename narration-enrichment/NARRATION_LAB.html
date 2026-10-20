@@ -344,6 +344,7 @@
       <div class="nav-group-title">P7 — Multi-model platform</div>
       <a class="nav-link" href="#p7-intro"><span class="nav-tag">·</span>The idea (signal-chosen)</a>
       <a class="nav-link" href="#p7-day2"><span class="nav-tag">D2</span>Hybrid retrieval (BM25 + RRF)</a>
+      <a class="nav-link" href="#p7-day3"><span class="nav-tag">D3</span>LLM telemetry + budget shout</a>
     </div>
 
     <div class="nav-group">
@@ -2814,6 +2815,52 @@ Full suite:                272 passed (was 262)</div>
 Full suite:                342 passed (was 331)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (D3): LLM telemetry — every call a row (surface/model/latency/outcome/tokens/est-cost), <code>/ops/llm</code> rollups, and the observe-and-shout daily budget alert.</p>
+    </article>
+
+    <article class="card day-card" id="p7-day3">
+      <div class="day-head">
+        <span class="day-stamp">P7 · D3</span>
+        <span class="day-title">LLM telemetry — every call a row, a budget that shouts</span>
+      </div>
+      <span class="day-files">telemetry.py (new) · db.py (LlmCall) · service.py · chat_service.py · dispute_agent.py · dispute_judge.py · main.py (/ops/llm) · tests/test_llm_telemetry.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>You cannot route on cost/latency you don't measure.</strong> Every provider call on all four surfaces (enrich / chat / dispute_agent / dispute_judge) now writes an <code>llm_calls</code> row — surface, model, latency, outcome, tokens, estimated cost — from inside the call wrapper, <em>non-fatally, through its own short session</em>: a telemetry hiccup must never fail the user's request (the run_eval-persistence precedent, P3 invariant #4, now on the most expensive op the system has). Each tenacity retry attempt is its own row — the rows are how you SEE retries.</p>
+
+      <div class="why-box">
+        <div class="why-label">Token truth, surface by surface — and one honest design amendment</div>
+        <p>ENRICH carries <strong>real <code>usage_metadata</code> tokens</strong> via <code>create_with_completion</code> (three retry tests moved to the new seam, intent unchanged). Chat/dispute surfaces record latency+outcome with tokens <strong>None</strong> this arc — chat's mock seam is <code>_client.create</code> across ~40 tests, and reshaping it is a flagged follow-up (instructor hooks), recorded as a D3 amendment in P7_DESIGN §3. None, never fake 0: <code>est_cost_usd</code> exists only when tokens do, from a PRICE_TABLE whose header admits prices drift.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Observe-and-shout, never block</h4>
+          <p>Crossing <code>LLM_DAILY_BUDGET_USD</code> flips <code>/ops/llm.budget.exceeded</code> and logs <code>llm_budget_exceeded</code> on every further priced call (silence-after-first would read as recovery). It never blocks — blocking on estimated spend would duplicate the rate limiter on a signal it can't trust.</p>
+        </div>
+        <div class="mini-card">
+          <h4>The outcome vocabulary is shared</h4>
+          <p><code>ok / provider_down / error</code> uses the SAME <code>counts_as_provider_down</code> judgement as the breaker — one vocabulary for "the provider was down" across breaker, worker, and now telemetry. A 400 is an <code>error</code> row, not a provider death.</p>
+        </div>
+        <div class="mini-card">
+          <h4>/ops/llm — the dashboard the router stands on</h4>
+          <p>Per-surface calls / ok-rate / p50+p95 (Python over today's rows — honest at this volume, sketches/OTel flagged for scale) + tokens + estimated spend + the budget block. Auth-gated like every ops surface.</p>
+        </div>
+        <div class="mini-card">
+          <h4>One gotcha: the deferred import IS the seam</h4>
+          <p>The writer imports <code>db.SessionLocal</code> at call time, not module load — which is exactly what lets tests redirect it to their engine, and what keeps telemetry out of the caller's transaction. The write-failure test pins the contract: SessionLocal explodes, the wrapped call still succeeds.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_llm_telemetry.py — 8 new, all green
+  · extract_usage degrades to None; cost None on unknown
+    model/missing tokens (never fake 0)
+  · recorder: ok row with usage+cost; provider_down vs error
+    distinct; WRITE FAILURE never fails the call
+  · budget shout at a micro-budget (caplog)
+  · enrich end-to-end: real usage through create_with_completion
+  · /ops/llm: 401, per-surface rollups, chat tokens None
+Full suite:                350 passed (was 342)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (D4): per-surface model routing (config, not code) + the one-attempt fallback chain — and the rule that an OPEN circuit never consults the fallback.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

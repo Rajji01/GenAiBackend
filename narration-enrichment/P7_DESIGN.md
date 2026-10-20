@@ -108,9 +108,12 @@ class LlmCall(Base):
   session; a telemetry DB hiccup must never fail the user's request —
   the run_eval persistence precedent).
 - **Real token counts where the SDK gives them** (`usage_metadata` via
-  Instructor's `create_with_completion` on the enrich + chat
-  surfaces); the dispute surfaces record latency/outcome with tokens
-  None this arc — flagged, not faked. `est_cost_usd` only when tokens
+  Instructor's `create_with_completion` on the ENRICH surface).
+  **D3 amendment:** chat joins the dispute surfaces at
+  latency/outcome-only (tokens None) this arc — its mock seam is
+  `_client.create` across ~40 existing tests, and reshaping that seam
+  is its own follow-up (instructor's hooks API is the clean path).
+  Flagged, not faked. `est_cost_usd` only when tokens
   exist, from a PRICE_TABLE in config whose header says prices drift
   and the number is an ESTIMATE for budget math, not billing.
 

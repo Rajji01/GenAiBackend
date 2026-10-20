@@ -47,7 +47,9 @@ from narration_enrichment.db import (
     find_ingest_job_by_checksum,
     get_category_counts,
     get_idempotency_record,
+    list_llm_calls_today,
     store_idempotency_record,
+    sum_llm_cost_today,
     get_chat_session_owned_by,
     get_db,
     get_dispute_owned_by,
@@ -88,6 +90,9 @@ from narration_enrichment.schemas import (
     IngestAsyncResponse,
     IngestJobStatusResponse,
     OpsIngestResponse,
+    OpsLlmBudget,
+    OpsLlmResponse,
+    OpsLlmSurfaceStats,
     PolicyDocSummary,
     PolicyIngestRequest,
     PolicyIngestResponse,
@@ -700,6 +705,50 @@ def ops_ingest(
         dlq_depth=job_queue.dlq_depth(),
         jobs=count_ingest_jobs_by_status(db),
         oldest_queued_age_seconds=oldest_age,
+    )
+
+
+@app.get("/ops/llm", response_model=OpsLlmResponse)
+def ops_llm(
+    db: Session = Depends(get_db),
+    key_hash: str = Depends(auth.require_api_key),
+) -> OpsLlmResponse:
+    # P7 Day 3 — the cost/latency dashboard the router stands on.
+    # Aggregation in Python over TODAY's rows: honest at this volume
+    # (P7_DESIGN names the at-scale replacements). Token sums are None
+    # when no call carried usage — None is "unknown", never fake 0.
+    rows = list_llm_calls_today(db)
+    surfaces: dict[str, OpsLlmSurfaceStats] = {}
+    for surface in sorted({r.surface for r in rows}):
+        mine = [r for r in rows if r.surface == surface]
+        latencies = sorted(r.latency_ms for r in mine)
+
+        def _pct(p: float) -> float:
+            idx = min(len(latencies) - 1, max(0, round(p * (len(latencies) - 1))))
+            return float(latencies[idx])
+
+        prompt_total = [r.prompt_tokens for r in mine if r.prompt_tokens is not None]
+        completion_total = [r.completion_tokens for r in mine if r.completion_tokens is not None]
+        surfaces[surface] = OpsLlmSurfaceStats(
+            calls=len(mine),
+            ok=sum(1 for r in mine if r.outcome == "ok"),
+            provider_down=sum(1 for r in mine if r.outcome == "provider_down"),
+            error=sum(1 for r in mine if r.outcome == "error"),
+            p50_latency_ms=_pct(0.50) if latencies else None,
+            p95_latency_ms=_pct(0.95) if latencies else None,
+            prompt_tokens=sum(prompt_total) if prompt_total else None,
+            completion_tokens=sum(completion_total) if completion_total else None,
+        )
+
+    spent = sum_llm_cost_today(db)
+    settings = get_settings()
+    return OpsLlmResponse(
+        surfaces=surfaces,
+        budget=OpsLlmBudget(
+            daily_limit_usd=settings.llm_daily_budget_usd,
+            spent_est_usd=round(spent, 6),
+            exceeded=spent > settings.llm_daily_budget_usd,
+        ),
     )
 
 

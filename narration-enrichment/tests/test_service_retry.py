@@ -66,12 +66,14 @@ def test_recovers_after_transient_errors_within_the_retry_budget():
     )
     # Fails twice with the real wrapped shape, then succeeds on the 3rd
     # try — exactly stop_after_attempt(3)'s budget, no more.
+    # P7 Day 3 moved the seam: _call_llm calls create_with_completion
+    # (returns (model, raw_completion)) so telemetry reads real usage.
     with patch(
-        "narration_enrichment.service._client.create",
+        "narration_enrichment.service._client.create_with_completion",
         side_effect=[
             _wrapped_transient(503, "UNAVAILABLE"),
             _wrapped_transient(429, "RESOURCE_EXHAUSTED"),
-            good_result,
+            (good_result, None),
         ],
     ):
         import tenacity
@@ -84,7 +86,7 @@ def test_recovers_after_transient_errors_within_the_retry_budget():
 
 def test_gives_up_after_exhausting_the_retry_budget():
     with patch(
-        "narration_enrichment.service._client.create",
+        "narration_enrichment.service._client.create_with_completion",
         side_effect=_wrapped_transient(503, "UNAVAILABLE"),  # every attempt fails the same way
     ):
         import tenacity
@@ -102,7 +104,7 @@ def test_non_transient_error_is_not_retried_at_all():
         call_count += 1
         raise _wrapped_transient(400, "INVALID_ARGUMENT")
 
-    with patch("narration_enrichment.service._client.create", side_effect=_raise_once):
+    with patch("narration_enrichment.service._client.create_with_completion", side_effect=_raise_once):
         with pytest.raises(InstructorRetryException):
             enrich_narration("some narration")
 

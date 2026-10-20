@@ -318,12 +318,19 @@ def answer_message(db: Session, *, session_id: str, user_message: str) -> ChatRe
         # dies mid-conversation fails the NEXT step fast instead of
         # burning (iterations × 20s) of held thread.
         llm_breaker.allow()
+        from narration_enrichment import telemetry
+
         try:
-            step = _client.create(
-                response_model=_ChatLLMReply,
-                messages=[{"role": "user", "content": content}],
-                max_retries=_settings.max_retries,
-            )
+            # P7 Day 3 — latency/outcome telemetry. Tokens stay None on
+            # this surface this arc: its mock seam is _client.create
+            # across ~40 tests; the hooks-based usage capture is the
+            # flagged follow-up (telemetry.py module docstring).
+            with telemetry.record("chat", _settings.model_name):
+                step = _client.create(
+                    response_model=_ChatLLMReply,
+                    messages=[{"role": "user", "content": content}],
+                    max_retries=_settings.max_retries,
+                )
         except Exception as exc:
             from narration_enrichment.service import counts_as_provider_down
 
