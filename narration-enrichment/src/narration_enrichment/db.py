@@ -171,6 +171,15 @@ def list_enrichments(db: Session, limit: int = 20, offset: int = 0) -> list[Enri
     )
 
 
+def list_all_enrichment_records(db: Session) -> list[EnrichmentRecord]:
+    """P7 Day 2 — the LEXICAL channel's corpus. Deliberately wider
+    than list_records_with_embeddings: a row saved during an embed
+    outage has embedding=None and is invisible to dense retrieval
+    FOREVER — BM25 can still resurrect it by its tokens. No LIMIT at
+    this scale, same note as below."""
+    return db.query(EnrichmentRecord).all()
+
+
 def list_records_with_embeddings(db: Session) -> list[EnrichmentRecord]:
     # The RAG knowledge base: every past enrichment that has an embedding
     # to compare against. No LIMIT here on purpose at this project's scale

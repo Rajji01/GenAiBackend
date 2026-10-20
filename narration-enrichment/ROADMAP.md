@@ -642,11 +642,15 @@ token telemetry).
 ### DoD (Definition of Done)
 
 - [x] `P7_DESIGN.md` shipped as Day 1 deliverable *(2026-10-20)*
-- [ ] `bm25.py` (Okapi, pure Python, domain-right alnum tokenizer) +
+- [x] `bm25.py` (Okapi, pure Python, domain-right alnum tokenizer) +
       RRF fusion + `hybrid_*` retrieval in rag.py wired into enrich +
       chat; floors on the dense channel only; `query_embedding=None` ⇒
-      lexical-only (retrieval now SURVIVES an embed outage — chaos
-      suite upgraded to pin it) *(Day 2)*
+      lexical-only *(Day 2, this commit — 11 tests incl. the
+      embed-outage end-to-end proof (real lexical context in the
+      prompt through a dead embed endpoint) and the orphan-row
+      resurrection; Citation.similarity_score now carries the FUSED
+      score (one P2-era test updated to the new contract); full suite
+      342 green)*
 - [ ] `LlmCall` telemetry rows written non-fatally by the call wrapper
       on all four surfaces (real `usage_metadata` tokens on enrich +
       chat via `create_with_completion`; dispute surfaces

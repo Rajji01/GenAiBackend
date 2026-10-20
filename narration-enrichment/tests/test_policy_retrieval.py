@@ -262,13 +262,15 @@ def test_enrich_response_carries_ground_truth_citations_from_retrieval():
     body = r.json()
     citations = body["policy_citations"]
     # ONE citation, matching the ONE seeded chunk, with the score the
-    # cosine loop actually computed (1.0 in this mocked-embedding
-    # setup) — not something the LLM invented.
+    # retrieval actually computed — not something the LLM invented.
+    # P7 Day 2: the score is now the RRF-FUSED value (the ranking that
+    # actually chose the chunk), not raw cosine. Sole chunk at rank 1
+    # in both channels = 1/61 + 1/61.
     assert len(citations) == 1
     assert citations[0]["doc_id"] == "merchant_map"
     assert citations[0]["chunk_index"] == 7
     assert citations[0]["snippet"] == "OLA -> transportation"
-    assert citations[0]["similarity_score"] == pytest.approx(1.0, abs=1e-6)
+    assert citations[0]["similarity_score"] == pytest.approx(2.0 / 61, abs=1e-6)
 
 
 def test_llm_provided_citations_are_overwritten_not_appended():

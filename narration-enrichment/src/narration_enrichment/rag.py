@@ -179,6 +179,94 @@ def retrieve_policy_chunks(
     return scored[:top_k]
 
 
+# ---------------------------------------------------------------------------
+# P7 Day 2 — hybrid retrieval: dense + BM25, fused by RRF
+# ---------------------------------------------------------------------------
+#
+# The dense-only functions above stay untouched (their tests pin the
+# cosine semantics); these hybrids are what the request paths now call.
+# Floors apply to the DENSE channel only — a BM25 floor across corpora
+# is meaningless (unbounded, corpus-dependent scale); the lexical
+# channel's entry bar is score > 0, i.e. actual term overlap.
+# `query_embedding=None` is NOT an error: it is the embed-outage
+# degrade path, and the lexical channel alone still retrieves — the
+# availability upgrade this day exists for, alongside the exact-token
+# blind-spot fix.
+
+
+def _hybrid_rank(dense_ranked_ids, lexical_ranked_ids, top_k):
+    from narration_enrichment.bm25 import rrf_fuse
+
+    fused = rrf_fuse([dense_ranked_ids, lexical_ranked_ids])
+    ranked = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)
+    return ranked[:top_k]  # [(id, fused_score)]
+
+
+def hybrid_find_similar_examples(
+    db: Session,
+    query_text: str,
+    query_embedding: list[float] | None,
+    top_k: int = TOP_K,
+    min_similarity: float = MIN_SIMILARITY,
+) -> list[EnrichmentRecord]:
+    from narration_enrichment.bm25 import BM25
+    from narration_enrichment.db import list_all_enrichment_records
+
+    # Lexical corpus is WIDER than the dense one on purpose: rows saved
+    # during an embed outage (embedding=None) are invisible to cosine
+    # forever, but BM25 can still find them by their tokens.
+    lexical_candidates = list_all_enrichment_records(db)
+    by_id = {r.id: r for r in lexical_candidates}
+
+    dense_ranked = [
+        r.id for r in find_similar_examples(db, query_embedding, top_k=top_k, min_similarity=min_similarity)
+    ] if query_embedding is not None else []
+
+    lexical_ranked: list[int] = []
+    if lexical_candidates:
+        bm25 = BM25([r.narration for r in lexical_candidates])
+        scored = [
+            (s, r.id) for s, r in zip(bm25.scores(query_text), lexical_candidates) if s > 0
+        ]
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        lexical_ranked = [rid for _s, rid in scored[:top_k]]
+
+    return [by_id[rid] for rid, _score in _hybrid_rank(dense_ranked, lexical_ranked, top_k)]
+
+
+def hybrid_retrieve_policy_chunks(
+    db: Session,
+    query_text: str,
+    query_embedding: list[float] | None,
+    top_k: int = POLICY_TOP_K,
+    min_similarity: float = POLICY_MIN_SIMILARITY,
+) -> list[tuple[float, PolicyChunk]]:
+    """Same fusion for the policy corpus. Returns (fused_score, chunk)
+    so the earned-citations contract keeps carrying the score that
+    actually chose the chunk — which, post-P7, is the RRF value, not a
+    raw cosine. Callers that populate `Citation.similarity_score` now
+    record the fused ranking's own number."""
+    from narration_enrichment.bm25 import BM25
+
+    candidates = list_policy_chunks_with_embeddings(db)
+    by_id = {c.id: c for c in candidates}
+
+    dense_ranked = [
+        c.id for _s, c in retrieve_policy_chunks(db, query_embedding, top_k=top_k, min_similarity=min_similarity)
+    ] if query_embedding is not None else []
+
+    lexical_ranked: list[int] = []
+    if candidates:
+        bm25 = BM25([c.content for c in candidates])
+        scored = [
+            (s, c.id) for s, c in zip(bm25.scores(query_text), candidates) if s > 0
+        ]
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        lexical_ranked = [cid for _s, cid in scored[:top_k]]
+
+    return [(score, by_id[cid]) for cid, score in _hybrid_rank(dense_ranked, lexical_ranked, top_k)]
+
+
 def build_policy_context_block(
     scored_chunks: list[tuple[float, PolicyChunk]],
 ) -> str | None:

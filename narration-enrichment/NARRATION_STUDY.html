@@ -1127,6 +1127,29 @@
     <p class="iq-hint">Hint for the rebuttal: each mechanism reads a signal the others cannot see (one call's error class / local quota math / consecutive upstream failures / instantaneous concurrency) — collapsing them means one mechanism must infer all four signals from one, which is exactly how you get a breaker that trips on quota noise or a shed that waits for timeouts. Anchor: load_shed.py's module docstring order comment.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p7-d2">
+    <h3>P7 · Day 2 — Hybrid retrieval (BM25 + dense + RRF)</h3>
+    <span class="iq-anchor">files: <code>bm25.py</code>, <code>rag.py</code> (hybrid_*), <code>tests/test_hybrid_retrieval.py</code>, <code>P7_DESIGN.md</code> §2</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>bm25.py</code>. (a) Walk the BM25 formula as the code computes it — what do k1 and b each control, and what happens to a very LONG document's term scores because of b? (b) The idf is floored at 0 with <code>max(0.0, ...)</code> — derive when classic idf goes negative and state the retrieval nonsense it would cause. (c) Why is the corpus rebuilt per query instead of cached — and at what scale does that flip?</p>
+    <p class="iq-hint">Hint: k1 saturates term frequency; b length-normalizes (b=0.75 partially punishes long docs). idf&lt;0 when df &gt; N/2 — matching a common term would rank you BELOW a doc without it. Rebuild = always-fresh corpus, microseconds at hundreds of rows; the inverted index arrives with thousands.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>hybrid_find_similar_examples(db, "netflix", EMB_A)</code> against the seeded state of <code>test_candidate_in_both_channels_outranks_single_channel</code>: list each channel's ranking, the RRF sum per candidate, and the final order. Then the asymmetry question: why does the LEXICAL corpus use <code>list_all_enrichment_records</code> while dense uses <code>list_records_with_embeddings</code> — what row class exists in the gap, and which test pins it?</p>
+    <p class="iq-hint">Hint: both-channels candidate gets 1/61+1/61; dense-only gets 1/61. The gap = rows saved during an embed outage (embedding=None) — invisible to cosine forever, resurrectable by tokens: <code>test_lexical_channel_resurrects_rows_dense_can_never_see</code>.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The interview-signature hybrid question: (a) explain mechanically why embeddings miss exact tokens (what the tokenizer+pooling do to <code>NETFLIX</code>) while BM25 cannot miss them; (b) defend RRF over weighted score addition — name the calibration problem and the drift; (c) the design calls RRF "the re-rank for now, honestly" — state what a cross-encoder re-ranker adds over RRF, its cost shape, and the EVIDENCE bar this repo set before building it. Who runs that evidence, and why (rule 3-6)?</p>
+    <p class="iq-hint">Hint for (c): a cross-encoder reads query+candidate TOGETHER (attention across both) — better precision@k, but one model call per candidate per query. The bar: recall@k on the golden set showing the boring version losing — a live run on Rajat's quota, because claiming it from mocks would be cherry-picking.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">
