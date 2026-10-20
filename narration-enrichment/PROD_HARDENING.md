@@ -167,7 +167,7 @@ evidence, not a brochure.
 
 ---
 
-## 6. Day plan + DoD (mirrors ROADMAP §3E)
+## 6. Day plan + DoD (mirrors ROADMAP §3F)
 
 - **H1 (this paper)** — the catalog + designs + this DoD.
 - **H2** — `circuit_breaker.py` + wiring into enrich/chat + tests.
@@ -208,4 +208,4 @@ evidence, not a brochure.
 
 *Companion to `P5_DESIGN.md` and friends; the live chaos drill
 against real Gemini is Rajat's per rules 3-2/3-6. Plan lives in
-`ROADMAP.md` §3E.*
+`ROADMAP.md` §3F.*

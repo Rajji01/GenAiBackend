@@ -607,8 +607,8 @@ built-now / honestly-out-of-scope).
       the generative breaker; chat tools alive with retrieval dead;
       the saturated+open worst-morning recovers in documented order),
       README "Production hardening" section, LAB/STUDY per rule 3-11,
-      this DoD, AGENTS/FILE_GUIDE sync *(H5, this commit — 6 tests;
-      full suite 278 green)*
+      this DoD, AGENTS/FILE_GUIDE sync *(H5 — 6 tests; 278 green on the arc's pre-P6 base, **331 green**
+      after the 2026-10-20 rebase onto P6)*
 - [ ] Live chaos drill against real Gemini — **Rajat's** (rules
       3-2/3-6), stays open like P4's SQS leg and P5's live eval
 
