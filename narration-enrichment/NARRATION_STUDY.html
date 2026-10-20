@@ -1196,6 +1196,29 @@
     <p class="iq-hint">Hint for (c): client_for grows a vendor dispatch; llm_calls.model/PRICE_TABLE already fit; the breaker rule flips because a second VENDOR is a different failure domain — an open circuit on vendor A is exactly when you WANT to consult vendor B, so the breaker becomes per-vendor and the gate moves inside the chain. The design paper names this flip condition deliberately.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p7-d5">
+    <h3>P7 · Day 5 — Closeout: the platform, reviewed whole</h3>
+    <span class="iq-anchor">files: the whole P7 arc — <code>P7_DESIGN.md</code>, <code>bm25.py</code>, <code>telemetry.py</code>, <code>model_router.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> P7 added three module-level caches/singletons: the router's client dict, telemetry's write path, and (from earlier arcs) the breaker + shed. List what the suite's <code>conftest.py</code> resets between tests and what it does NOT — then audit: does any P7 state need a reset it doesn't have? Walk why the router's client cache is (or isn't) order-dependence bait the way the breaker was.</p>
+    <p class="iq-hint">Hint: conftest resets breaker + shed; the router cache holds CLIENTS (stateless wrappers keyed by model) — a leftover client is identical to a rebuilt one, so no cross-test lie is possible… except in tests that assert cache behavior, which reset locally via the autouse fixture in test_model_router. State needs resetting when it changes ANSWERS, not when it changes objects.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> One /enrich request, FALLBACK_MODEL set, primary 503-exhausting, fallback healthy, embed endpoint ALSO down. Trace the full P7 stack: what does retrieval return (which channel), how many telemetry rows with which (surface, model, outcome) triples, what does the breaker end at, and what does the client receive? Which three different arcs' mechanisms cooperated in that one request?</p>
+    <p class="iq-hint">Hint: lexical-only context (D2); telemetry = primary's provider_down attempts + one (enrich, fallback, ok) row (D3/D4); breaker CLOSED (fallback success healed it — H2's record semantics); client gets a 200 with lexical-grounded enrichment. Arcs: P7 hybrid + P7 telemetry/routing + P5.5 breaker — and P2's degrade rule underneath all of it.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The portfolio question this track now answers end-to-end: "walk me through operating an LLM product in production." Build the 3-minute answer using ONLY this repo's shipped mechanisms, in incident order: a provider brownout begins at 09:00 — narrate what each layer does minute by minute (retry → breaker → shed → fallback → telemetry rows → /ops/llm → budget line → the worker's independence → hybrid retrieval keeping answers grounded), and end with the two numbers you'd put on a dashboard and the one decision a human still has to make.</p>
+    <p class="iq-hint">Hint: the two numbers — provider_down rate per surface (telemetry GROUP BY) and p95 latency; the human decision — flip FALLBACK_MODEL / raise the breaker cooldown / accept degraded mode, because policy under sustained outage is a product call, not a mechanism's.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

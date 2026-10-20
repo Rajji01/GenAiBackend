@@ -346,6 +346,7 @@
       <a class="nav-link" href="#p7-day2"><span class="nav-tag">D2</span>Hybrid retrieval (BM25 + RRF)</a>
       <a class="nav-link" href="#p7-day3"><span class="nav-tag">D3</span>LLM telemetry + budget shout</a>
       <a class="nav-link" href="#p7-day4"><span class="nav-tag">D4</span>Model routing + fallback chain</a>
+      <a class="nav-link" href="#p7-day5"><span class="nav-tag">D5</span>Closeout (P7 code-side shipped)</a>
     </div>
 
     <div class="nav-group">
@@ -2909,6 +2910,34 @@ Full suite:                350 passed (was 342)</div>
 Full suite:                360 passed (was 350)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (D5): P7 closeout — README section, shipped banner, ROADMAP/AGENTS/FILE_GUIDE/CHAIN sync. Rajat's legs: live recall@k, second vendor key, the AWS half.</p>
+    </article>
+
+    <article class="card day-card" id="p7-day5">
+      <div class="day-head">
+        <span class="day-stamp">P7 · D5</span>
+        <span class="day-title">P7 closeout — docs + ROADMAP + AGENTS + CHAIN sync</span>
+      </div>
+      <span class="day-files">README.md · NARRATION_LAB.html · NARRATION_STUDY.html · ROADMAP.md · AGENTS.md · FILE_GUIDE.md · JARVIS_CHAIN.md</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> close P7's code side (rule 3-9 discipline layer).</p>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">P7 shipped (code-side) — the whole arc in one line</div>
+        <p>D1 = design paper (signal-chosen under JARVIS_CHAIN §2). D2 = hybrid retrieval — BM25 + dense fused by rank, the exact-token blind spot fixed, and retrieval that now SURVIVES an embed outage. D3 = every LLM call a telemetry row + <code>/ops/llm</code> + the observe-and-shout budget. D4 = routing as config + the narrow fallback chain, wired into all four surfaces with the identity trick that kept every mock seam alive. The platform now measures what it spends, retrieves on two channels, and routes by env.</p>
+        <p style="margin-top:8px;"><strong>360 tests green</strong> (was 331 at the Hardening close). <strong>29 new</strong> across D2–D4. Zero regressions.</p>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">Open, deliberately (rules 3-2 / 3-6 / 3-7)</div>
+        <p>Live recall@k of hybrid-vs-dense on the golden set (Rajat's quota). A second real VENDOR key — the chain's seam is built for it, and the OPEN-circuit-skips-fallback rule flips per-vendor that day. Chat/dispute token capture via instructor hooks. P7's AWS half: pgvector, Secrets Manager, API Gateway, ECS. Cross-encoder re-ranker waits for eval evidence.</p>
+      </div>
+
+      <div class="terminal">P7 commits, in chronological order:
+  5a01577  D1  design paper + ROADMAP sec 3G
+  c031253  D2  hybrid retrieval, BM25 + RRF (11 tests)
+  d3d5937  D3  LLM telemetry + budget shout (8 tests)
+  217a31d  D4  routing + fallback chain (10 tests)
+  &lt;this commit&gt;  D5  docs + ROADMAP + AGENTS + CHAIN sync</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

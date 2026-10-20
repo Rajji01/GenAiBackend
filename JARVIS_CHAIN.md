@@ -36,7 +36,7 @@
 ## 1. Current state (pointer — full detail in AGENTS.md §4)
 
 - **Ticketing (Track C):** Weeks 1–3 done+pushed; Week 4 (AWS) = design paper + Terraform skeleton + WEEK4_CLOUD + ARCHITECTURE.html done; **real `terraform apply` + RDS/ECS/bucket = Rajat's.** 124 Java tests.
-- **Narration (Track B):** **P1–P6 code-side done** (… + P6 agentic dispute workflow w/ LLM-as-judge), **297 tests**. P7 (multi-model platform) next on Rajat's go. Open legs (Rajat's): live-SQS apply, live tool-eval, **live dispute-eval (`eval/run_eval_disputes.py`)**, Spring AI port.
+- **Narration (Track B):** **P1–P7 + Hardening arc (P5.5) code-side done**, **360 tests** (ccr branch, rebased onto main's P6 2026-10-20). P8 (capstone) next on Rajat's go. Open legs (Rajat's): live-SQS apply, live tool-eval, **live dispute-eval**, live chaos drill, P7 recall@k + second vendor key + AWS half, Spring AI port.
 - **Pending (Rajat's own):** WEEK3_DESIGN §9 + WEEK4_DESIGN §8 interview answers; the GenAI job questionnaire stashed in §2.
 - Update this pointer when §4 changes.
 
@@ -125,11 +125,13 @@ The 10 questions are a hiring team's blueprint of a **production GenAI engineer*
 | **Observability/reliability** (Q10) | On-call for LLM apps: token-spend spikes, p99, drift; fail-safe = degrade-not-fail | Correlation IDs (both tracks), `/stats`, `/ops/ingest`, PII-at-DEBUG, rate limiter, degrade-not-fail everywhere | **OpenTelemetry/Prometheus metrics + Grafana dashboard** (1 day, screenshot-able); **token-cost telemetry + budget alert** (small, high-value) |
 | **Years-of-experience** (Q1,Q3) | Time + paid work only | — | Not implementable; portfolio ka kaam = baaki clusters ko "Practical use" tier tak dhakelna (esp. real deploy + eval gates) |
 
-**Self-walk priority order from this signal:** 1) LLM-as-judge eval (P6 fit) → 2) eval gate+threshold → 3) hybrid search+re-rank (P7) → 4) token/latency metrics dashboard. [Rajat's legs: both terraform applies, live tool-eval, Spring AI port.]
+**Self-walk priority order from this signal:** 1) LLM-as-judge eval ✅ (P6) → 2) eval gate+threshold ✅ (P6 D5) → 3) hybrid search+re-rank ✅ (P7 D2, RRF; cross-encoder waits on eval evidence) → 4) token/latency metrics ✅ (P7 D3, `/ops/llm` + budget shout; Grafana/OTel still open as the visual layer). [Rajat's legs: both terraform applies, live tool-eval, Spring AI port.]
 
 ---
 
 ## 3. Self-walk log (append newest on top)
+
+- **[2026-10-20]** (cloud session, ccr branch) **Rebase + P7 built end-to-end, D1–D5** (`5a01577`→D5 commit): first pulled and found main had gained re-authored P4/P5 + JARVIS_CHAIN + full P6 — rebased the Hardening arc (P5.5, H1–H5, built 2026-10-18 on this branch) onto it, resolved conflicts keeping BOTH arcs (P6=§3E, Hardening=§3F), combined suite verified 331. Then P7 under the §2 signal weighting: hybrid BM25+RRF retrieval (retrieval survives embed outages now), LlmCall telemetry on all four surfaces + /ops/llm + budget shout, per-surface model routing + narrow fallback chain. 331→360 tests, zero regressions, rule 3-11 every code day. **Commits on this branch are Claude-authored (cloud session constraint, Rajat's standing ok "abhi k lie") — reauthor per §0's ccr-* gotcha before merging to main.** Pushed to origin/ccr-a74c3b7c-f63reu per Rajat's standing push directive for this session lineage.
 
 - **[2026-10-10]** (local session, walk 2) **P6 built end-to-end, Days 1–6** (`f0e69fc`→Day-6 commit): agentic dispute workflow — design paper (when-NOT-to-agent), state machine + checkpoints + CRUD, the loop (checkpoint-then-execute, dual budgets, safe-default-escalate), the 3-layer human gate, LLM-as-judge + fail-closed threshold gate (the §2 market-signal's #1 deliverable), closeout. 244→297 tests, zero regressions, rule 3-11 every code day. First unit chosen under the §2 market-signal weighting. All commits LOCAL (author Rajat) — push awaits Rajat's ask (§3-2). Rajat's new open leg: live dispute-eval run.
 - **[2026-10-10]** (local session) Pulled 24 commits (`fab8f9e→67ad5bf`), full state re-read after Rajat called out the miss ("sab files pdhni hai sari state maintain krne vli"). Machine-local memory synced to P1–P5/244-tests + Week-4 reality (it was stale at P3 — cloud sessions can't touch it). **§2 stash purpose extended per Rajat:** job posts/URLs = market signal → extract what-companies-want → long-term study topics + self-walk priority weights. Derived topic-map from the questionnaire added under §2. Local memory got `self_walk_chain.md` (post-pull re-read discipline + ccr-* author gotcha). Uncommitted: this file's §2 additions + this log line.
