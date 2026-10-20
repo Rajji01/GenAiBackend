@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P6 + Hardening arc (P5.5) code-side DONE (2026-10-20) — 331 tests green** |
-| **Next work unit** | Rajat's open legs: P4 live-SQS, P5 live tool-eval, **P6 live dispute-eval run** (`eval/run_eval_disputes.py`), the live chaos drill (PROD_HARDENING §6), Spring AI port. Then P7 (multi-model platform) on his go. |
+| **Current position** | **P2–P6 + Hardening (P5.5) code-side DONE**; **P7 IN PROGRESS — Day 1 (design) done 2026-10-20** (unit chosen by JARVIS_CHAIN §2 signal: hybrid search #3 + token telemetry #4) |
+| **Next work unit** | P7 Days 2–5 per §3G — hybrid retrieval (BM25+RRF), LLM telemetry + budget alert, routing/fallback, closeout. Rajat's open legs unchanged (P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, Spring AI port). |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -45,6 +45,7 @@ after it's proven against a real Gemini call, real SQLite, real HTTP.
 3d. [P5 daily plan — Tool-calling assistant](#3d-p5-daily-plan--tool-calling-assistant)
 3e. [P6 daily plan — Agentic workflow (transaction disputes)](#3e-p6-daily-plan--agentic-workflow-transaction-disputes)
 3f. [Hardening arc (P5.5) — Netflix-class prod failure modes](#3f-hardening-arc-p55--netflix-class-prod-failure-modes)
+3g. [P7 daily plan — Multi-model platform](#3g-p7-daily-plan--multi-model-platform)
 4. [P4-P8 outline (from Jarvis_GenAI_Path.md)](#4-p4-p8-outline)
 5. [Companion files — which is which](#5-companion-files)
 6. [How to use this file](#6-how-to-use-this-file)
@@ -64,7 +65,7 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 | **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | ✅ **code-side DONE** (live-SQS leg = Rajat's) |
 | P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | ✅ **code-side DONE** (live eval + Spring port = Rajat's) |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
-| P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | future |
+| P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | 🚧 **IN PROGRESS** (Day 1 done) |
 | P8 | Capstone platform | Full prod system | full | full | future |
 
 **Rule from the master plan:** don't advance to P(N+1) until P(N)'s
@@ -624,6 +625,57 @@ built-now / honestly-out-of-scope).
   answer in microseconds precisely when the system is at its busiest.
 - **Only replay 200s** — an idempotency store that replays failures
   defeats the reason clients retry.
+
+---
+
+## 3G. P7 daily plan — Multi-model platform
+
+**Goal:** the platform layer — retrieval that uses both channels
+(lexical + dense), LLM calls that are measured (cost/latency rows +
+budget alert), and model choice that is data, not code (per-surface
+routing + a narrow fallback chain). Unit chosen under the
+`JARVIS_CHAIN.md` §2 market-signal weighting (#3 hybrid search, #4
+token telemetry).
+
+**Design paper:** [`P7_DESIGN.md`](P7_DESIGN.md) — read it first.
+
+### DoD (Definition of Done)
+
+- [x] `P7_DESIGN.md` shipped as Day 1 deliverable *(2026-10-20)*
+- [ ] `bm25.py` (Okapi, pure Python, domain-right alnum tokenizer) +
+      RRF fusion + `hybrid_*` retrieval in rag.py wired into enrich +
+      chat; floors on the dense channel only; `query_embedding=None` ⇒
+      lexical-only (retrieval now SURVIVES an embed outage — chaos
+      suite upgraded to pin it) *(Day 2)*
+- [ ] `LlmCall` telemetry rows written non-fatally by the call wrapper
+      on all four surfaces (real `usage_metadata` tokens on enrich +
+      chat via `create_with_completion`; dispute surfaces
+      latency/outcome-only this arc, flagged) + `/ops/llm` rollup
+      (per-surface calls/ok-rate/p50/p95, tokens + est spend today) +
+      daily budget observe-and-shout alert *(Day 3)*
+- [ ] `model_router.py` — per-surface model config (`MODEL_ENRICH` /
+      `MODEL_CHAT` / `MODEL_DISPUTES`), lazily-cached per-model
+      clients, `FALLBACK_MODEL` chain with the narrow trigger
+      (transient exhaustion only; an OPEN circuit never consults the
+      fallback — same provider, same fate) *(Day 4)*
+- [ ] Closeout: README "Multi-model platform (P7)" section, LAB cards
+      + banner, STUDY Qs per rule 3-11, this DoD, AGENTS/FILE_GUIDE/
+      CHAIN sync *(Day 5)*
+- [ ] **Rajat's legs:** live recall@k eval of hybrid-vs-dense on the
+      golden set (rule 3-6), a second real PROVIDER key for the chain,
+      P7's AWS half (pgvector/Secrets/API GW/ECS — rule 3-2)
+
+### Concepts to keep tight
+
+- **Ranks fuse; scores don't.** RRF over rank positions — raw
+  cosine+BM25 mixing needs calibration that drifts.
+- **Measure before you route.** Telemetry rows are the ground the
+  router stands on.
+- **Fallback answers a different question than the breaker.** Model
+  overloaded ⇒ try sibling once; provider down ⇒ fast 503, no costume
+  retry storm.
+- **Observability never fails the op, and never fakes a number** —
+  tokens None when unknown, cost None when tokens None.
 
 ---
 
