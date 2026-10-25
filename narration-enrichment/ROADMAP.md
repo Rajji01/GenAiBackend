@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P6 + Hardening (P5.5) code-side DONE**; **P7 IN PROGRESS — Day 1 (design) done 2026-10-20** (unit chosen by JARVIS_CHAIN §2 signal: hybrid search #3 + token telemetry #4) |
-| **Next work unit** | P7 Days 2–5 per §3G — hybrid retrieval (BM25+RRF), LLM telemetry + budget alert, routing/fallback, closeout. Rajat's open legs unchanged (P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, Spring AI port). |
+| **Current position** | **P2–P7 + Hardening (P5.5) code-side DONE (2026-10-20) — 360 tests green** |
+| **Next work unit** | P8 (capstone) on Rajat's go. His open legs: P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, P7 live recall@k + second vendor key + AWS half, Spring AI port. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -65,7 +65,7 @@ Copied verbatim from `Jarvis_GenAI_Path.md` (the master plan) with a
 | **P4** | **Async doc-processing pipeline** | **Event-driven, idempotency, retries** | **SQS, S3, ECS/Lambda, CloudWatch** | **API + Worker split** | ✅ **code-side DONE** (live-SQS leg = Rajat's) |
 | P5 | Tool-calling assistant | Tool loop + guardrails | SQS | API + Worker | ✅ **code-side DONE** (live eval + Spring port = Rajat's) |
 | P6 | Agentic workflow (dispute/recon) | Agent loop + "when NOT to agent" | as needed | multi-service | future |
-| P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | 🚧 **IN PROGRESS** (Day 1 done) |
+| P7 | Multi-model platform | Routing, fallback, cost/latency, observability | ECS/EKS, RDS+pgvector, Secrets Mgr, API GW, IAM | gateway + provider + retrieval services | ✅ **code-side DONE** (live legs + AWS half = Rajat's) |
 | P8 | Capstone platform | Full prod system | full | full | future |
 
 **Rule from the master plan:** don't advance to P(N+1) until P(N)'s
@@ -670,9 +670,9 @@ token telemetry).
       circuit never enters the chain; a fallback success heals the
       breaker) *(Day 4, this commit — 10 tests; full suite 360
       green)*
-- [ ] Closeout: README "Multi-model platform (P7)" section, LAB cards
+- [x] Closeout: README "Multi-model platform (P7)" section, LAB cards
       + banner, STUDY Qs per rule 3-11, this DoD, AGENTS/FILE_GUIDE/
-      CHAIN sync *(Day 5)*
+      CHAIN sync *(Day 5, this commit — full suite 360 green)*
 - [ ] **Rajat's legs:** live recall@k eval of hybrid-vs-dense on the
       golden set (rule 3-6), a second real PROVIDER key for the chain,
       P7's AWS half (pgvector/Secrets/API GW/ECS — rule 3-2)

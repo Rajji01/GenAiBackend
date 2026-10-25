@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-331 tests, no network calls, no API key required — the LLM and the
+360 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 `tests/conftest.py` sets a placeholder `GEMINI_API_KEY` so the suite runs
@@ -134,6 +134,38 @@ the *next* `/enrich` call would succeed, without spending one to find
 out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
 `AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
 would misleadingly imply there's data behind it.
+
+## Multi-model platform (P7) — measure, retrieve on two channels, route by config
+
+Unit chosen under `JARVIS_CHAIN.md` §2's market-signal weighting
+(hybrid search #3, token telemetry #4). Design paper: `P7_DESIGN.md`.
+
+- **Hybrid retrieval** (`bm25.py` + `rag.hybrid_*`) — every retrieval
+  path runs BM25 + dense and fuses by Reciprocal Rank Fusion (ranks,
+  not scores). Fixes dense retrieval's exact-token blind spot
+  (`UPI/NETFLIX/Payment` is a token, not a meaning) and upgrades the
+  degrade story: an embed outage now drops retrieval to lexical-only
+  instead of to nothing, and rows saved DURING an outage
+  (embedding=None, invisible to cosine forever) are resurrected by
+  their tokens. `Citation.similarity_score` now carries the fused
+  score — the ranking that actually chose the chunk.
+- **LLM telemetry** (`telemetry.py`, `llm_calls` table, `GET
+  /ops/llm`) — every provider call on every surface is a row
+  (surface/model/latency/outcome/tokens/est-cost), written non-fatally
+  by the wrapper itself; each tenacity attempt is its own row. Real
+  `usage_metadata` tokens on enrich; tokens None (never fake 0)
+  elsewhere this arc. The daily budget observes-and-shouts
+  (`llm_budget_exceeded`) and never blocks.
+- **Routing + fallback** (`model_router.py`) — per-surface model via
+  env (`MODEL_ENRICH`/`MODEL_CHAT`/`MODEL_DISPUTES`), cached clients,
+  and a one-attempt `FALLBACK_MODEL` chain that fires only on
+  provider-down exhaustion. An OPEN circuit never consults the
+  fallback (same provider, same fate); a fallback success heals the
+  breaker. `client_for(default)` IS `service._client` by identity.
+
+Rajat's legs: live recall@k of hybrid-vs-dense on the golden set, a
+second real vendor key for the chain, and P7's AWS half (pgvector /
+Secrets Manager / API Gateway / ECS).
 
 ## Production hardening (P5.5) — the sync path's survival kit
 
