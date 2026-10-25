@@ -108,7 +108,7 @@ Each service directory has the standard Maven layout:
 
 ### 🐍 Narration track (`narration-enrichment/`)
 
-Python/FastAPI/Gemini/Instructor/RAG track. **P1–P5 + Hardening arc P5.5 (code-side) done — 278 tests green. Rajat's open legs: P4 live-SQS (rule 3-2), P5 live tool-choice eval + live chaos drill (rule 3-6), Spring AI port. Then P6 (see `ROADMAP.md` status snapshot).**
+Python/FastAPI/Gemini/Instructor/RAG track. **P1–P6 + Hardening arc P5.5 (code-side) done — 331 tests green. Rajat's open legs: P4 live-SQS (rule 3-2), P5 live tool-eval + P6 live dispute-eval + live chaos drill (rule 3-6), Spring AI port. Then P7 (see `ROADMAP.md` status snapshot).**
 
 | File | Category | Purpose |
 |---|---|---|
@@ -118,6 +118,7 @@ Python/FastAPI/Gemini/Instructor/RAG track. **P1–P5 + Hardening arc P5.5 (code
 | `P3_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P3 (Knowledge assistant) — auth model, chat session/turn schema, memory strategy, grounding + earned citations, eval-as-a-system + 6 interview Qs (2026-09-20) |
 | `P4_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P4 (async ingestion) — API+Worker split, job-row-is-truth, queue abstraction, 3-layer idempotency, DLQ-vs-DEAD, backpressure + 6 interview Qs (2026-10-04) |
 | `P5_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P5 (tool calling) — whitelist registry, typed args, bounded loop + forced-final, earned tool-trail, probabilistic-vs-structural injection defence + 6 interview Qs (2026-10-04) |
+| `P6_DESIGN.md` | 📝 Design + Qs | Day 1 design paper for P6 (agentic disputes) — the when-NOT-to-agent framework, dispute state machine, checkpoint-then-execute, dual budgets, structural human gate, LLM-as-judge honesty rules + 6 interview Qs (2026-10-10) |
 | `PROD_HARDENING.md` | 📝 Design + Qs | The Hardening arc's paper (2026-10-18) — 10-class prod failure catalog (Netflix/Stripe/AWS post-mortem shapes) mapped solved-where / built-now / out-of-scope + circuit breaker, idempotency keys, load shedding, chaos designs + 6 interview Qs |
 | `infra/` | ⚙️ IaC | SQS queue + DLQ Terraform for P4 — authored [Claude], **applied [Rajat]** (rule 3-2); NOT applied/validated yet, flagged in `infra/README.md` |
 | `LEARNING_NOTES.md` | 📖 Prose revision | Self-check Qs, no answers |
@@ -125,10 +126,10 @@ Python/FastAPI/Gemini/Instructor/RAG track. **P1–P5 + Hardening arc P5.5 (code
 | `NARRATION_STUDY.html` | 📘 Personal learning | **Rajat's Q&A journal** for the narration track. 6 concept sections (structured output / RAG / retry / rate limiter / correlation IDs / degrade-not-fail) + "Daily interview questions" blocks for P2 Days 2–6 and P3 Days 2–6 (3 Qs per day, per rule 3-11). Teaching-mode Q&A still to come. Narration Lab mint/teal base + amber Q&A accent (parallel to TICKET_STUDY's teal-on-cream) |
 | `Dockerfile`, `docker-compose.yml` | Config | Local run |
 | `pyproject.toml`, `uv.lock` | Config | Python deps (uv-managed) |
-| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py, schemas.py + P2: chunker.py, policy_ingest.py, s3_store.py + P3: auth.py, chat_service.py + P4: job_queue.py, worker.py (second entry point: `python -m narration_enrichment.worker`) + P5: tools.py (whitelisted read-only tool registry) + P5.5: circuit_breaker.py, load_shed.py + 3 dayN scratch scripts kept as historical record |
+| `src/narration_enrichment/**` | Code | main.py, service.py, config.py, models.py, db.py, rag.py, rate_limiter.py, correlation.py, schemas.py + P2: chunker.py, policy_ingest.py, s3_store.py + P3: auth.py, chat_service.py + P4: job_queue.py, worker.py (second entry point: `python -m narration_enrichment.worker`) + P5: tools.py (whitelisted read-only tool registry) + P6: dispute_agent.py, dispute_judge.py + P5.5: circuit_breaker.py, load_shed.py + 3 dayN scratch scripts kept as historical record |
 | `scripts/create_api_key.py` | Code | CLI-only API-key mint (P3 Day 2) — prints raw key once, stores only the sha256 hash |
-| `tests/**` | Tests | 278 tests, pytest (LLM + embedding boundaries mocked, real DB via in-memory SQLite + StaticPool, SQS via moto; `conftest.py` sets a placeholder GEMINI_API_KEY + resets the breaker/shed shared state so a fresh clone runs order-independent with no `.env`; `test_chaos.py` = combined-failure invariants) |
-| `eval/**` | Eval | 17-example golden dataset (12 base + 5 policy-driven) + policy_seeds.json + run_eval.py — costs real API quota, run manually; persists eval_runs/eval_results since P3 Day 5 |
+| `tests/**` | Tests | 331 tests, pytest (LLM + embedding boundaries mocked, real DB via in-memory SQLite + StaticPool, SQS via moto; `conftest.py` sets a placeholder GEMINI_API_KEY + resets the breaker/shed shared state so a fresh clone runs order-independent with no `.env`; `test_chaos.py` = combined-failure invariants; P6's dispute suites incl. the AST human-gate tripwire) |
+| `eval/**` | Eval | 17-example golden dataset + policy_seeds.json + run_eval.py; P6: golden_disputes.json (8 cases incl. a required injection case) + run_eval_disputes.py (LLM-as-judge + fail-closed threshold gate) — all cost real API quota, run manually; persist eval_runs/eval_results since P3 Day 5 |
 | `narration_enrichment.db` | Runtime | SQLite persistence (gitignored) |
 
 ### ☕ Original Java baseline (`backend/`)

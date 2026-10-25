@@ -76,7 +76,7 @@ Then either:
 uv run pytest -v
 ```
 
-278 tests, no network calls, no API key required — the LLM and the
+331 tests, no network calls, no API key required — the LLM and the
 embedding calls are both mocked out for every test that goes through the
 HTTP layer, and the database is swapped for an in-memory SQLite instance.
 `tests/conftest.py` sets a placeholder `GEMINI_API_KEY` so the suite runs
