@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P6 code-side DONE (297 tests)** |
-| **Next work unit** | P7 (multi-model platform) on Rajat's greenlight. Rajat's open legs: P4 live-SQS, P5 live tool-eval, **P6 live dispute-eval run** (`eval/run_eval_disputes.py`), Spring AI port. |
+| **Current position** | **P2–P6 code-side DONE (297 tests)**; **Hardening arc (P5.5) IN PROGRESS — H1 (plan) done 2026-10-18** (Rajat's ask: "Netflix jaise realistic tough prod problems") |
+| **Next work unit** | H2–H5 per §3F — circuit breaker, idempotency keys, load shedding, chaos suite. Rajat's open legs: P4 live-SQS, P5 live tool-eval, **P6 live dispute-eval run** (`eval/run_eval_disputes.py`), Spring AI port. P7 after the arc, on his go. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -43,6 +43,8 @@ after it's proven against a real Gemini call, real SQLite, real HTTP.
 3b. [P3 daily plan — Knowledge assistant](#3b-p3-daily-plan--knowledge-assistant)
 3c. [P4 daily plan — Async doc-processing pipeline](#3c-p4-daily-plan--async-doc-processing-pipeline)
 3d. [P5 daily plan — Tool-calling assistant](#3d-p5-daily-plan--tool-calling-assistant)
+3e. [P6 daily plan — Agentic workflow (transaction disputes)](#3e-p6-daily-plan--agentic-workflow-transaction-disputes)
+3f. [Hardening arc (P5.5) — Netflix-class prod failure modes](#3f-hardening-arc-p55--netflix-class-prod-failure-modes)
 4. [P4-P8 outline (from Jarvis_GenAI_Path.md)](#4-p4-p8-outline)
 5. [Companion files — which is which](#5-companion-files)
 6. [How to use this file](#6-how-to-use-this-file)
@@ -559,6 +561,48 @@ market-signal deliverable from `JARVIS_CHAIN.md` §2).
   re-runnable; an effect with no record is unauditable.
 - **The judge is cross-checked.** Objective fields get `==` in code;
   divergence = judge-reliability finding, not silently trusted.
+---
+
+## 3F. Hardening arc (P5.5) — Netflix-class prod failure modes
+
+**Goal:** the synchronous request path gets the survival kit the async
+path already has. Catalog + designs: [`PROD_HARDENING.md`](PROD_HARDENING.md)
+— read it first; its §1 table is the claims ledger (solved-where /
+built-now / honestly-out-of-scope).
+
+### DoD
+
+- [x] `PROD_HARDENING.md` — the 10-class failure catalog mapped to
+      this repo + H2–H5 designs + 6 interview Qs *(H1, 2026-10-18)*
+- [ ] `circuit_breaker.py` — CLOSED/OPEN/HALF_OPEN, whitelist-only
+      trips, consecutive-failure threshold, injectable clock; wired
+      around the generative boundary in enrich + chat; OPEN → instant
+      503 + Retry-After *(H2)*
+- [ ] Idempotency keys on `/enrich` — Stripe contract: replay on
+      (key, same body-hash) with zero LLM spend + replay header, 422
+      on key reuse with different body, store 200s only, race resolved
+      by unique-constraint re-read *(H3)*
+- [ ] Load shedding — bounded in-flight counter on the sync path,
+      overflow → fast 503, rejection ORDER (shed → breaker → quota)
+      pinned by test *(H4)*
+- [ ] Chaos suite + closeout — combined-failure invariants
+      (`tests/test_chaos.py`), README "Production hardening" section,
+      LAB/STUDY per rule 3-11, this DoD, AGENTS/FILE_GUIDE sync *(H5)*
+- [ ] Live chaos drill against real Gemini — **Rajat's** (rules
+      3-2/3-6), stays open like P4's SQS leg and P5's live eval
+
+### Concepts to keep tight
+
+- **Four "stop calling" mechanisms, four different signals:** retry
+  (this call failed), rate limiter (quota math), breaker (the
+  provider is down), shed (we are full). Conflating them is how
+  systems end up with one mega-mechanism that does all four badly.
+- **Trip on the whitelist only** — a breaker that opens on caller
+  bugs turns one weird request into a self-inflicted outage.
+- **A fast no beats a slow timeout** — the shed/breaker fast-paths
+  answer in microseconds precisely when the system is at its busiest.
+- **Only replay 200s** — an idempotency store that replays failures
+  defeats the reason clients retry.
 
 ---
 
