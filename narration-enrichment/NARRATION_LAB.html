@@ -350,6 +350,11 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">Prod walks (§3-12)</div>
+      <a class="nav-link" href="#walk-w1"><span class="nav-tag">W1</span>Dirty-data intake + in-batch dedup</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -2938,6 +2943,52 @@ Full suite:                360 passed (was 350)</div>
   d3d5937  D3  LLM telemetry + budget shout (8 tests)
   217a31d  D4  routing + fallback chain (10 tests)
   &lt;this commit&gt;  D5  docs + ROADMAP + AGENTS + CHAIN sync</div>
+    </article>
+
+    <article class="card day-card" id="walk-w1">
+      <div class="day-head">
+        <span class="day-stamp">§3-12 · W1</span>
+        <span class="day-title">Dirty-data intake — normalize before validating, dedup before spending</span>
+      </div>
+      <span class="day-files">main.py (normalize_narration + validator + batch dedup) · schemas.py (deduped) · tests/test_intake_hardening.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>First walk under the dual mandate.</strong> Job A answered the manual's "customer ka data GANDA aaya to?" question where it actually bites: control characters from CSV exports and whitespace shells reaching a PAID call, and a statement upload repeating the same salary line 12× costing <em>12 LLM calls + 12 rate-limiter slots + 12 DB rows in one request</em>. Job B opened the DSA pillar: <code>interview-prep/dsa/design/LRUCache.java</code> — deposit #1 (MobiKwik Q2), compiled + self-asserting run green.</p>
+
+      <div class="why-box">
+        <div class="why-label">Normalize BEFORE validating, dedup BEFORE spending</div>
+        <p><code>normalize_narration</code> (control chars → space, whitespace runs collapsed, strip) runs in the Pydantic validator at <code>mode="before"</code> — so <code>min_length</code> judges the TRUTH: <code>"  \x00\x00  "</code> is an empty narration in a 9-character costume and fails as a free 422, not a paid LLM call (pinned with a never-called mock). The normalized text is also what reaches the prompt, the hybrid tokenizer, and the batch dedup key — so three spellings of one line ("<code>A  B</code>", "<code>A B</code>", "<code>A\x00B</code>") are ONE unit of work.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>12 identical lines = 1 call, pinned</h4>
+          <p>In-batch dedup keys on normalized text: unique narration processed once, duplicates replicate its outcome. <code>deduped</code> count surfaces the savings in the response (observable, not silent). One DB row per unique narration too.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Failures replicate too — deliberately</h4>
+          <p>One attempt per unique text per batch: a duplicate of a FAILED item gets the same error class without a fresh spend — retrying identical bytes in the same request is exactly the double-spend being prevented. A later whole-batch retry gets fresh attempts (nothing is stored across requests; that's H3's job, opt-in by key).</p>
+        </div>
+        <div class="mini-card">
+          <h4>Per-item isolation holds</h4>
+          <p>An empty-after-normalization line fails ALONE as <code>InvalidNarration</code> — the batch's 422-cousin — and the rest continues. The response echo stays the client's RAW bytes: honesty about what was sent, normalization is ours not theirs.</p>
+        </div>
+        <div class="mini-card">
+          <h4>One gotcha: dedup lives in the batch, not in _enrich_and_persist</h4>
+          <p>Deduping inside the shared helper would silently change the SINGLE route's semantics and fight H3's idempotency keys (request-scoped vs client-keyed). Scope the cache to one batch request — smallest honest blast radius (rule 3-7).</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_intake_hardening.py — 8 new, all green
+  · normalize: control chars / collapse / strip; whitespace shell
+    → 422 with ZERO LLM calls; normalized text reaches the prompt
+  · dedup: 12 identical → 1 call + deduped=11 + 1 DB row; key is
+    the NORMALIZED text; distinct lines untouched; failed dup
+    replicates without respend; invalid item fails alone
+Full suite:                368 passed (was 360)
+Job B deposit:             dsa/design/LRUCache.java — compiled,
+                           self-asserts green (DSA pillar opened)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next walk rotates the Job-B pillar (DSA done → FDE / GenAI / HLD+LLD due) and picks the next prod gap — candidates named in PROD_HARDENING §6 + interview-prep backlogs.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

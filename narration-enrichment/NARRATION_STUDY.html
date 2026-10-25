@@ -1219,6 +1219,29 @@
     <p class="iq-hint">Hint: the two numbers — provider_down rate per surface (telemetry GROUP BY) and p95 latency; the human decision — flip FALLBACK_MODEL / raise the breaker cooldown / accept degraded mode, because policy under sustained outage is a product call, not a mechanism's.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-walk-w1">
+    <h3>§3-12 · W1 — Dirty-data intake + in-batch dedup</h3>
+    <span class="iq-anchor">files: <code>main.py</code> (normalize_narration, EnrichRequest validator, _enrich_batch_inner), <code>tests/test_intake_hardening.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> The validator is <code>@field_validator("narration", mode="before")</code>. (a) What changes if it were mode="after" — walk the <code>"  \x00\x00  "</code> payload through both modes and say where each one lands. (b) Why does the batch path NOT reuse this validator (it normalizes inside the loop instead) — what would putting normalization in <code>BatchEnrichRequest</code>'s validator do to per-item isolation?</p>
+    <p class="iq-hint">Hint: (a) before → normalize("")→len 0 → clean 422; after → min_length sees 9 chars, junk passes into a PAID call. (b) a list-level validator failing one item 422s the WHOLE request — isolation demands per-item judgement inside the loop.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>_enrich_batch_inner(["A\x00B", "a  b".upper().replace("  "," \t "), "A B", "C D"])</code>-style input: <code>["UPI X", "UPI\x00X", "UPI  X", "NEFT Y"]</code>. For each index: normalized form, outcomes-dict hit/miss, LLM calls so far, and the final (total, succeeded, deduped). Then: why does the dedup dict store the EXCEPTION object for failures instead of just a flag, and what does the response echo keep raw?</p>
+    <p class="iq-hint">Hint: normalized → "UPI X" ×3 + "NEFT Y" → 2 LLM calls, deduped=2, (4,4 or fewer,2). Storing the exception preserves its CLASS for the replicated error field; the echo keeps each client's raw bytes — normalization is server-side truth-finding, not a rewrite of what they sent.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The system now has THREE duplicate-suppression mechanisms: in-batch dedup (W1, request-scoped), idempotency keys (H3, client-keyed, cross-request), and the ingest checksum fast-path (P2/P4, content-keyed, permanent). Build the comparison an interviewer wants: for each — the KEY, the SCOPE, who opts in, what a hit costs, and the failure-replay policy. Then the design question: why is unifying them into one "dedup layer" (one table, one key scheme) tempting and wrong — name the concrete behavior each would lose. Bonus bridge: which DSA structure you just solved is the in-batch dict one eviction policy away from being?</p>
+    <p class="iq-hint">Hint: batch-dedup replays failures (one attempt per text per request), H3 refuses to store failures (retry deserves fresh attempt), checksum is forever-until-content-changes. One layer = one policy, and all three policies are correct for THEIR scope. Bridge: the outcomes dict + capacity bound + recency eviction = the LRU you wrote in dsa/design/LRUCache.java.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

@@ -10,12 +10,13 @@ code that already exists, not a hand-maintained spec.)
 import logging
 
 import hashlib
+import re
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from google.genai.errors import APIError
 from instructor.core.exceptions import InstructorRetryException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from narration_enrichment import rag
@@ -146,8 +147,35 @@ rate_limiter = RateLimiter(
 )
 
 
+# --- §3-12 Walk 1 (Job A): dirty-data intake --------------------------
+#
+# Customer data arrives GANDA: control characters from CSV exports,
+# NBSP/tab runs from copy-paste, leading/trailing junk. Two rules:
+# 1. Normalize BEFORE validating — "   \x00\x00   " is an empty
+#    narration wearing a 9-character costume; length checks must see
+#    the truth.
+# 2. Normalize BEFORE spending — the normalized text is what reaches
+#    the prompt, retrieval (hybrid tokenizer), and the batch dedup key,
+#    so "UPI  /SWIGGY" and "UPI /SWIGGY" cost ONE call, not two.
+
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+_WHITESPACE_RUNS = re.compile(r"\s+")
+
+
+def normalize_narration(text: str) -> str:
+    return _WHITESPACE_RUNS.sub(" ", _CONTROL_CHARS.sub(" ", text)).strip()
+
+
 class EnrichRequest(BaseModel):
     narration: str = Field(..., min_length=3, max_length=500)
+
+    @field_validator("narration", mode="before")
+    @classmethod
+    def _normalize(cls, value):
+        # mode="before" so min_length judges the NORMALIZED text — a
+        # whitespace/control-char shell fails loudly as 422 instead of
+        # sneaking junk past the length gate into a paid LLM call.
+        return normalize_narration(value) if isinstance(value, str) else value
 
 
 def _enrich_and_persist(narration: str, db: Session) -> TransactionEnrichment:
@@ -385,13 +413,53 @@ def _enrich_batch_inner(request: BatchEnrichRequest, db: Session) -> BatchEnrich
     # One bad or slow narration must not fail the other 49 — each item is
     # its own try/except, unlike the single-item route above which is
     # allowed to fail the whole request.
+    #
+    # §3-12 Walk 1 (Job A): IN-BATCH DEDUP. A real statement upload
+    # repeats narrations (the same salary line 12×, the same SIP every
+    # month) — before this, 12 identical lines cost 12 LLM calls and 12
+    # rate-limiter slots in ONE request: a self-inflicted quota drain.
+    # Now each UNIQUE normalized narration is processed once per batch;
+    # duplicates replicate its outcome (success AND failure alike — one
+    # attempt per unique text per batch; retrying identical bytes in
+    # the same request is exactly the double-spend being prevented).
+    # One DB row per unique narration too, not one per line.
     results: list[BatchItemResult] = []
-    for index, narration in enumerate(request.narrations):
+    outcomes: dict[str, TransactionEnrichment | Exception] = {}
+    deduped = 0
+    for index, raw_narration in enumerate(request.narrations):
+        narration = normalize_narration(raw_narration)
+        if len(narration) < 3:
+            # The per-item cousin of the single route's 422: an empty-
+            # after-normalization line fails ALONE, the batch continues.
+            results.append(BatchItemResult(
+                index=index, narration=raw_narration,
+                success=False, error="InvalidNarration",
+            ))
+            continue
+
+        if narration in outcomes:
+            deduped += 1
+            prior = outcomes[narration]
+            if isinstance(prior, Exception):
+                results.append(BatchItemResult(
+                    index=index, narration=raw_narration,
+                    success=False, error=type(prior).__name__,
+                ))
+            else:
+                results.append(BatchItemResult(
+                    index=index, narration=raw_narration, success=True,
+                    merchant=prior.merchant, category=prior.category,
+                    transaction_type=prior.transaction_type,
+                    confidence=prior.confidence,
+                ))
+            continue
+
         try:
             result = _enrich_and_persist(narration, db)
+            outcomes[narration] = result
             results.append(BatchItemResult(
                 index=index,
-                narration=narration,
+                narration=raw_narration,
                 success=True,
                 merchant=result.merchant,
                 category=result.category,
@@ -400,18 +468,23 @@ def _enrich_batch_inner(request: BatchEnrichRequest, db: Session) -> BatchEnrich
             ))
         except Exception as exc:  # noqa: BLE001 - per-item isolation, see above
             logger.warning("batch_item_failed index=%d error=%s", index, exc)
+            outcomes[narration] = exc
             results.append(BatchItemResult(
                 index=index,
-                narration=narration,
+                narration=raw_narration,
                 success=False,
                 error=type(exc).__name__,  # class name only — never the raw message
             ))
 
+    if deduped:
+        logger.info("batch_dedup saved_calls=%d unique=%d total=%d",
+                    deduped, len(outcomes), len(request.narrations))
     succeeded = sum(1 for r in results if r.success)
     return BatchEnrichResponse(
         total=len(results),
         succeeded=succeeded,
         failed=len(results) - succeeded,
+        deduped=deduped,
         results=results,
     )
 

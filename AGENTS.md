@@ -191,6 +191,12 @@ These have been established across many sessions. Break them and the user will c
 - **360 tests green** (was 331 post-rebase; 29 new). Zero regressions. Rule 3-11 held every code day.
 - **Open (Rajat's):** live recall@k hybrid-vs-dense (rule 3-6), a second real vendor key (the chain's seam is built for it), chat/dispute token hooks, P7's AWS half (pgvector/Secrets/API GW/ECS). Next on his go: **P8 (capstone)**.
 
+**§3-12 dual-mandate Walk 1 — code-side DONE 2026-10-25** (first walk under the new rule; cloud session, ccr branch):
+- **Job A (prod hardening — dirty-data intake):** `normalize_narration()` in `main.py` (control-char strip + whitespace-run collapse, pre-compiled regexes) wired as a `mode="before"` field validator on `EnrichRequest.narration` — a whitespace/control-char shell now 422s BEFORE any limiter/breaker/LLM spend, and the LLM always sees the normalized text. `_enrich_batch_inner` gained **in-batch dedup keyed on normalized text**: N identical lines = 1 LLM call + 1 persisted row, success fields AND failure class replicated to duplicates, response echoes each item's RAW narration, new `BatchEnrichResponse.deduped` counter (+ a `batch_dedup saved_calls=` log line). Too-short-after-normalize batch items fail per-item as `InvalidNarration` without poisoning the batch. 8 new tests in `tests/test_intake_hardening.py`.
+- **Job B (interview deposit — DSA pillar opened):** `interview-prep/dsa/design/LRUCache.java` — the JARVIS_CHAIN §2 MobiKwik-queued LRU (O(1) get+put, HashMap + sentinel DLL, Node-stores-key eviction cleanup), compiled + self-asserting `main` run green. dsa/README solved-log entry #1, hub snapshot DSA → 1 solved.
+- **368 tests green** (was 360; 8 new). Zero regressions. Rule 3-11 held: LAB `walk-w1` card (new "Prod walks (§3-12)" nav group) + STUDY `iq-walk-w1` 3 Qs.
+- Next walk's Job-B rotation: FDE / GenAI / HLD+LLD due (DSA just fed).
+
 **Cross-track parallels worth remembering** (these keep the two tracks reinforcing each other):
 - Ticketing's `CorrelationIdFilter` (Java thread-local MDC) ↔ narration's `correlation.py` (Python `ContextVar`).
 - Ticketing's Bug 5 rule (whitelist-only, no ignore-exceptions with parent classes on Resilience4j) ↔ narration's rule that retry only fires on 429/503/504 (whitelist), never on Instructor's `InstructorRetryException` blanket.

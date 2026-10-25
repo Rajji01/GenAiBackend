@@ -48,13 +48,24 @@ So it runs as its own thread — pattern by pattern, a few problems each, with n
 ---
 
 ## Queued (from market signals — see JARVIS_CHAIN §2)
-- **Design an LRU cache, O(1) get+put** (MobiKwik, 2026-10-25) — pattern: design-a-data-structure
-  (HashMap + doubly-linked list). Strong candidate for **DSA deposit #1**; cross-listed in
-  `../LLD.md`. Trigger to learn: "O(1) get AND put + eviction order" ⇒ hashmap-over-a-linked-list.
+- ~~**Design an LRU cache, O(1) get+put**~~ ✅ solved 2026-10-25 → see the log below.
 
 ## Solved log (append as problems are done)
 
-_Empty — first DSA walk starts pattern 1 (or the queued LRU design). Each entry: problem,
-pattern, trigger, approach, complexity, gotcha, link to the solution file._
+**#1 · [2026-10-25] LRU Cache (O(1) get+put)** — [`design/LRUCache.java`](design/LRUCache.java)
+(compiled + self-asserting `main` run green)
+- **Pattern:** design-a-data-structure — HashMap whose VALUES are doubly-linked-list nodes.
+- **Trigger:** "O(1) get AND put" + "evict least-recently-used" ⇒ map for lookup, DLL for
+  order; neither alone does both. Map-value-is-list-node is the whole trick.
+- **Approach:** sentinel head/tail (no null checks), get = hit + move-to-head, put = update-
+  or-insert-at-head, over capacity ⇒ evict `tail.prev` from list AND map.
+- **Complexity:** O(1)/O(1), space O(capacity).
+- **Gotchas pinned by the self-asserts:** (1) eviction must clean the MAP (Node stores key
+  for this), (2) a GET refreshes recency, (3) updating an existing key never evicts,
+  (4) sentinels kill the null-check zoo.
+- **Repo echoes:** `model_router.py`'s unbounded client cache = this structure's missing
+  capacity bound; H3's idempotency table = cache-without-eviction (its flagged TTL = this
+  problem's policy, by time). Production twin to NAME after hand-rolling:
+  `LinkedHashMap(cap, 0.75f, true)` + `removeEldestEntry`.
 
 Solutions will live as `dsa/<pattern>/<problem>.java` (or `.py`) with the note inline at top.

@@ -32,6 +32,10 @@ class BatchEnrichResponse(BaseModel):
     total: int
     succeeded: int
     failed: int
+    # §3-12 Walk 1 — how many items were served from an earlier
+    # identical (post-normalization) item in the SAME batch: LLM calls
+    # + rate-limiter slots + DB rows the dedup saved, made visible.
+    deduped: int = 0
     results: list[BatchItemResult]
 
 

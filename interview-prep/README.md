@@ -68,7 +68,7 @@ When a pillar file would just duplicate a STUDY entry, **link to it** instead of
 | GenAI | ✅ scaffold + topic map + LangChain Rosetta | thin (links STUDY) | 2026-10-25 |
 | HLD | ✅ scaffold + 2 walkthroughs (RAG + 10×-traffic) | thin | 2026-10-25 |
 | LLD | ✅ scaffold + pattern catalog | thin | 2026-10-25 |
-| DSA | ✅ plan + pattern list | empty (no problems solved yet) | 2026-10-25 |
+| DSA | ✅ plan + pattern list | **1 solved** (LRU, Java, run-verified) | 2026-10-25 |
 
 The project itself is the evidence base: narration P1–P7 + Hardening (360 tests),
 ticketing Weeks 1–4. Full state in `AGENTS.md` §4.
