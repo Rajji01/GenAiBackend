@@ -341,6 +341,12 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">P7 — Multi-model platform</div>
+      <a class="nav-link" href="#p7-intro"><span class="nav-tag">·</span>The idea (signal-chosen)</a>
+      <a class="nav-link" href="#p7-day2"><span class="nav-tag">D2</span>Hybrid retrieval (BM25 + RRF)</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -2757,6 +2763,57 @@ Full suite:                272 passed (was 262)</div>
   46d8c29  H4  load shedding + the rejection order (10 tests)
   (hashes post-rebase onto P6, 2026-10-20)
   &lt;this commit&gt;  H5  chaos suite (6 tests) + closeout</div>
+    </article>
+
+    <section id="p7-intro" style="margin-top:64px;">
+      <p class="eyebrow">Project 7 · Multi-model platform</p>
+      <h2>Measure, retrieve on two channels, route by config</h2>
+      <p>Unit chosen under <code><a href="../JARVIS_CHAIN.md">JARVIS_CHAIN.md</a> §2</code>'s market-signal weighting — the derived priority list's two open items (#3 hybrid search + re-rank, #4 token-cost telemetry + budget alert) anchor Days 2–3; P7's title feature (routing/fallback) lands Day 4 in its smallest honest form. Design paper: <code><a href="P7_DESIGN.md">P7_DESIGN.md</a></code>; plan: <code><a href="ROADMAP.md">ROADMAP.md</a> §3G</code>. The AWS half (pgvector, Secrets Manager, API GW, ECS) is [Rajat]'s per rule 3-2.</p>
+    </section>
+
+    <article class="card day-card" id="p7-day2">
+      <div class="day-head">
+        <span class="day-stamp">P7 · D2</span>
+        <span class="day-title">Hybrid retrieval — BM25 + dense, fused by rank</span>
+      </div>
+      <span class="day-files">bm25.py (new) · rag.py (hybrid_*) · main.py · chat_service.py · db.py · tests/test_hybrid_retrieval.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>The blind spot:</strong> dense retrieval trades surface form for meaning — the literal token <code>NETFLIX</code> inside <code>UPI/NETFLIX/Payment</code> can lose to fuzzier semantic neighbours under cosine. BM25 scores the token itself. Every retrieval path (enrich + chat, evidence + policy) now runs BOTH channels and fuses by <strong>Reciprocal Rank Fusion</strong> — ranks, not scores, because cosine (0..1) and BM25 (unbounded) are incomparable scales and weighted mixing needs calibration that silently drifts.</p>
+
+      <div class="why-box">
+        <div class="why-label">The availability upgrade that fell out structurally</div>
+        <p>BM25 needs no embedding call — so <code>query_embedding=None</code> is now a DEGRADE PATH, not an empty result: an embed outage drops retrieval to lexical-only instead of to nothing. Better still, a row saved DURING an outage (embedding=None) was invisible to cosine <em>forever</em>; the lexical channel resurrects it by its tokens. Both pinned: the end-to-end test proves a dead embed endpoint still lands real past-classification context in the prompt.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Floors gate the dense channel only</h4>
+          <p>A BM25 floor across corpora is meaningless (unbounded, corpus-dependent); the lexical entry bar is <code>score &gt; 0</code> — actual term overlap. A candidate enters fused ranking by clearing EITHER channel's bar; topping both beats topping one (RRF property, pinned).</p>
+        </div>
+        <div class="mini-card">
+          <h4>Citations now carry the fused score</h4>
+          <p><code>Citation.similarity_score</code> = the RRF value — the ranking that actually chose the chunk. One P2-era test updated to the new contract (sole chunk, rank 1 both channels = 2/61); earned-citations discipline unchanged.</p>
+        </div>
+        <div class="mini-card">
+          <h4>idf floored at zero</h4>
+          <p>Classic BM25 idf goes NEGATIVE for a term in &gt;half the corpus — matching a common term would score worse than not matching it. <code>max(0, idf)</code> keeps a common-term match at worst neutral. Pinned.</p>
+        </div>
+        <div class="mini-card">
+          <h4>What is honestly NOT here (rule 3-7)</h4>
+          <p>No persisted inverted index (hundreds of rows = microseconds per query); no cross-encoder re-ranker (a model call per candidate, cost without evidence — RRF is the re-rank until recall@k on the golden set says otherwise, and that live eval is [Rajat]'s quota).</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_hybrid_retrieval.py — 11 new, all green
+  · bm25 pure: domain tokenizer, exact-token wins, rare&gt;common
+    (idf), negative-idf floor, RRF both-channels-beats-one
+  · rag.hybrid_*: lexical-only on None embedding, orphan-row
+    resurrection, dense floor still gates, fused policy scores
+  · end-to-end: /enrich through a DEAD embed endpoint still
+    carries real lexical context in the prompt
+Full suite:                342 passed (was 331)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (D3): LLM telemetry — every call a row (surface/model/latency/outcome/tokens/est-cost), <code>/ops/llm</code> rollups, and the observe-and-shout daily budget alert.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

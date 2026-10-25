@@ -161,23 +161,27 @@ def _enrich_and_persist(narration: str, db: Session) -> TransactionEnrichment:
     context: str | None = None
     try:
         query_embedding = rag.embed_text(raw_client, narration, task_type="RETRIEVAL_QUERY")
-        similar = rag.find_similar_examples(db, query_embedding)
+    except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
+        logger.warning("rag_embed_failed error=%s", exc)
+
+    # P7 Day 2 — hybrid retrieval (dense + BM25, RRF-fused). Runs with
+    # query_embedding=None too: the lexical channel needs no embedding
+    # call, so an embed outage now degrades retrieval to BM25-only
+    # instead of to NOTHING — the availability upgrade the hybrid day
+    # exists for, on top of the exact-token blind-spot fix.
+    try:
+        similar = rag.hybrid_find_similar_examples(db, narration, query_embedding)
         context = rag.build_context_block(similar)
     except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
         logger.warning("rag_past_retrieval_failed error=%s", exc)
 
-    # P2 Day 5: policy retrieval piggybacks on the same query embedding.
-    # If the embed call already failed above, query_embedding is None and
-    # we skip policy retrieval too — separate tries would just try the
-    # same provider a second time in the same second.
     policy_chunks_scored: list[tuple[float, object]] = []
     policy_context: str | None = None
-    if query_embedding is not None:
-        try:
-            policy_chunks_scored = rag.retrieve_policy_chunks(db, query_embedding)
-            policy_context = rag.build_policy_context_block(policy_chunks_scored)
-        except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
-            logger.warning("rag_policy_retrieval_failed error=%s", exc)
+    try:
+        policy_chunks_scored = rag.hybrid_retrieve_policy_chunks(db, narration, query_embedding)
+        policy_context = rag.build_policy_context_block(policy_chunks_scored)
+    except Exception as exc:  # noqa: BLE001 - degrade, don't fail the request
+        logger.warning("rag_policy_retrieval_failed error=%s", exc)
 
     # Checked right before the actual generative call, not at the top of
     # the route — RAG's retrieval embedding above doesn't count against

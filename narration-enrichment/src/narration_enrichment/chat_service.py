@@ -258,21 +258,25 @@ def answer_message(db: Session, *, session_id: str, user_message: str) -> ChatRe
         except Exception as exc:  # noqa: BLE001
             logger.warning("chat_embed_failed error=%s", exc)
 
-    if query_embedding is not None:
-        try:
-            evidence = rag.find_similar_examples(
-                db, query_embedding, min_similarity=CHAT_MIN_SIMILARITY, top_k=CHAT_TOP_K
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("chat_enrichment_retrieval_failed error=%s", exc)
-        try:
-            policy = rag.retrieve_policy_chunks(
-                db, query_embedding,
-                min_similarity=CHAT_POLICY_MIN_SIMILARITY,
-                top_k=CHAT_TOP_K,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("chat_policy_retrieval_failed error=%s", exc)
+    # P7 Day 2 — hybrid retrieval runs even with query_embedding=None
+    # (embed outage ⇒ BM25-only), same upgrade as /enrich: the chat's
+    # evidence channel no longer empties just because the embedding
+    # endpoint hiccuped.
+    try:
+        evidence = rag.hybrid_find_similar_examples(
+            db, user_message, query_embedding,
+            min_similarity=CHAT_MIN_SIMILARITY, top_k=CHAT_TOP_K,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chat_enrichment_retrieval_failed error=%s", exc)
+    try:
+        policy = rag.hybrid_retrieve_policy_chunks(
+            db, user_message, query_embedding,
+            min_similarity=CHAT_POLICY_MIN_SIMILARITY,
+            top_k=CHAT_TOP_K,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("chat_policy_retrieval_failed error=%s", exc)
 
     # ---- memory (last N turns, ignoring the just-inserted user
     #      turn since it IS the current question) -------------------
