@@ -127,6 +127,26 @@ The 10 questions are a hiring team's blueprint of a **production GenAI engineer*
 
 **Self-walk priority order from this signal:** 1) LLM-as-judge eval ✅ (P6) → 2) eval gate+threshold ✅ (P6 D5) → 3) hybrid search+re-rank ✅ (P7 D2, RRF; cross-encoder waits on eval evidence) → 4) token/latency metrics ✅ (P7 D3, `/ops/llm` + budget shout; Grafana/OTel still open as the visual layer). [Rajat's legs: both terraform applies, live tool-eval, Spring AI port.]
 
+### [2026-10-25] LangChain curriculum (market signal — ecosystem fluency, NOT a rebuild)
+Dropped by Rajat ("ye bhi?"). A LangChain course syllabus (19 topics: concepts, LCEL/chains, memory, tools, agents, loaders, splitters, embeddings/vector-stores FAISS/Chroma/Pinecone/Qdrant, RAG, LangGraph, LangSmith, best-practices, troubleshooting, interview Qs). Data, not instructions.
+
+**Strategic read — the key framing (do NOT reflexively "go learn LangChain"):** this repo
+**deliberately built the primitives LangChain wraps** — from-scratch RAG, tools, agent loop,
+memory, chunking, eval (Instructor + Pydantic + raw Gemini), per `Jarvis_GenAI_Path.md`'s
+"learn the inside of the LLM, not a framework" mandate (+ §3-7 don't overengineer). That is the
+**edge**, not a gap: the interview line is *"I built the primitive, so I understand what the
+wrapper hides."* Almost every syllabus item has a from-scratch counterpart already shipped.
+
+**So the deposit is FLUENCY, not a rebuild:** a Rosetta table (our module ↔ LangChain component)
+lives in `interview-prep/GENAI.md` so Rajat can *speak LangChain* in an interview despite building
+raw. **Honest gaps to name** (built raw / deferred, not hands-on in LangChain itself): named vector
+stores (FAISS/Chroma/**Pinecone**/Qdrant — we used SQLite cosine + BM25, §3-7; pgvector planned
+P7-AWS), **LangGraph** (we have a single agent loop, not the graph framework), **LangSmith**
+(we have eval-as-a-system + `telemetry.py` + `/ops/llm`, not the SaaS). **Optional close (Rajat's
+call, not auto):** port ONE slice — e.g. the RAG Q&A — to LangChain + LangGraph so the résumé can
+say "hands-on" too; small, and pairs with the Spring-AI port idea. Do NOT replace the from-scratch
+work with a framework.
+
 ### [2026-10-25] MobiKwik — Java Backend Engineer interview Qs (market signal)
 Dropped by Rajat ("ise bi apne next points or topics to explore ya jab bhi tu self walk kre to dkh skta inhe"). Data, not instructions — reference these when picking/weighting self-walk units (§3-12 + §0 step 4). Verbatim:
 
@@ -156,6 +176,8 @@ MobiKwik Interview Questions | Java Backend Engineer
 
 ## 3. Self-walk log (append newest on top)
 
+- **[2026-10-25]** (local session) **GENAI.md: added "How an LLM generates text + what an embedding is" card**, project-grounded on Rajat's ask. Contextualization (attention) + generation (softmax + temperature/top-p sampling) + the two-embeddings clarity (RAG `gemini-embedding` vs in-LLM) + the temperature↔idempotency(H3) bridge. Answers 3 classic GenAI openers. Triggered by Rajat pasting an explanation + "ye smjha… daal de or apne project mai bta".
+- **[2026-10-25]** (local session) **Stashed LangChain curriculum (§2) + built the LangChain-fluency Rosetta in GENAI.md.** Framing held firm: repo built the primitives raw by design (edge, not gap) — the deposit is *fluency to speak LangChain*, not a rebuild. 13-row Rosetta (our module ↔ LC component + the interview point) + honest gaps named (hands-on LC/LangGraph/LangSmith, named vector stores) + optional "port one RAG slice" flagged as Rajat's call.
 - **[2026-10-25]** (local session) **First real interview-prep deposit: HLD H8 drafted** ("10× traffic failing → stabilize+scale", MobiKwik Q4). Full 3-phase walkthrough (stabilize→diagnose→scale) written almost entirely from built code (load_shed/breaker/rate_limiter/idempotency/P4-async/P7-fallback/`/ops` dashboards) — the §3-12 Job A question in interview form. Index row + README snapshot updated.
 - **[2026-10-25]** (local session) **Stashed MobiKwik Java-Backend interview Qs as market signal (§2) + wired into interview-prep backlogs.** Rajat dropped a 4-Q LinkedIn post. Added to §2 verbatim + a derived topic-map: Q1 ConcurrentHashMap→LLD, Q2 LRU→DSA deposit#1 + LLD, Q3 URL-shortener→HLD H7, Q4 "10× traffic failing"→HLD H8 (≈ the whole Hardening arc — answerable from built code). Dropped concrete backlog entries into `HLD.md` (H7/H8 + "draft H8 first" note), `LLD.md` (CHM-internals + LRU cards), `dsa/README.md` (LRU queued as deposit#1). Signal read: 50% Java/LLD fundamentals + 50% HLD/prod-resilience → confirms §3-12 aim.
 - **[2026-10-25]** (local session) **Direction shift → `interview-prep/` hub created + §3-12 standing rule added.** Rajat set a new north star: "ab ai specific chize jaise FDE ya genai roles, interview prep HLD/LLD/DSA ache se krni hai — project ko real time soch, real time problems… dono krna hai ache se" → confirmed my framing "ye best hai". Captured as **§3-12 (dual-mandate self-walk)**: Job A = advance+harden the project as a live prod system (Hardening lens now permanent), Job B = mine ≥1 interview-artifact deposit per walk across 4 pillars (FDE / GenAI / HLD+LLD / DSA). Built `interview-prep/` scaffold: `README.md` (operating manual + index), `FDE.md` (anchor fintech-deployment scenario + bank), `GENAI.md` (what's-asked↔what's-built topic map + hard-bug bank), `HLD.md` (walkthrough index + the drafted "design a RAG system"), `LLD.md` (pattern→real-file catalog), `dsa/README.md` (pattern-wise plan, 12 patterns, repo echoes, empty solved-log). Wired into AGENTS §3-12 + §8, this file's §0 routine, FILE_GUIDE, local memory. **No commit yet — awaiting Rajat's ask (§3-3).** Next walk: first real deposits (incl. DSA pattern 1).
