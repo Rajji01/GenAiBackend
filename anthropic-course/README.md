@@ -1,16 +1,17 @@
-# anthropic-course/ — concepts from Anthropic, implemented in free Gemini
+# anthropic-course/ — concepts from Anthropic, implemented in BOTH Claude & Gemini
 
 **Owner:** Rajat Agrawal · **Started:** 2026-10-25 · **Tutor:** Jarvis
 
-Rajat is taking **Anthropic's course** (Anthropic Academy / Claude courses). The deal set on
-2026-10-25:
+Rajat is taking **Anthropic's course** (Anthropic Academy / Claude courses). The deal:
 
-> "mai anthropic ka course kr rha hu — usme jo sikhaye vo free ka use kr k mje sare concepts
-> smjha dio **with implementation** ok jarvis."
+> "mai anthropic ka course kr rha hu — usme jo sikhaye vo mje sare concepts smjha dio **with
+> implementation** ok jarvis." → then (2026-10-25): "**ab gemini or claude dono use krenge**
+> anthropic course k lie… **dono se padhenge ache se.**"
 
-So: **Anthropic teaches a concept → Jarvis explains that concept (the *why*, not just the API) and
-gives a runnable implementation — but in FREE Gemini, not the paid Anthropic API.** Zero spend; the
-concept is provider-agnostic, only the SDK call changes.
+So: **Anthropic teaches a concept → Jarvis explains it (the *why*, deeply, Hinglish) and gives
+runnable implementations in BOTH Claude (the native API the course teaches) AND free Gemini (the
+port).** Seeing the same concept two ways is itself the lesson — the concept is provider-agnostic,
+only the SDK call changes.
 
 > **This track is REACTIVE / trigger-only.** It runs ONLY when Rajat names a specific course
 > concept or pastes a module — never proactively, and it is **not** part of the autonomous
@@ -23,41 +24,45 @@ concept is provider-agnostic, only the SDK call changes.
 
 1. **Concept source = Anthropic.** Rajat names the concept (or pastes the course module). Jarvis
    does not invent a syllabus — it follows what the course actually teaches.
-2. **Implementation = free Gemini.** Every runnable example uses the **`google-genai`** SDK
-   (`from google import genai`) + the existing `GEMINI_API_KEY` — the same stack as
-   `narration-enrichment/`. Nothing here calls the Anthropic API.
-3. **Explain, then implement, then connect.** Each lesson = (a) the concept in plain Hinglish +
-   the *why* it matters, (b) a minimal runnable Gemini script, (c) where this already shows up (or
+2. **Implementation = BOTH Claude and Gemini.** Each lesson ships two runnable scripts:
+   - **Claude** — `anthropic` SDK (`from anthropic import Anthropic`) + `ANTHROPIC_API_KEY`. This is
+     the course's native path.
+   - **Gemini** — `google-genai` SDK (`from google import genai`) + `GEMINI_API_KEY`. The free port.
+   - **Both keys live in `narration-enrichment/.env` — GITIGNORED, NEVER commit.** (The Anthropic
+     key was pasted in chat 2026-10-25; Rajat said use it as-is.)
+3. **Explain, then implement (both), then connect.** Each lesson = (a) the concept + the *why*,
+   (b) the Claude script **and** the Gemini script, side-by-side mapping, (c) where it shows up (or
    could) in the narration project — so the course reinforces the real build.
-4. **Honesty on Anthropic-specific features.** Some things Anthropic teaches are Claude-specific
-   (e.g. prompt caching API, extended thinking, MCP, the exact tool-use block shapes). For those,
-   the lesson gives the concept + the **closest Gemini equivalent**, and flags clearly where the
-   two differ (that contrast is itself interview-useful). For deep Anthropic-API accuracy, the
-   `claude-api` skill is the reference.
-5. **Interview-linked.** Each concept also feeds `interview-prep/GENAI.md` when it's interview-
-   relevant (don't duplicate — link).
+4. **Anthropic-specific features** (prompt caching, extended thinking, MCP, exact tool-use block
+   shapes): show the **real Claude** version + the **closest Gemini equivalent**, and flag where
+   they differ (that contrast is interview-useful). Use the `claude-api` skill for Anthropic-API
+   accuracy (model ids, params).
+5. **Interview-linked.** Feed interview-relevant concepts into `interview-prep/GENAI.md` (link,
+   don't duplicate).
 
 ---
 
 ## How to run a lesson's code
 
 ```bash
-# reuse the narration project's env (already has google-genai + GEMINI_API_KEY)
-cd narration-enrichment
-uv run python ../anthropic-course/concepts/<NN>_<concept>.py
-# or standalone: pip install google-genai, export GEMINI_API_KEY=..., python <file>.py
+cd narration-enrichment          # has .env with BOTH keys + the uv env
+uv add anthropic                 # one-time, if not already in the project
+uv run python ../anthropic-course/concepts/<NN>_<concept>_claude.py   # Claude version
+uv run python ../anthropic-course/concepts/<NN>_<concept>_gemini.py   # Gemini version
+# standalone: pip install anthropic google-genai python-dotenv ; set the two keys in env
 ```
 
-Free Gemini models (pick cheap/fast for learning): `gemini-2.5-flash` / `gemini-flash-latest`
-(the narration project runs `gemini-3.6-flash`). Each script names its model at top.
+Model ids (check latest via the `claude-api` skill): Claude e.g. `claude-sonnet-4-0`; Gemini free
+e.g. `gemini-2.5-flash` / `gemini-flash-latest`.
 
 ---
 
 ## Lessons index (grows as the course goes)
 
-| # | Anthropic concept | Gemini implementation | Project tie-in | Status |
-|---|---|---|---|---|
-| 01 | Making your first request (client, messages, max_tokens, extract) | [`concepts/01_first_request.py`](concepts/01_first_request.py) · [`.md`](concepts/01_first_request.md) | P1 `service.py` core | ✅ 2026-10-25 |
+| # | Anthropic concept | Claude impl | Gemini impl | Project tie-in | Status |
+|---|---|---|---|---|---|
+| 01 | Making your first request (client, messages, max_tokens, extract) | [`01_first_request_claude.py`](concepts/01_first_request_claude.py) | [`01_first_request.py`](concepts/01_first_request.py) · [explainer](concepts/01_first_request.md) | P1 `service.py` core | ✅ 2026-10-25 |
 
-Each lesson ships as: `concepts/<NN>_<concept>.md` (explainer) + `concepts/<NN>_<concept>.py`
-(runnable Gemini). Add a row here when a lesson lands.
+Each lesson ships as: `concepts/<NN>_<concept>.md` (explainer) + `_claude.py` + `_gemini.py`
+(the Gemini file for lesson 01 is named `01_first_request.py` for back-compat). Add a row when a
+lesson lands.

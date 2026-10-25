@@ -1,0 +1,16 @@
+# === Secrets — NEVER commit (added 2026-10-25) ===
+# Real API keys live in .env files only; these are gitignored everywhere in the repo.
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+# ...but DO allow example/template files that carry no real secret:
+!.env.example
+!**/.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/

@@ -1,6 +1,7 @@
 # Lesson 01 — Making your first request
 
-**Anthropic course concept** → implemented in **free Gemini**. Runnable: [`01_first_request.py`](01_first_request.py).
+**Anthropic course concept** → implemented in **BOTH** Claude (native) and free Gemini (the port).
+Runnable: [`01_first_request_claude.py`](01_first_request_claude.py) · [`01_first_request.py`](01_first_request.py) (Gemini). Run both, compare line-for-line — the mapping table below is exactly that diff.
 
 ---
 
