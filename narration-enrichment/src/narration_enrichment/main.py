@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from narration_enrichment import rag
 from narration_enrichment.circuit_breaker import CircuitOpenError
 from narration_enrichment.config import get_settings
+from narration_enrichment.load_shed import LoadShedError, enrich_shed
 from narration_enrichment.correlation import (
     HEADER_NAME,
     CorrelationIdLogFilter,
@@ -242,6 +243,19 @@ def enrich(
             response.headers["X-Idempotent-Replay"] = "true"
             return TransactionEnrichment.model_validate_json(stored.response_json)
 
+    # Hardening H4 — the in-flight cap, AFTER the replay fast-path
+    # (a replay is free and served even at full capacity) and BEFORE
+    # any retrieval/quota/provider work (a shed must cost microseconds).
+    try:
+        enrich_shed.acquire()
+    except LoadShedError as exc:
+        logger.warning("enrich_load_shed")
+        raise HTTPException(
+            status_code=503,
+            detail="Server is at capacity (load shed). Please retry shortly.",
+            headers={"Retry-After": "1"},
+        ) from exc
+
     try:
         result = _enrich_and_persist(request.narration, db)
         if idempotency_key:
@@ -331,9 +345,34 @@ def enrich(
             detail="An unexpected error occurred.",
         ) from exc
 
+    finally:
+        # Every path out of the guarded section — success, 429, 503,
+        # 500 — returns the slot. A leaked slot is a silent permanent
+        # capacity reduction, the worst kind of shed bug.
+        enrich_shed.release()
+
 
 @app.post("/enrich/batch", response_model=BatchEnrichResponse)
 def enrich_batch(request: BatchEnrichRequest, db: Session = Depends(get_db)) -> BatchEnrichResponse:
+    # Hardening H4 — a batch holds ONE in-flight slot for its whole
+    # run (deliberately coarse: a 50-item batch is one caller, and
+    # per-item slots would let one batch monopolize the entire cap).
+    try:
+        enrich_shed.acquire()
+    except LoadShedError as exc:
+        logger.warning("enrich_batch_load_shed")
+        raise HTTPException(
+            status_code=503,
+            detail="Server is at capacity (load shed). Please retry shortly.",
+            headers={"Retry-After": "1"},
+        ) from exc
+    try:
+        return _enrich_batch_inner(request, db)
+    finally:
+        enrich_shed.release()
+
+
+def _enrich_batch_inner(request: BatchEnrichRequest, db: Session) -> BatchEnrichResponse:
     # One bad or slow narration must not fail the other 49 — each item is
     # its own try/except, unlike the single-item route above which is
     # allowed to fail the whole request.

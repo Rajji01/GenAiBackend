@@ -589,9 +589,17 @@ built-now / honestly-out-of-scope).
       this commit — 6 tests with call-counting mocks incl. the
       replay-skips-limiter+OPEN-breaker+retrieval proof via exploding
       mocks; full suite 262 green)*
-- [ ] Load shedding — bounded in-flight counter on the sync path,
-      overflow → fast 503, rejection ORDER (shed → breaker → quota)
-      pinned by test *(H4)*
+- [x] Load shedding — bounded in-flight counter on the sync path,
+      overflow → fast 503 + Retry-After:1, batch holds ONE slot,
+      finally-released on every path; the full rejection ORDER pinned
+      by test rung-by-rung: **replay → shed → quota → breaker**
+      (the design sketch said shed→breaker→quota; the code's real
+      order keeps the limiter adjacent to the generative call it
+      prices, and the H2 wiring comment already owns the one burned
+      quota slot while OPEN — the tests pin reality, the paper's Q5
+      defends it) *(H4, this commit — 10 tests incl.
+      shed-with-exploding-mocks, leak-proof finally, double-release
+      guard, replay-served-at-full-capacity; full suite 272 green)*
 - [ ] Chaos suite + closeout — combined-failure invariants
       (`tests/test_chaos.py`), README "Production hardening" section,
       LAB/STUDY per rule 3-11, this DoD, AGENTS/FILE_GUIDE sync *(H5)*

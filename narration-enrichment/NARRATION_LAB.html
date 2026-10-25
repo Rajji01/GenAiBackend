@@ -336,6 +336,7 @@
       <a class="nav-link" href="#hard-intro"><span class="nav-tag">·</span>The catalog</a>
       <a class="nav-link" href="#hard-h2"><span class="nav-tag">H2</span>Circuit breaker</a>
       <a class="nav-link" href="#hard-h3"><span class="nav-tag">H3</span>Idempotency keys</a>
+      <a class="nav-link" href="#hard-h4"><span class="nav-tag">H4</span>Load shedding + the rejection order</a>
     </div>
 
     <div class="nav-group">
@@ -2677,7 +2678,55 @@ call count IS the money)
   · PK race → loser returns winner's row
 Full suite:                262 passed (was 256)</div>
 
-      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (H4): load shedding — a bounded in-flight counter on the sync path; beyond N, a microsecond 503 beats a 20-second timeout. Plus the rejection ORDER (shed → breaker → quota) pinned by test.</p>
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (H4): load shedding — a bounded in-flight counter on the sync path; beyond N, a microsecond 503 beats a 20-second timeout. Plus the rejection ORDER pinned by test.</p>
+    </article>
+
+    <article class="card day-card" id="hard-h4">
+      <div class="day-head">
+        <span class="day-stamp">P5.5 · H4</span>
+        <span class="day-title">Load shedding — a fast no beats a slow timeout</span>
+      </div>
+      <span class="day-files">load_shed.py (new) · main.py · config.py · tests/conftest.py · tests/test_load_shed.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>The problem:</strong> uvicorn's threadpool accepts 100 concurrent <code>/enrich</code> requests even though most will spend seconds in retrieval + provider work before being told no — and a provider slowdown multiplies held threads exactly when the system can do the least (<em>metastable failure</em>). <strong>The fix:</strong> the oldest bulkhead there is — beyond <code>ENRICH_MAX_IN_FLIGHT</code> (8), reject in microseconds with 503 + <code>Retry-After: 1</code>. Deliberately count-compare-reject (one lock, one integer) — not asyncio semaphores, not queueing theory (rule 3-7).</p>
+
+      <div class="why-box">
+        <div class="why-label">The rejection order, pinned rung by rung — and one honest design correction</div>
+        <p>The full gauntlet a request faces, each gate as late as its signal requires and as early as its cost allows: <strong>1. REPLAY</strong> (free by definition — served even at full capacity, proven) → <strong>2. SHED</strong> (cheapest no: before retrieval, quota math, everything — proven with exploding mocks at 0 touches) → <strong>3. QUOTA 429</strong> → <strong>4. BREAKER 503</strong>. The design paper's sketch guessed shed→breaker→quota; the code's real order keeps the limiter adjacent to the generative call it prices, and H2's wiring comment already owned the consequence (an OPEN circuit burns a quota slot — worthless quota during an outage, acceptable). The tests pin reality; the paper's Q5 is where you defend it.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>The finally is the feature</h4>
+          <p>Every path out of the guarded section — 200, 429, breaker-503, even the defensive 500 — releases the slot, regression-tested via a provider failure leaving <code>in_flight == 0</code>. A leaked slot is a silent permanent capacity reduction: the worst shed bug, because the symptom (rising 503s) points at load, not at the leak.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Double-release can't raise the cap</h4>
+          <p><code>release()</code> floors at zero — a buggy extra release must not drive the counter negative and quietly turn cap-8 into cap-9. Pinned by test.</p>
+        </div>
+        <div class="mini-card">
+          <h4>A batch is one slot</h4>
+          <p>Deliberately coarse: a 50-item batch is ONE caller holding one slot for its whole run. Per-item slots would let a single batch monopolize the entire cap — the bulkhead would protect against everyone except the biggest consumer.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Why 503+Retry-After:1, not the breaker's cooldown</h4>
+          <p>Nothing is BROKEN when the shed says no — we are just full right now; a second from now a slot may free. The breaker's Retry-After reflects a cooldown on a dead upstream. Same status code, different honest hints — and distinct detail strings so client logs can tell them apart.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_load_shed.py — 10 new, all green
+  · counter unit: acquire/release, full → shed, double-release
+    floor-guard
+  · route: saturated shed = 0 touches on exploding mocks;
+    release restores; error paths release (leak-proof finally);
+    batch sheds as one unit
+  · THE ORDER: replay served at full capacity; shed outranks
+    exhausted-quota + OPEN-breaker; quota 429 outranks OPEN
+    breaker (1-slot quota, two calls); breaker answers when
+    shed+quota have room — slot released after
+Full suite:                272 passed (was 262)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (H5): the chaos suite — combined failures (production failures arrive in combinations) + the arc's closeout.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

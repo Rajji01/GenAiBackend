@@ -1081,6 +1081,29 @@
     <p class="iq-hint">Hint: (b) hinges on determinism — a 422 from OUR validation is deterministic for the same bytes (replaying is harmless but pointless: recomputing is free, no LLM involved); a 422 from the MODEL's shape-failure is nondeterministic and retry-worthy. (c) Stripe's failed charge attempts have side effects worth not repeating (auth holds, fraud signals); our failed enrichment leaves no side effect — nothing to protect by replaying it.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-hard-h4">
+    <h3>P5.5 · H4 — Load shedding + the rejection order</h3>
+    <span class="iq-anchor">files: <code>load_shed.py</code>, <code>main.py</code> (/enrich + batch wiring), <code>tests/test_load_shed.py</code>, <code>PROD_HARDENING.md</code> §4</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>InFlightLimiter</code> is a lock + an integer, where <code>threading.BoundedSemaphore</code> exists in the stdlib and does almost this. Open both (the stdlib docs count): (a) what does BoundedSemaphore's <code>acquire(blocking=False)</code> return that our class RAISES, and why does raise-vs-return matter for how the route code reads? (b) what does BoundedSemaphore do on over-release that our floor-guard deliberately does differently, and which choice is safer in a web handler? (c) name the one feature our class adds that the semaphore lacks entirely.</p>
+    <p class="iq-hint">Hint: (a) False vs LoadShedError — the exception makes the deny path impossible to forget to check; (b) BoundedSemaphore RAISES ValueError on over-release (crashing the handler for a bookkeeping bug), ours floors silently + logs nothing fatal — in a web handler, degraded accounting beats a 500; (c) the readable <code>in_flight</code> property for ops/tests.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>test_quota_outranks_breaker</code>: 1-slot limiter, breaker held OPEN, two identical requests. For EACH request list the gates it passes/fails in order (replay? shed? embed? quota? breaker?) and the exact response. Then the pointed question: the first call SPENT a quota slot and still got a 503 — find the two places in the codebase where that cost is acknowledged in writing, and say why the alternative ordering (breaker before quota) was rejected.</p>
+    <p class="iq-hint">Hint: req1: no key → shed ok → embed runs → quota slot 1 consumed → breaker OPEN → circuit 503. req2: shed ok → embed → quota empty → 429, breaker never consulted. The acknowledgments: the H2 wiring comment in service.enrich_narration and H4's order comment in load_shed.py. Reordering would need the breaker consulted outside its boundary — coupling two mechanisms that read different signals.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> "Metastable failure" (PROD_HARDENING §7 Q6, now fully built): define the regime precisely — what distinguishes it from plain overload — and walk how THIS system would have entered it pre-H4 (provider slows to 15s/call, steady 1 req/s arrives; do the thread math). Then show which TWO mechanisms now prevent entry (one from H2, one from H4), why each alone is insufficient, and what the recovery story looks like if the system somehow enters the regime anyway.</p>
+    <p class="iq-hint">Hint: metastable = the overload SUSTAINS ITSELF after the trigger clears (held threads + client retries keep the system saturated even once the provider recovers). Pre-H4: 15s × 1/s = 15 held threads and climbing; retries multiply arrival rate. Breaker cuts the hold time to µs during the outage; shed caps the held-thread count regardless of cause. Alone: breaker misses non-provider slowness, shed alone still burns its 8 slots on 20s timeouts. Recovery: shed drains in one request-duration; breaker needs one cooldown + probe.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">
