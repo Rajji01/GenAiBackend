@@ -174,6 +174,51 @@ def test_duplicate_of_a_failed_item_replicates_the_failure_without_respending():
     assert llm.call_count == 1
 
 
+# --- length contract, max side (§3-12 Walk 2) ------------------------------------
+#
+# The single route caps narration at 500 chars via Field(); batch items never
+# pass through EnrichRequest, so without a mirrored per-item check the batch
+# route is a loophole — 50 oversized items each reaching the paid LLM.
+
+
+def test_oversized_batch_item_fails_alone_without_llm_spend():
+    llm = MagicMock(return_value=_result())
+    with patch("narration_enrichment.rag.embed_text", return_value=[0.1] * 8), patch(
+        "narration_enrichment.service._call_llm", llm
+    ):
+        r = _batch(["x" * 501, "UPI/SWIGGY/Payment"])
+
+    body = r.json()
+    assert body["results"][0]["success"] is False
+    assert body["results"][0]["error"] == "InvalidNarration"
+    assert body["results"][1]["success"] is True
+    assert llm.call_count == 1  # only the valid item was spent on
+
+
+def test_oversized_single_narration_is_422_not_a_paid_llm_call():
+    never_called = MagicMock()
+    with patch("narration_enrichment.service._call_llm", never_called):
+        r = client.post("/enrich", json={"narration": "x" * 501})
+
+    assert r.status_code == 422
+    assert never_called.call_count == 0
+
+
+def test_max_length_judges_the_normalized_text_too():
+    # Raw is 600+ chars of whitespace padding around an 18-char narration —
+    # mode=before means the 500-cap judges the NORMALIZED text, so a bloated
+    # but honest line is accepted rather than bounced for its costume.
+    raw = "   ".join("UPI/SWIGGY/Payment") + " " * 600
+    assert len(raw) > 500
+    llm = MagicMock(return_value=_result())
+    with patch("narration_enrichment.rag.embed_text", return_value=[0.1] * 8), patch(
+        "narration_enrichment.service._call_llm", llm
+    ):
+        r = client.post("/enrich", json={"narration": raw})
+
+    assert r.status_code == 200
+
+
 def test_empty_after_normalization_item_fails_alone_batch_continues():
     llm = MagicMock(return_value=_result())
     with patch("narration_enrichment.rag.embed_text", return_value=[0.1] * 8), patch(

@@ -352,6 +352,7 @@
     <div class="nav-group">
       <div class="nav-group-title">Prod walks (§3-12)</div>
       <a class="nav-link" href="#walk-w1"><span class="nav-tag">W1</span>Dirty-data intake + in-batch dedup</a>
+      <a class="nav-link" href="#walk-w2"><span class="nav-tag">W2</span>The batch length-contract loophole</a>
     </div>
 
     <div class="nav-group">
@@ -2989,6 +2990,31 @@ Job B deposit:             dsa/design/LRUCache.java — compiled,
                            self-asserts green (DSA pillar opened)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next walk rotates the Job-B pillar (DSA done → FDE / GenAI / HLD+LLD due) and picks the next prod gap — candidates named in PROD_HARDENING §6 + interview-prep backlogs.</p>
+    </article>
+
+    <article class="card day-card" id="walk-w2">
+      <div class="day-head">
+        <span class="day-stamp">§3-12 · W2</span>
+        <span class="day-title">The batch loophole — one length contract for both routes</span>
+      </div>
+      <span class="day-files">main.py (MIN/MAX_NARRATION_CHARS + batch max check) · tests/test_intake_hardening.py (+3)</span>
+
+      <p style="font-size:14.5px;"><strong>Found while re-reading W1's own diff adversarially.</strong> The single route caps narration at 500 chars via <code>Field(max_length=...)</code> — but batch items never pass through <code>EnrichRequest</code>, so the batch route was a loophole: 50 × 1MB items, each one a legal, oversized paid LLM call. Classic prod-gap shape — the contract existed, it just wasn't enforced on BOTH doors.</p>
+
+      <div class="why-box">
+        <div class="why-label">One pair of numbers, two doors</div>
+        <p><code>MIN_NARRATION_CHARS = 3</code> / <code>MAX_NARRATION_CHARS = 500</code> now live as module constants: the single route's <code>Field()</code> and the batch's per-item check both read the SAME names, so the two routes can't drift apart silently. The batch check judges the normalized text (same as the validator at <code>mode="before"</code>) — so a line bloated past 500 raw chars by whitespace padding is still accepted once collapsed, while a genuinely oversized item fails ALONE as <code>InvalidNarration</code> with zero LLM spend and the batch continues.</p>
+      </div>
+
+      <div class="terminal">tests/test_intake_hardening.py — +3 (11 total), all green
+  · oversized batch item fails alone, llm.call_count == 1
+  · oversized single narration → 422, LLM never called
+  · raw &gt; 500 but normalized ≤ 500 → 200 (max judges truth too)
+Full suite:                371 passed (was 368)
+Job B deposit:             interview-prep/LLD.md Card 1 — CHM
+                           internals (MobiKwik Q1): reads lock-free,
+                           CAS empty bin, sync on bin head; repo
+                           bridge to @Version/SETNX/reserve_llm_call</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

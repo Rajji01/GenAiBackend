@@ -166,8 +166,17 @@ def normalize_narration(text: str) -> str:
     return _WHITESPACE_RUNS.sub(" ", _CONTROL_CHARS.sub(" ", text)).strip()
 
 
+# The narration length contract — ONE pair of numbers for both routes.
+# The single route enforces it via Field(); the batch route must mirror it
+# per-item (batch items never pass through EnrichRequest), otherwise batch
+# becomes a loophole: 50 × 1MB items would each reach the paid LLM.
+MIN_NARRATION_CHARS = 3
+MAX_NARRATION_CHARS = 500
+
+
 class EnrichRequest(BaseModel):
-    narration: str = Field(..., min_length=3, max_length=500)
+    narration: str = Field(..., min_length=MIN_NARRATION_CHARS,
+                           max_length=MAX_NARRATION_CHARS)
 
     @field_validator("narration", mode="before")
     @classmethod
@@ -428,9 +437,12 @@ def _enrich_batch_inner(request: BatchEnrichRequest, db: Session) -> BatchEnrich
     deduped = 0
     for index, raw_narration in enumerate(request.narrations):
         narration = normalize_narration(raw_narration)
-        if len(narration) < 3:
-            # The per-item cousin of the single route's 422: an empty-
-            # after-normalization line fails ALONE, the batch continues.
+        if not (MIN_NARRATION_CHARS <= len(narration) <= MAX_NARRATION_CHARS):
+            # The per-item cousin of the single route's 422: an empty-after-
+            # normalization OR oversized line fails ALONE, the batch
+            # continues. The max side matters as much as the min — without
+            # it the batch route bypasses the single route's 500-char cap
+            # and one oversized item burns an outsized LLM token spend.
             results.append(BatchItemResult(
                 index=index, narration=raw_narration,
                 success=False, error="InvalidNarration",

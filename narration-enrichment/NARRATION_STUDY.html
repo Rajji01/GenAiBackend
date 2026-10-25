@@ -1242,6 +1242,29 @@
     <p class="iq-hint">Hint: batch-dedup replays failures (one attempt per text per request), H3 refuses to store failures (retry deserves fresh attempt), checksum is forever-until-content-changes. One layer = one policy, and all three policies are correct for THEIR scope. Bridge: the outcomes dict + capacity bound + recency eviction = the LRU you wrote in dsa/design/LRUCache.java.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-walk-w2">
+    <h3>§3-12 · W2 — The batch length-contract loophole</h3>
+    <span class="iq-anchor">files: <code>main.py</code> (MIN/MAX_NARRATION_CHARS, _enrich_batch_inner), <code>interview-prep/LLD.md</code> Card 1</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Why were <code>MIN_NARRATION_CHARS</code>/<code>MAX_NARRATION_CHARS</code> promoted to module constants instead of writing <code>3</code> and <code>500</code> in both places? Name the exact failure mode the constants prevent, and say why the same reasoning is behind <code>catalog_block()</code> being rendered FROM <code>TOOL_REGISTRY</code> in P5.</p>
+    <p class="iq-hint">Hint: two literals drift independently — someone raises the single route's cap and the batch silently keeps the old one (or worse, the reverse: batch becomes the loophole again). One name = one contract. P5's rule is the same shape: menu and whitelist can't drift because one is rendered from the other.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>/enrich</code> (single) with a narration of 520 raw chars that collapses to 480 after whitespace normalization, then the same payload as a batch item. Which check judges it in each route, at what point in the request lifecycle, and what status/fields come back? Now flip it: 520 chars that normalize to 510 — what happens in each route?</p>
+    <p class="iq-hint">Hint: single → validator (mode=before) normalizes FIRST, Field judges 480 → 200; batch → per-item check inside the loop on the normalized text → success:true. Flipped: single → 422 (whole request); batch → that item alone fails as InvalidNarration, batch continues — same contract, different blast radius by design.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> (The Job-B bridge — MobiKwik Q1.) ConcurrentHashMap's escalation is: lock-free reads → CAS into an empty bin → <code>synchronized</code> on the bin head. Map each rung onto this repo's concurrency ladder — which repo mechanism is each rung's cousin, and what is the shared design instinct? Then the probe an interviewer follows with: why does <code>if (!map.containsKey(k)) map.put(k, v)</code> stay racy on a CHM even though both calls are individually thread-safe, and which repo bug-class is that the in-memory twin of?</p>
+    <p class="iq-hint">Hint: lock-free reads ≈ degrade-not-fail read paths; CAS ≈ <code>@Version</code> optimistic update / <code>reserve_llm_call</code>'s SQL CAS; sync-on-bin-head ≈ pessimistic row lock / Redis SETNX ownership. Instinct: lock the smallest thing, shortest time, prefer CAS. Check-then-act = TOCTOU — the twin of why P4's worker claims by CAS on the status column instead of read-then-update, and why <code>putIfAbsent</code> ≈ SETNX exists.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">
