@@ -1058,6 +1058,29 @@
     <p class="iq-hint">Hint: retry reads one call's error (protects the REQUEST from blips); limiter reads local math (protects the QUOTA before spend); breaker reads consecutive whitelisted failures (protects THREADS + recovery headroom during sustained outage). The detail strings differ on purpose — operators debugging from client logs need the distinction; a stricter API might hide it behind an error code enum instead of prose.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-hard-h3">
+    <h3>P5.5 · H3 — Idempotency keys on /enrich</h3>
+    <span class="iq-anchor">files: <code>db.py</code> (IdempotencyKey, store_idempotency_record), <code>main.py</code> (/enrich), <code>tests/test_idempotency.py</code>, <code>PROD_HARDENING.md</code> §3</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> Open <code>store_idempotency_record</code>. The race path is <code>db.add → commit → except IntegrityError → rollback → re-read</code>. (a) Why is the <code>rollback()</code> mandatory before the re-read — what state is the Session in after a failed commit, and what happens to the next query without it? (b) Why does the function <code>raise</code> if the re-read finds nothing — what would swallowing that case hide?</p>
+    <p class="iq-hint">Hint: (a) the session is in a failed/invalidated transaction; queries raise PendingRollbackError until rollback. (b) an IntegrityError with no readable winner means the constraint violation wasn't the PK race we designed for — something is genuinely broken, and inventing an empty success would bury it.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>test_replay_skips_rate_limiter_breaker_and_retrieval_entirely</code> line by line: what state is deliberately poisoned before the second call (two separate things), what would each poison do to a NON-replay request, and which single early-return line in the route makes the replay immune to both? Then: the replay happens before <code>rate_limiter.acquire()</code> — argue why a free replay SHOULD not consume quota, and name one surprising consequence for a client hammering replays in a loop.</p>
+    <p class="iq-hint">Hint: the breaker is held OPEN (a fresh request would 503 'circuit open') and both boundaries are AssertionError mocks (any touch fails the test). The early return after <code>model_validate_json(stored.response_json)</code>. Replays cost no provider money so no quota — consequence: replay traffic is unthrottled by the LIMITER, which is exactly what H4's load shedder exists to bound instead.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> PROD_HARDENING §7 Q4, now built: a teammate wants 503s stored too, "so retries are cheap." Dismantle it: (a) what does the client's retry MEAN after a 503 vs after a 200, and which meaning does storing-503s destroy? (b) There's a subtler middle case — should a 422 (validation failure on the narration) be stored and replayed? Argue both sides and commit to one, naming the property that decides it. (c) Stripe stores failures of certain classes under the key — find the difference between their domain and ours that makes their choice right for them and wrong here.</p>
+    <p class="iq-hint">Hint: (b) hinges on determinism — a 422 from OUR validation is deterministic for the same bytes (replaying is harmless but pointless: recomputing is free, no LLM involved); a 422 from the MODEL's shape-failure is nondeterministic and retry-worthy. (c) Stripe's failed charge attempts have side effects worth not repeating (auth holds, fraud signals); our failed enrichment leaves no side effect — nothing to protect by replaying it.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

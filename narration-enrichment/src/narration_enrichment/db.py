@@ -23,6 +23,7 @@ from sqlalchemy import (
     create_engine,
     func,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
 
 from narration_enrichment.config import get_settings
@@ -777,6 +778,59 @@ def count_ingest_backlog(db: Session) -> int:
         .filter(IngestJob.status.in_((JOB_QUEUED, JOB_PROCESSING)))
         .scalar()
     ) or 0
+
+
+class IdempotencyKey(Base):
+    """Hardening H3 — one row per client-chosen Idempotency-Key that
+    completed successfully. The Stripe contract (PROD_HARDENING.md
+    §3): a client that times out and retries must cost ONE LLM call,
+    not two — here 'double spend' is quota, at Stripe it is a card
+    charged twice; the defense is identical.
+
+    request_hash pins the key to ONE logical request: replay only
+    when the body matches; a different body under the same key is a
+    client bug answered with 422, never with someone else's stored
+    response. Only 200s are stored — a 503 is not an outcome worth
+    replaying (the client SHOULD retry that and get a fresh attempt).
+    No TTL at this scale (rule 3-7) — flagged in the design paper,
+    not silently skipped.
+    """
+
+    __tablename__ = "idempotency_keys"
+
+    key = Column(String, primary_key=True)
+    request_hash = Column(String, nullable=False)
+    response_json = Column(String, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+def get_idempotency_record(db: Session, key: str) -> IdempotencyKey | None:
+    return db.query(IdempotencyKey).filter(IdempotencyKey.key == key).one_or_none()
+
+
+def store_idempotency_record(
+    db: Session, *, key: str, request_hash: str, response_json: str
+) -> IdempotencyKey:
+    """Insert, racing safely: two concurrent retries of the same key
+    can both finish processing; exactly one INSERT wins the PK and
+    the loser re-reads the winner's row — the ticketing Day-7
+    unique-constraint dedup shape. The caller returns the row this
+    gives back, so both clients see ONE canonical answer (which
+    matters here more than usual: the LLM is nondeterministic, and
+    'idempotent' must mean one answer, not two equally-valid ones).
+    """
+    row = IdempotencyKey(key=key, request_hash=request_hash, response_json=response_json)
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        winner = get_idempotency_record(db, key)
+        if winner is not None:
+            return winner
+        raise  # constraint violation without a readable winner — genuinely broken
+    db.refresh(row)
+    return row
 
 
 class ToolInvocation(Base):

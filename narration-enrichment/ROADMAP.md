@@ -582,10 +582,13 @@ built-now / honestly-out-of-scope).
       6th-request-never-reaches-the-provider integration proof and
       the chat-gated-by-the-same-breaker proof; full suite 256
       green)*
-- [ ] Idempotency keys on `/enrich` — Stripe contract: replay on
+- [x] Idempotency keys on `/enrich` — Stripe contract: replay on
       (key, same body-hash) with zero LLM spend + replay header, 422
       on key reuse with different body, store 200s only, race resolved
-      by unique-constraint re-read *(H3)*
+      by unique-constraint re-read returning the WINNER's row *(H3,
+      this commit — 6 tests with call-counting mocks incl. the
+      replay-skips-limiter+OPEN-breaker+retrieval proof via exploding
+      mocks; full suite 262 green)*
 - [ ] Load shedding — bounded in-flight counter on the sync path,
       overflow → fast 503, rejection ORDER (shed → breaker → quota)
       pinned by test *(H4)*
