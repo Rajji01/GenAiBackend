@@ -47,9 +47,14 @@ So it runs as its own thread — pattern by pattern, a few problems each, with n
 
 ---
 
+## Queued (from market signals — see JARVIS_CHAIN §2)
+- **Design an LRU cache, O(1) get+put** (MobiKwik, 2026-10-25) — pattern: design-a-data-structure
+  (HashMap + doubly-linked list). Strong candidate for **DSA deposit #1**; cross-listed in
+  `../LLD.md`. Trigger to learn: "O(1) get AND put + eviction order" ⇒ hashmap-over-a-linked-list.
+
 ## Solved log (append as problems are done)
 
-_Empty — first DSA walk starts pattern 1. Each entry: problem, pattern, trigger, approach,
-complexity, gotcha, link to the solution file._
+_Empty — first DSA walk starts pattern 1 (or the queued LRU design). Each entry: problem,
+pattern, trigger, approach, complexity, gotcha, link to the solution file._
 
 Solutions will live as `dsa/<pattern>/<problem>.java` (or `.py`) with the note inline at top.

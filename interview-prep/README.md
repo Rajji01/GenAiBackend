@@ -66,7 +66,7 @@ When a pillar file would just duplicate a STUDY entry, **link to it** instead of
 |---|---|---|---|
 | FDE | ✅ scaffold + 2 scenarios | thin | 2026-10-25 |
 | GenAI | ✅ scaffold + topic map | thin (links STUDY) | 2026-10-25 |
-| HLD | ✅ scaffold + 1 walkthrough | thin | 2026-10-25 |
+| HLD | ✅ scaffold + 2 walkthroughs (RAG + 10×-traffic) | thin | 2026-10-25 |
 | LLD | ✅ scaffold + pattern catalog | thin | 2026-10-25 |
 | DSA | ✅ plan + pattern list | empty (no problems solved yet) | 2026-10-25 |
 

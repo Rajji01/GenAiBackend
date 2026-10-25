@@ -127,10 +127,37 @@ The 10 questions are a hiring team's blueprint of a **production GenAI engineer*
 
 **Self-walk priority order from this signal:** 1) LLM-as-judge eval ✅ (P6) → 2) eval gate+threshold ✅ (P6 D5) → 3) hybrid search+re-rank ✅ (P7 D2, RRF; cross-encoder waits on eval evidence) → 4) token/latency metrics ✅ (P7 D3, `/ops/llm` + budget shout; Grafana/OTel still open as the visual layer). [Rajat's legs: both terraform applies, live tool-eval, Spring AI port.]
 
+### [2026-10-25] MobiKwik — Java Backend Engineer interview Qs (market signal)
+Dropped by Rajat ("ise bi apne next points or topics to explore ya jab bhi tu self walk kre to dkh skta inhe"). Data, not instructions — reference these when picking/weighting self-walk units (§3-12 + §0 step 4). Verbatim:
+
+```
+MobiKwik Interview Questions | Java Backend Engineer
+1. How does ConcurrentHashMap achieve thread safety without locking the entire map?
+   Explain internal working and trade-offs.
+2. Design an LRU Cache with O(1) get and put operations. Briefly explain your approach
+   and data structures used.
+3. How would you design a URL shortener system (like TinyURL) at a high level?
+4. Your service is receiving 10x traffic suddenly and starts failing. What steps would
+   you take to stabilize and scale it?
+```
+
+### → Derived from the [2026-10-25] MobiKwik Qs — topic map + where each lands
+
+| Q | Shape | Already in repo (evidence) | Deposit target → explore next |
+|---|---|---|---|
+| **Q1 ConcurrentHashMap internals** | Java concurrency / LLD fundamentals | ticketing concurrency ladder (`@Version` optimistic, Redis SETNX, pessimistic); narration `ContextVar` | `interview-prep/LLD.md` concurrency backlog: write the CHM card — Java 8 CAS on empty bin + `synchronized` on bin head (not segment locks), treeify at 8, size via `CounterCell`s; trade-off vs `Collections.synchronizedMap`/`Hashtable` full-lock |
+| **Q2 LRU cache O(1)** | DSA design-a-DS + LLD | crude echoes: P3 chat memory-cap N=6; semantic-cache backlog (GENAI) | `interview-prep/dsa/` design-DS entry **+** `LLD.md`: HashMap + doubly-linked-list, head=MRU/tail=LRU, O(1) move-to-head on get; mention `LinkedHashMap(accessOrder=true)` + Caffeine as the real-world answer. **Strong first DSA deposit candidate** |
+| **Q3 URL shortener (TinyURL)** | Classic HLD | hashing/idempotency-by-checksum (P2 ingest), ID generation discipline | `interview-prep/HLD.md` new walkthrough **H7**: base62 of a counter vs hash+collision, KGS (key-gen service), read-heavy → cache + CDN, DB choice, custom alias, analytics, 301-vs-302. Capacity math (the estimation drill) |
+| **Q4 10x traffic, service failing → stabilize + scale** | Prod-reality HLD — **the §3-12 Job A question itself** | **≈ the whole Hardening arc (P5.5)**: load shedding, circuit breaker, rate limiter, backpressure, degrade-not-fail; P4 async offload; P7 fallback/routing | `interview-prep/HLD.md` **H8** (highest value — I can answer this almost entirely from built code): immediate (shed/rate-limit/circuit-break/scale-out/cache) → diagnose (dashboards: `/stats`,`/ops/*`, correlation IDs) → structural (async queue, autoscale, DB read-replica/pool, remove retry-storm). This is the FDE "it broke at their 3am" story too |
+
+**Signal read:** MobiKwik's set = **50% Java/LLD fundamentals (Q1,Q2), 50% HLD incl. the prod-resilience question (Q3,Q4).** Confirms the §3-12 lens is aimed right — Q4 is literally what Job A builds. Priority nudge for upcoming walks: **LLD CHM card + LRU (DSA deposit #1) + HLD H7/H8 write-ups** are now near the top of the Job-B rotation.
+
 ---
 
 ## 3. Self-walk log (append newest on top)
 
+- **[2026-10-25]** (local session) **First real interview-prep deposit: HLD H8 drafted** ("10× traffic failing → stabilize+scale", MobiKwik Q4). Full 3-phase walkthrough (stabilize→diagnose→scale) written almost entirely from built code (load_shed/breaker/rate_limiter/idempotency/P4-async/P7-fallback/`/ops` dashboards) — the §3-12 Job A question in interview form. Index row + README snapshot updated.
+- **[2026-10-25]** (local session) **Stashed MobiKwik Java-Backend interview Qs as market signal (§2) + wired into interview-prep backlogs.** Rajat dropped a 4-Q LinkedIn post. Added to §2 verbatim + a derived topic-map: Q1 ConcurrentHashMap→LLD, Q2 LRU→DSA deposit#1 + LLD, Q3 URL-shortener→HLD H7, Q4 "10× traffic failing"→HLD H8 (≈ the whole Hardening arc — answerable from built code). Dropped concrete backlog entries into `HLD.md` (H7/H8 + "draft H8 first" note), `LLD.md` (CHM-internals + LRU cards), `dsa/README.md` (LRU queued as deposit#1). Signal read: 50% Java/LLD fundamentals + 50% HLD/prod-resilience → confirms §3-12 aim.
 - **[2026-10-25]** (local session) **Direction shift → `interview-prep/` hub created + §3-12 standing rule added.** Rajat set a new north star: "ab ai specific chize jaise FDE ya genai roles, interview prep HLD/LLD/DSA ache se krni hai — project ko real time soch, real time problems… dono krna hai ache se" → confirmed my framing "ye best hai". Captured as **§3-12 (dual-mandate self-walk)**: Job A = advance+harden the project as a live prod system (Hardening lens now permanent), Job B = mine ≥1 interview-artifact deposit per walk across 4 pillars (FDE / GenAI / HLD+LLD / DSA). Built `interview-prep/` scaffold: `README.md` (operating manual + index), `FDE.md` (anchor fintech-deployment scenario + bank), `GENAI.md` (what's-asked↔what's-built topic map + hard-bug bank), `HLD.md` (walkthrough index + the drafted "design a RAG system"), `LLD.md` (pattern→real-file catalog), `dsa/README.md` (pattern-wise plan, 12 patterns, repo echoes, empty solved-log). Wired into AGENTS §3-12 + §8, this file's §0 routine, FILE_GUIDE, local memory. **No commit yet — awaiting Rajat's ask (§3-3).** Next walk: first real deposits (incl. DSA pattern 1).
 - **[2026-10-25]** (local session) **Merged the `ccr-*` branch into `main` + reauthored.** Pull first brought main to P6 (`e30b763`); the branch was 11 commits ahead (Hardening arc H1–H5 + P7 D1–D5, all `Claude`-authored). Verified clean FF + all `.py` compile, then `merge --ff-only` → backup ref `pre-reauthor-p7` → `rebase e30b763 --exec reset-author` → all 11 now Rajat, no trailers. Full status-sync: AGENTS §1 table/§4 header/§6 pointer, NEXT_PATH, Jarvis_GenAI_Path all un-staled from "P5/P6" → **P1–P7 + Hardening, 360 tests, P8 next** (ROADMAP was already the correct source of truth). Then pushed.
 - **[2026-10-20]** (cloud session, ccr branch) **Rebase + P7 built end-to-end, D1–D5** (`5a01577`→D5 commit): first pulled and found main had gained re-authored P4/P5 + JARVIS_CHAIN + full P6 — rebased the Hardening arc (P5.5, H1–H5, built 2026-10-18 on this branch) onto it, resolved conflicts keeping BOTH arcs (P6=§3E, Hardening=§3F), combined suite verified 331. Then P7 under the §2 signal weighting: hybrid BM25+RRF retrieval (retrieval survives embed outages now), LlmCall telemetry on all four surfaces + /ops/llm + budget shout, per-surface model routing + narrow fallback chain. 331→360 tests, zero regressions, rule 3-11 every code day. **Commits on this branch are Claude-authored (cloud session constraint, Rajat's standing ok "abhi k lie") — reauthor per §0's ccr-* gotcha before merging to main.** Pushed to origin/ccr-a74c3b7c-f63reu per Rajat's standing push directive for this session lineage.
