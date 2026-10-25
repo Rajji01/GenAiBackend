@@ -104,6 +104,7 @@ def _call_llm(
     narration: str,
     context: str | None,
     policy_context: str | None,
+    model: str | None = None,
 ) -> TransactionEnrichment:
     # This is a SEPARATE retry layer from Instructor's own max_retries
     # below — that one retries a bad SHAPE by re-asking the model; this
@@ -125,11 +126,15 @@ def _call_llm(
     # P7 Day 3 — every wire attempt is a telemetry row; this surface
     # gets REAL token counts via create_with_completion (the raw
     # completion carries usage_metadata; mocks without it degrade to
-    # tokens=None, never fake 0).
-    from narration_enrichment import telemetry
+    # tokens=None, never fake 0). P7 Day 4: the client is resolved by
+    # the router — identical object to _client under default config,
+    # a cached sibling when MODEL_ENRICH/FALLBACK_MODEL route away.
+    from narration_enrichment import model_router, telemetry
 
-    with telemetry.record("enrich", _settings.model_name) as rec:
-        result, completion = _client.create_with_completion(
+    model = model or model_router.model_for("enrich")
+    client = model_router.client_for(model)
+    with telemetry.record("enrich", model) as rec:
+        result, completion = client.create_with_completion(
             response_model=TransactionEnrichment,
             messages=[{"role": "user", "content": prompt}],
             max_retries=_settings.max_retries,
@@ -171,17 +176,35 @@ def enrich_narration(
     # mechanisms the design keeps separate.
     llm_breaker.allow()
 
+    # P7 Day 4 — the fallback chain. [primary] in default config (the
+    # loop degenerates to exactly the old wiring); [primary, fallback]
+    # when FALLBACK_MODEL is set. The breaker gate above runs ONCE,
+    # before the chain: an OPEN circuit never consults the fallback —
+    # same provider, same fate (P7_DESIGN §4).
+    from narration_enrichment import model_router
+
+    chain = model_router.chain_for("enrich")
     started_at = time.monotonic()
-    try:
-        result = _call_llm(narration, context, policy_context)
-    except Exception as exc:
-        if counts_as_provider_down(exc):
-            llm_breaker.record_failure()
-        else:
-            # The provider responded — unhappily, but it's alive.
-            llm_breaker.record_success()
-        raise
-    llm_breaker.record_success()
+    result = None
+    for position, routed_model in enumerate(chain):
+        try:
+            result = _call_llm(narration, context, policy_context, model=routed_model)
+        except Exception as exc:
+            down = counts_as_provider_down(exc)
+            if down:
+                llm_breaker.record_failure()
+            else:
+                # The provider responded — unhappily, but it's alive.
+                llm_breaker.record_success()
+            if down and position == 0 and len(chain) > 1:
+                logger.warning(
+                    "llm_fallback_attempt from=%s to=%s", routed_model, chain[1]
+                )
+                continue
+            raise
+        # A success anywhere in the chain is provider-alive evidence.
+        llm_breaker.record_success()
+        break
     latency_ms = (time.monotonic() - started_at) * 1000
 
     logger.info(

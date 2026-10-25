@@ -203,10 +203,11 @@ def run_dispute_agent(db: Session, *, dispute_id: str) -> Dispute:
             return dispute
         db.refresh(dispute)
 
-        from narration_enrichment import telemetry
+        from narration_enrichment import model_router, telemetry
 
-        with telemetry.record("dispute_agent", _settings.model_name):
-            step = _client.create(
+        routed_model = model_router.model_for("dispute_agent")
+        with telemetry.record("dispute_agent", routed_model):
+            step = model_router.client_for(routed_model).create(
                 response_model=_AgentStepReply,
                 messages=[{"role": "user", "content": _build_prompt(db, dispute, observations)}],
                 max_retries=_settings.max_retries,

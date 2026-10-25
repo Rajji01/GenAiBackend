@@ -345,6 +345,7 @@
       <a class="nav-link" href="#p7-intro"><span class="nav-tag">·</span>The idea (signal-chosen)</a>
       <a class="nav-link" href="#p7-day2"><span class="nav-tag">D2</span>Hybrid retrieval (BM25 + RRF)</a>
       <a class="nav-link" href="#p7-day3"><span class="nav-tag">D3</span>LLM telemetry + budget shout</a>
+      <a class="nav-link" href="#p7-day4"><span class="nav-tag">D4</span>Model routing + fallback chain</a>
     </div>
 
     <div class="nav-group">
@@ -2861,6 +2862,53 @@ Full suite:                342 passed (was 331)</div>
 Full suite:                350 passed (was 342)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (D4): per-surface model routing (config, not code) + the one-attempt fallback chain — and the rule that an OPEN circuit never consults the fallback.</p>
+    </article>
+
+    <article class="card day-card" id="p7-day4">
+      <div class="day-head">
+        <span class="day-stamp">P7 · D4</span>
+        <span class="day-title">Model routing + fallback — config, not code; narrow, not clever</span>
+      </div>
+      <span class="day-files">model_router.py (new) · config.py · service.py · chat_service.py · dispute_agent.py · dispute_judge.py · tests/test_model_router.py (new)</span>
+
+      <p style="font-size:14.5px;"><strong>Routing is data:</strong> <code>MODEL_ENRICH / MODEL_CHAT / MODEL_DISPUTES</code> pick each surface's model (empty = the default) — moving chat to a bigger model is an env change and a restart, not a diff. One Instructor client per model, lazily cached, over the SAME raw transport (same key, same timeout budget): the router routes models, it does not invent transports.</p>
+
+      <div class="why-box">
+        <div class="why-label">The identity trick that kept ~40 mock-seam tests untouched</div>
+        <p><code>client_for(default_model)</code> returns <em>THE existing <code>service._client</code> object</em> — by identity, not a twin. Every module-level <code>_client</code> name and the router resolve to one object under default config, so every existing test patching <code>&lt;module&gt;._client.create*</code> kept working the moment routing was wired into all four surfaces. Pinned with an <code>is</code> assertion — the strongest claim a test can make about an object.</p>
+      </div>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>The narrow trigger</h4>
+          <p><code>FALLBACK_MODEL</code> fires on exactly one condition: the primary attempt exhausted as <em>provider-down</em> (the shared whitelist). A caller error (<code>ValueError</code>, a 400) never consults it — same bytes will fail on any model. Pinned: the fallback's call list stays empty.</p>
+        </div>
+        <div class="mini-card">
+          <h4>An OPEN circuit never consults the fallback</h4>
+          <p>The breaker's gate sits BEFORE the chain. Its verdict is "the PROVIDER is down" — and both models live behind the same endpoint/key here, so a sibling-model retry during an outage is a retry storm in a costume. A real second VENDOR slots into this same chain the day Rajat adds its key (the seam is the point).</p>
+        </div>
+        <div class="mini-card">
+          <h4>A fallback success heals the breaker</h4>
+          <p>The provider demonstrably answered — <code>record_success</code>, consecutive-failure count reset. One primary wobble + a healthy fallback never accumulates toward OPEN. Pinned.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Chain hygiene (rule 3-7)</h4>
+          <p><code>chain_for</code> drops a fallback that IS the primary — retrying the same model twice is tenacity's job, already done. Default config degenerates the chain loop to exactly the old wiring: zero behavior change until someone sets the env.</p>
+        </div>
+      </div>
+
+      <div class="terminal">tests/test_model_router.py — 10 new, all green
+  · routing: default, per-surface env override, chain shapes
+    (fallback appended / dropped-when-primary)
+  · identity: client_for(default) IS service._client; siblings
+    cached once
+  · the trigger: provider-down primary → ONE fallback → success
+    heals the breaker; caller error → fallback untouched; both
+    down → original error shape; OPEN circuit → chain never
+    entered (0 calls)
+Full suite:                360 passed (was 350)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (D5): P7 closeout — README section, shipped banner, ROADMAP/AGENTS/FILE_GUIDE/CHAIN sync. Rajat's legs: live recall@k, second vendor key, the AWS half.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

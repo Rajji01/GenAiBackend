@@ -661,11 +661,15 @@ token telemetry).
       incl. write-failure-never-fails-the-call and the budget shout;
       3 retry tests moved to the new create_with_completion seam,
       intent unchanged; full suite 350 green)*
-- [ ] `model_router.py` — per-surface model config (`MODEL_ENRICH` /
+- [x] `model_router.py` — per-surface model config (`MODEL_ENRICH` /
       `MODEL_CHAT` / `MODEL_DISPUTES`), lazily-cached per-model
-      clients, `FALLBACK_MODEL` chain with the narrow trigger
-      (transient exhaustion only; an OPEN circuit never consults the
-      fallback — same provider, same fate) *(Day 4)*
+      clients with `client_for(default) IS service._client` (the
+      identity that kept ~40 mock-seam tests untouched),
+      `FALLBACK_MODEL` chain with the narrow trigger (provider-down
+      exhaustion only; caller errors never consult it; an OPEN
+      circuit never enters the chain; a fallback success heals the
+      breaker) *(Day 4, this commit — 10 tests; full suite 360
+      green)*
 - [ ] Closeout: README "Multi-model platform (P7)" section, LAB cards
       + banner, STUDY Qs per rule 3-11, this DoD, AGENTS/FILE_GUIDE/
       CHAIN sync *(Day 5)*

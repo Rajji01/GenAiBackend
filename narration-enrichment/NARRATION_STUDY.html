@@ -1173,6 +1173,29 @@
     <p class="iq-hint">Hint: (a) PRICE_TABLE drift + tokens-None calls (chat/dispute) are invisible to the estimate — a blocker would enforce a number that undercounts. (b) the rate limiter blocks on locally-COUNTED calls, exact by construction. (c) page/investigate/raise-limit; before real money: real usage on every surface + the provider's own billing export reconciled against the estimate.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p7-d4">
+    <h3>P7 · Day 4 — Model routing + the fallback chain</h3>
+    <span class="iq-anchor">files: <code>model_router.py</code>, <code>service.py</code> (the chain loop), <code>tests/test_model_router.py</code>, <code>P7_DESIGN.md</code> §4</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>test_default_client_is_service_client_by_identity</code> asserts with <code>is</code>, not <code>==</code>. (a) What exactly does <code>is</code> prove that <code>==</code> can't here, and why is that THE claim that kept ~40 mock-seam tests working? (b) <code>client_for</code> builds non-default clients under a lock with a dict cache — what race does the lock close, and why is a duplicate client (the race's symptom) worse than it sounds?</p>
+    <p class="iq-hint">Hint: (a) patching <code>chat_service._client.create</code> mutates an OBJECT's attribute; routing stays mocked only if the router hands back that same object. (b) two threads both miss the cache → two clients; mocks patched on one are invisible to the other — heisenbug tests, plus doubled connection state.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace <code>enrich_narration</code> with <code>FALLBACK_MODEL=gemini-sibling</code> through three scenarios: (i) primary wrapped-503-exhausted, sibling healthy; (ii) primary raises ValueError; (iii) breaker already OPEN. For each: which models does <code>_call_llm</code> see, what does the breaker record, what reaches the caller — and in (i), how many <code>llm_calls</code> telemetry rows exist and what do their <code>model</code> columns say?</p>
+    <p class="iq-hint">Hint: (i) primary + sibling; record_failure then record_success (healed); result returns; telemetry = primary's tenacity attempts (provider_down each) + one ok row with model=gemini-sibling — the model column IS the fallback audit. (ii) primary only, record_success (alive!), ValueError propagates. (iii) neither — CircuitOpenError before the chain.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> P7_DESIGN §7 Q6, now built: "a multi-model platform with one vendor key — is this honest?" Make the case in three parts: (a) what the router/fallback/telemetry trio PROVES even single-vendor (name the specific tests), (b) what it CANNOT prove until a second provider key exists (think: correlated failure domains, differing exception taxonomies, differing token accounting), (c) the seam audit — walk exactly what changes (and what doesn't) the day a second vendor arrives: which function grows a branch, which schema columns already fit, and which design rule (OPEN-circuit-skips-fallback) flips and WHY.</p>
+    <p class="iq-hint">Hint for (c): client_for grows a vendor dispatch; llm_calls.model/PRICE_TABLE already fit; the breaker rule flips because a second VENDOR is a different failure domain — an open circuit on vendor A is exactly when you WANT to consult vendor B, so the breaker becomes per-vendor and the gate moves inside the chain. The design paper names this flip condition deliberately.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">
