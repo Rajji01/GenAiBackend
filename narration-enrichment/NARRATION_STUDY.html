@@ -1104,6 +1104,29 @@
     <p class="iq-hint">Hint: metastable = the overload SUSTAINS ITSELF after the trigger clears (held threads + client retries keep the system saturated even once the provider recovers). Pre-H4: 15s × 1/s = 15 held threads and climbing; retries multiply arrival rate. Breaker cuts the hold time to µs during the outage; shed caps the held-thread count regardless of cause. Alone: breaker misses non-provider slowness, shed alone still burns its 8 slots on 20s timeouts. Recovery: shed drains in one request-duration; breaker needs one cooldown + probe.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-hard-h5">
+    <h3>P5.5 · H5 — Chaos: the system under combined failure</h3>
+    <span class="iq-anchor">files: <code>tests/test_chaos.py</code>, the whole arc — <code>PROD_HARDENING.md</code>, <code>circuit_breaker.py</code>, <code>load_shed.py</code>, idempotency in <code>main.py</code>/<code>db.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> The chaos tests "time travel" the breaker with <code>llm_breaker._opened_at -= cooldown + 1</code> — reaching into a private attribute — while the unit tests inject a <code>FakeClock</code>. Why the difference (what can't the integration tests inject, and why not)? Name the tradeoff of each approach and the one change to <code>circuit_breaker.py</code> that would let integration tests avoid the private poke — then argue whether it's worth it (rule 3-7).</p>
+    <p class="iq-hint">Hint: the module-level <code>llm_breaker</code> is constructed at import with the real clock; routes use THAT instance, so tests can't swap its time_fn without rebuilding the app's wiring. A `_set_time_fn_for_tests` or settable clock would clean it up — probably not worth a production surface for two test lines; the poke is ugly, contained, and commented.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace scenario 1 (<code>test_outage_with_idempotent_retries...</code>): threshold+3 identical requests with one key through a dead provider. For requests 1, 5 (=threshold), 6, and 8: which gates run, does the provider get hit, what 503 flavour comes back, and why is the idempotency store empty THROUGHOUT? Then connect: which TWO design rules, from two different days, combine to produce "the retry storm was absorbed at exactly threshold calls, and nothing garbage got stored"?</p>
+    <p class="iq-hint">Hint: req 1–5: no stored row → process → provider 503 → breaker counts; req 6+: breaker OPEN → circuit 503, provider untouched. Store stays empty because H3 stores only 200s. The two rules: H2's consecutive-failure trip + H3's only-store-successes — neither alone absorbs the storm AND keeps the store clean.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The arc's capstone (PROD_HARDENING §7 Q1, all four built): retry, rate limiter, circuit breaker, load shedder. Build the 2-minute interview answer as a table — SIGNAL read, RESOURCE protected, the one failure only IT catches, and what happens if you delete just it while keeping the other three. Then the trick question interviewers love: "aren't these four just one leaky-bucket with extra steps?" — give the two-sentence rebuttal that names why the SIGNALS are irreducible.</p>
+    <p class="iq-hint">Hint for the rebuttal: each mechanism reads a signal the others cannot see (one call's error class / local quota math / consecutive upstream failures / instantaneous concurrency) — collapsing them means one mechanism must infer all four signals from one, which is exactly how you get a breaker that trips on quota noise or a shed that waits for timeouts. Anchor: load_shed.py's module docstring order comment.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

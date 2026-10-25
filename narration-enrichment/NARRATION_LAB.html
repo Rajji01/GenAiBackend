@@ -337,6 +337,7 @@
       <a class="nav-link" href="#hard-h2"><span class="nav-tag">H2</span>Circuit breaker</a>
       <a class="nav-link" href="#hard-h3"><span class="nav-tag">H3</span>Idempotency keys</a>
       <a class="nav-link" href="#hard-h4"><span class="nav-tag">H4</span>Load shedding + the rejection order</a>
+      <a class="nav-link" href="#hard-h5"><span class="nav-tag">H5</span>Chaos suite + closeout</a>
     </div>
 
     <div class="nav-group">
@@ -2727,6 +2728,34 @@ Full suite:                262 passed (was 256)</div>
 Full suite:                272 passed (was 262)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next up (H5): the chaos suite — combined failures (production failures arrive in combinations) + the arc's closeout.</p>
+    </article>
+
+    <article class="card day-card" id="hard-h5">
+      <div class="day-head">
+        <span class="day-stamp">P5.5 · H5</span>
+        <span class="day-title">Chaos suite + closeout — invariants under combined failure</span>
+      </div>
+      <span class="day-files">tests/test_chaos.py (new) · README.md · ROADMAP.md · AGENTS.md · FILE_GUIDE.md</span>
+
+      <p style="font-size:14.5px;"><strong>Goal of the day:</strong> every mechanism is tested alone in its own file; production failures arrive in COMBINATIONS (the post-mortem classic: the mitigation for fault A amplifies fault B). The chaos suite scripts the combinations and asserts SYSTEM-level invariants — PROD_HARDENING §5's list as executable claims. Then the rule-3-9 closeout.</p>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">Hardening arc shipped (code-side) — the five scenarios</div>
+        <p><strong>1. Outage + idempotent retry storm:</strong> a client hammering the same key through a full outage hits the provider exactly <em>threshold</em> times (then the breaker absorbs everything), every response honest 503, and the idempotency store holds NOTHING — a failure never becomes replayable. Recovery: first healed call computes + stores, the next replays free. <strong>2. The worker's fate ≠ the API's fate:</strong> circuit OPEN, ingest job still → DONE. <strong>3. Embed down ≠ provider down:</strong> 6 straight embed failures — every enrich still 200s (the P2 invariant) and the breaker stays CLOSED (outside its boundary). <strong>4. Chat's two channels:</strong> retrieval dead, tools alive — earned trail intact, citations honestly empty. <strong>5. The worst-morning drill:</strong> saturated + open → shed answers; threads drain → breaker answers (provider still untouched); cooldown + one probe → fully healed, slot count zero.</p>
+        <p style="margin-top:8px;"><strong>278 tests green</strong> (was 244 at P5 close). <strong>34 new across H2–H5.</strong> Zero regressions.</p>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">Open, deliberately (rules 3-2 / 3-6 / 3-7)</div>
+        <p>The live chaos drill against real Gemini (kill the network mid-call, watch the breaker open on real timeouts) is <strong>Rajat's quota</strong>. Error-rate breaker window needs real RPS. Idempotency TTL is a product call. Cache tier + stampede defense waits for a cache to exist. All named in PROD_HARDENING §6 — honest edges, not gaps.</p>
+      </div>
+
+      <div class="terminal">Hardening commits, in chronological order:
+  95064fa  H1  the 10-class failure catalog + designs
+  402a65a  H2  circuit breaker (12 tests)
+  27e4831  H3  idempotency keys (6 tests)
+  9b16131  H4  load shedding + the rejection order (10 tests)
+  &lt;this commit&gt;  H5  chaos suite (6 tests) + closeout</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">
