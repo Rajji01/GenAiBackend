@@ -6,12 +6,14 @@ The enrichment pipeline itself. The client is built once at import time
 import logging
 import time
 
+import httpx
 import instructor
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+from narration_enrichment.circuit_breaker import llm_breaker
 from narration_enrichment.config import get_settings
 from narration_enrichment.models import TransactionEnrichment
 
@@ -58,6 +60,22 @@ Narration: {narration}
 # model name) retrying would just waste three attempts failing the same
 # way three times.
 _TRANSIENT_CODES = {429, 503, 504}
+
+
+def counts_as_provider_down(exc: BaseException) -> bool:
+    """Hardening H2 — the breaker's failure signal. Strictly the
+    transient whitelist PLUS timeouts (gray failure: a provider that
+    is not down, just uselessly slow, is down for our purposes once
+    it does this consistently). Anything else — a 400, a validation
+    error — means the provider ANSWERED, which is evidence of life,
+    not death; the caller records that as breaker-success even while
+    re-raising the error to its own caller. Public (no underscore)
+    because chat_service shares the exact same judgement."""
+    if isinstance(exc, httpx.TimeoutException) or isinstance(
+        exc.__cause__, httpx.TimeoutException
+    ):
+        return True
+    return _is_transient_provider_error(exc)
 
 
 def _is_transient_provider_error(exc: BaseException) -> bool:
@@ -134,8 +152,27 @@ def enrich_narration(
         policy_context is not None,
     )
 
+    # Hardening H2 — the breaker gates the call BEFORE any provider
+    # work: while OPEN this raises CircuitOpenError in microseconds
+    # (no thread held for 20s, no quota spent, no retry storm into a
+    # dead upstream). Note the rate limiter was already acquired by
+    # the caller at this point — an OPEN circuit still consumed a
+    # quota slot; acceptable, because while the provider is down the
+    # quota is worthless anyway, and re-ordering would couple the two
+    # mechanisms the design keeps separate.
+    llm_breaker.allow()
+
     started_at = time.monotonic()
-    result = _call_llm(narration, context, policy_context)
+    try:
+        result = _call_llm(narration, context, policy_context)
+    except Exception as exc:
+        if counts_as_provider_down(exc):
+            llm_breaker.record_failure()
+        else:
+            # The provider responded — unhappily, but it's alive.
+            llm_breaker.record_success()
+        raise
+    llm_breaker.record_success()
     latency_ms = (time.monotonic() - started_at) * 1000
 
     logger.info(

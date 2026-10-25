@@ -18,3 +18,19 @@ present, is left untouched.
 import os
 
 os.environ.setdefault("GEMINI_API_KEY", "test-key-never-sent-anywhere")
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _reset_llm_breaker():
+    """Hardening H2: the circuit breaker is process-wide shared state
+    (by design — one upstream, one breaker). Without this reset, a
+    test that drives five provider failures would open the circuit
+    for every LATER test in the run, making the suite order-dependent
+    — the test-suite version of the exact blast-radius problem the
+    breaker exists to contain."""
+    from narration_enrichment.circuit_breaker import _reset_for_tests
+
+    _reset_for_tests()
+    yield

@@ -88,6 +88,15 @@ class Settings(BaseSettings):
     # empty = no DLQ (in-memory queue), /ops/ingest reports null.
     ingest_dlq_url: str = ""
 
+    # Hardening H2 — the circuit breaker on the generative boundary.
+    # 5 consecutive whitelisted failures = the provider is down, not
+    # unlucky (at 3 retry attempts per call, 5 calls is ~15 failed
+    # wire attempts). 30s cooldown ≈ the shortest real outage worth
+    # distinguishing from a blip; both overridable the day live data
+    # says otherwise.
+    breaker_failure_threshold: int = 5
+    breaker_cooldown_seconds: float = 30.0
+
 
 @lru_cache
 def get_settings() -> Settings:
