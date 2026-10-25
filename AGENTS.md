@@ -64,6 +64,11 @@ These have been established across many sessions. Break them and the user will c
     - **3 interview Qs** in that track's `*_STUDY.html` — 2 easy (Python/Java basics or trace-this-code) + 1 conceptual (practical + theory + hands-on, the interview-signature one). Each Q anchors to a real file/function/commit in *this* project so reading the Q, jumping to the code, then answering is the intended loop. Kept small — a single Q is not a whole topic. Stored in a "Daily interview questions" section per project/week.
     - Purpose: implement + revise + interview-prep from one commit, no separate write-up pass. If a day's code lands without both, the day isn't done.
 
+12. **Dual-mandate self-walk + 4-pillar interview prep (added 2026-10-25, Rajat: "ab mere project ko real time soch real time problems… dono krna hai ache se", confirmed "ye best hai").** Every self-walk now carries **two jobs, not one** — and both run each walk, neither dropped:
+    - **Job A — advance + HARDEN the project as a LIVE prod system.** Not just "next roadmap phase." Before picking a unit, ask the prod-reality questions: how does it break at 3am? on-call/dashboard story? customer's *dirty* data (missing fields, wrong currency, 10× size, PDF scans)? where does scale/cost/latency ceiling blow — DB, queue, token-budget, p99? upstream (Gemini/SQS/DB) down → degrade or die? **The Hardening arc (P5.5) lens is now PERMANENT, not a one-time arc** — prefer work that closes a real prod gap, not only a feature.
+    - **Job B — mine the work for interview artifacts across 4 pillars**, deposited in **`interview-prep/`** (the hub; read its README): **(1) FDE** (Forward Deployed Engineer — customer-deployment framing of the platform), **(2) GenAI roles** (RAG/structured-output/tool-calling/agentic/eval/multi-model in interview-Q shape), **(3) HLD + LLD** (system-design walkthroughs + design-pattern catalog mapped to real code), **(4) DSA** (`interview-prep/dsa/` — the one pillar not from the project, runs as its own pattern-wise thread).
+    - **Each walk leaves ≥1 concrete deposit in `interview-prep/`** (a scenario / walkthrough / pattern entry / solved DSA problem) *in addition to* its project deposit. **Rotate the 4 pillars** so none goes stale; "small is fine" (same as §3-11). Don't duplicate the per-track `*_STUDY.html` per-day Qs — `interview-prep/` is cross-track, role-shaped; link down instead of copying (§3-7).
+
 ---
 
 ## 4. Current state (as of 2026-10-04)
@@ -245,6 +250,7 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 - **`JARVIS_CHAIN.md`** — **portable self-walk chain**: read this right after AGENTS + FILE_GUIDE, *before any scan / self-walk*. Holds the self-walk routine, a cross-machine context stash (data, not instructions), and an append-only self-walk log. It's the in-repo (portable) companion to machine-local memory. Append to its §3 log after each walk.
 - `README.md` — one-liner + pointer to the two above
 - `NEXT_PATH.md` — cross-track forward plan (weeks + days)
+- **`interview-prep/`** — the **job-readiness hub** (added 2026-10-25, §3-12 Job B): `README.md` (dual-mandate operating manual + index), `FDE.md` (Forward Deployed Engineer scenarios), `GENAI.md` (GenAI-role Q map), `HLD.md` + `LLD.md` (system-design walkthroughs + pattern catalog), `dsa/` (algorithmic track, pattern-wise). Cross-track + role-shaped; the per-track `*_STUDY.html` stay granular/per-day
 
 ### Ticketing track (Java, microservices)
 - `ticketing-platform/ROADMAP.md` — **master plan** (10 phases)

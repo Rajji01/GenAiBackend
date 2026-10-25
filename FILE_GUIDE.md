@@ -51,6 +51,19 @@ Plus utility files (code, tests, config) which are self-explanatory and covered 
 | **`Jarvis_GenAI_Path.md`** | 🗺️ Roadmap | Master plan for GenAI/Python track — P1→P8 projects | ~6 KB |
 | **`JARVIS_OPENAI_CONTEXT.md`** | 📜 Historical | Frozen context written by an OpenAI-based session mid-Week-4 narration (2026-09-17). Useful for background; current state lives in `AGENTS.md` §4 | ~7 KB |
 
+### 🎯 Interview-prep hub (`interview-prep/`)
+
+Added 2026-10-25 per **AGENTS.md §3-12** (the dual-mandate self-walk). Cross-track, **role-shaped** job-readiness prep — distinct from the per-track `*_STUDY.html` which stay granular/per-day. Every self-walk deposits ≥1 artifact here, rotating the 4 pillars.
+
+| File | Category | Purpose |
+|---|---|---|
+| **`interview-prep/README.md`** | 🎯 Prep hub | The operating manual: the dual mandate (Job A harden-as-prod + Job B mine-artifacts), the 4 pillars, how they relate to the STUDY files, the status snapshot + index |
+| **`interview-prep/FDE.md`** | 🎯 Prep (FDE) | Forward Deployed Engineer: what an FDE is, the anchor fintech-deployment scenario (mapped to P2–P6), scenario bank, backlog (cost model, runbook, demo script) |
+| **`interview-prep/GENAI.md`** | 🎯 Prep (GenAI) | GenAI-role Qs in interview shape: what's-asked ↔ what's-built topic map, the "hard bug" bank (real live-caught), backlog. Links down to `NARRATION_STUDY.html` |
+| **`interview-prep/HLD.md`** | 🎯 Prep (HLD) | System-design walkthrough index (per phase); the drafted "design a RAG system"; estimation drills |
+| **`interview-prep/LLD.md`** | 🎯 Prep (LLD) | Design-pattern catalog mapped to real repo files (Strategy/Adapter/Factory/Outbox/State machine/Circuit breaker…) + design prompts + SOLID backlog |
+| **`interview-prep/dsa/README.md`** | 🎯 Prep (DSA) | DSA track plan — pattern-wise (12 patterns, suggested order, repo echoes), the method, empty solved-log. Solutions land as `dsa/<pattern>/<problem>.java` |
+
 ### 🎫 Ticketing track (`ticketing-platform/`)
 
 **Top-level docs:**
