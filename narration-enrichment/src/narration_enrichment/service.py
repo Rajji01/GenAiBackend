@@ -122,11 +122,20 @@ def _call_llm(
         past_block=past_block,
         policy_block=policy_block,
     )
-    return _client.create(
-        response_model=TransactionEnrichment,
-        messages=[{"role": "user", "content": prompt}],
-        max_retries=_settings.max_retries,
-    )
+    # P7 Day 3 — every wire attempt is a telemetry row; this surface
+    # gets REAL token counts via create_with_completion (the raw
+    # completion carries usage_metadata; mocks without it degrade to
+    # tokens=None, never fake 0).
+    from narration_enrichment import telemetry
+
+    with telemetry.record("enrich", _settings.model_name) as rec:
+        result, completion = _client.create_with_completion(
+            response_model=TransactionEnrichment,
+            messages=[{"role": "user", "content": prompt}],
+            max_retries=_settings.max_retries,
+        )
+        rec.set_usage_from(completion)
+    return result
 
 
 def enrich_narration(

@@ -1150,6 +1150,29 @@
     <p class="iq-hint">Hint for (c): a cross-encoder reads query+candidate TOGETHER (attention across both) — better precision@k, but one model call per candidate per query. The bar: recall@k on the golden set showing the boring version losing — a live run on Rajat's quota, because claiming it from mocks would be cherry-picking.</p>
   </div>
 
+  <div class="iq-day-header" id="iq-p7-d3">
+    <h3>P7 · Day 3 — LLM telemetry + the budget that shouts</h3>
+    <span class="iq-anchor">files: <code>telemetry.py</code>, <code>db.py</code> (LlmCall), <code>main.py</code> (/ops/llm), <code>tests/test_llm_telemetry.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>telemetry.record</code> is a <code>@contextmanager</code> whose <code>finally</code> writes the row and whose <code>except</code> re-raises after classifying. (a) Why must the row-write live in <code>finally</code> rather than after the <code>yield</code>? (b) The writer opens its OWN <code>SessionLocal</code> instead of taking the caller's db session — name both things that buys. (c) Why is the import of SessionLocal DEFERRED to call time, and which test only works because of that?</p>
+    <p class="iq-hint">Hint: (a) the failure outcomes must be recorded too — after-yield only runs on success. (b) telemetry can't poison the caller's transaction, and a failed telemetry commit can't roll back user work. (c) tests monkeypatch <code>narration_enrichment.db.SessionLocal</code>; a module-load import would have bound the original forever — <code>test_telemetry_write_failure_never_fails_the_call</code>.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q2.</strong> Trace one /enrich request whose provider 503s twice then succeeds (tenacity budget 3). How many <code>llm_calls</code> rows exist afterwards, with which outcomes, and which row carries tokens? Now explain why "each tenacity attempt = its own row" was chosen over "one row per logical call with an attempts column" — what operational question does the chosen shape answer that the other can't?</p>
+    <p class="iq-hint">Hint: 3 rows — provider_down, provider_down, ok(+tokens). The chosen shape shows retry LATENCY individually (p95 inflation from retries is visible) and lets "retry rate per surface" be a GROUP BY; an attempts-column collapses the timings.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · shows practical + theory</span>
+    <p class="iq-question"><strong>Q3.</strong> The budget deliberately observes-and-shouts instead of blocking. Build the full argument: (a) what makes estimated spend an UNTRUSTWORTHY blocking signal here (two concrete failure modes of the estimate), (b) which existing mechanism already blocks on a trustworthy spend-shaped signal and why duplicating it badly would be worse than not blocking, (c) the ops story — what does an operator DO with <code>llm_budget_exceeded</code>, and what single change would you make before this budget guarded real money at a company?</p>
+    <p class="iq-hint">Hint: (a) PRICE_TABLE drift + tokens-None calls (chat/dispute) are invisible to the estimate — a blocker would enforce a number that undercounts. (b) the rate limiter blocks on locally-COUNTED calls, exact by construction. (c) page/investigate/raise-limit; before real money: real usage on every surface + the provider's own billing export reconciled against the estimate.</p>
+  </div>
+
   <div class="callout" style="margin-top:24px;">
     <div class="callout-label">How to use these</div>
     <div class="callout-body">

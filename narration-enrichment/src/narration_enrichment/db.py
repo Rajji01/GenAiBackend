@@ -842,6 +842,49 @@ def store_idempotency_record(
     return row
 
 
+class LlmCall(Base):
+    """P7 Day 3 — one row per provider call ATTEMPT (each tenacity
+    retry is its own row: the rows are how you SEE retries). Written
+    non-fatally by telemetry.record through its own short session —
+    P3 invariant #4 applied to the most expensive op the system has.
+    Tokens/cost are nullable and None means UNKNOWN, never zero."""
+
+    __tablename__ = "llm_calls"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    surface = Column(String, nullable=False, index=True)  # enrich|chat|dispute_agent|dispute_judge
+    model = Column(String, nullable=False)
+    latency_ms = Column(Integer, nullable=False)
+    outcome = Column(String, nullable=False)  # ok | provider_down | error
+    prompt_tokens = Column(Integer, nullable=True)
+    completion_tokens = Column(Integer, nullable=True)
+    est_cost_usd = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+
+
+def _today_start() -> datetime:
+    now = datetime.now(timezone.utc)
+    return datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+
+
+def list_llm_calls_today(db: Session) -> list[LlmCall]:
+    return (
+        db.query(LlmCall)
+        .filter(LlmCall.created_at >= _today_start())
+        .order_by(LlmCall.id.asc())
+        .all()
+    )
+
+
+def sum_llm_cost_today(db: Session) -> float:
+    total = (
+        db.query(func.sum(LlmCall.est_cost_usd))
+        .filter(LlmCall.created_at >= _today_start())
+        .scalar()
+    )
+    return float(total or 0.0)
+
+
 class ToolInvocation(Base):
     """P5 Day 3 — one row per tool execution ATTEMPT (success and
     failure alike, whitelist misses included). Written by the same

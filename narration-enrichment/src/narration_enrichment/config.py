@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     # no slowly. Overridable the day a paid tier changes the math.
     enrich_max_in_flight: int = 8
 
+    # P7 Day 3 — the daily LLM spend line the telemetry shouts across
+    # (observe-and-shout; never blocks — see telemetry.py). Estimated
+    # dollars from PRICE_TABLE, so treat it as a tripwire, not a bill.
+    llm_daily_budget_usd: float = 1.0
+
 
 @lru_cache
 def get_settings() -> Settings:

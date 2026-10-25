@@ -651,12 +651,16 @@ token telemetry).
       resurrection; Citation.similarity_score now carries the FUSED
       score (one P2-era test updated to the new contract); full suite
       342 green)*
-- [ ] `LlmCall` telemetry rows written non-fatally by the call wrapper
-      on all four surfaces (real `usage_metadata` tokens on enrich +
-      chat via `create_with_completion`; dispute surfaces
-      latency/outcome-only this arc, flagged) + `/ops/llm` rollup
-      (per-surface calls/ok-rate/p50/p95, tokens + est spend today) +
-      daily budget observe-and-shout alert *(Day 3)*
+- [x] `LlmCall` telemetry rows written non-fatally by the call wrapper
+      on all four surfaces (real `usage_metadata` tokens on ENRICH via
+      `create_with_completion`; chat joins the dispute surfaces at
+      latency/outcome-only this arc — D3 amendment in P7_DESIGN §3:
+      chat's mock seam is `_client.create` across ~40 tests, hooks are
+      the flagged follow-up) + `/ops/llm` rollup + the
+      observe-and-shout daily budget *(Day 3, this commit — 8 tests
+      incl. write-failure-never-fails-the-call and the budget shout;
+      3 retry tests moved to the new create_with_completion seam,
+      intent unchanged; full suite 350 green)*
 - [ ] `model_router.py` — per-surface model config (`MODEL_ENRICH` /
       `MODEL_CHAT` / `MODEL_DISPUTES`), lazily-cached per-model
       clients, `FALLBACK_MODEL` chain with the narrow trigger

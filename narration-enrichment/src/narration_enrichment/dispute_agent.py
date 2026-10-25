@@ -203,11 +203,14 @@ def run_dispute_agent(db: Session, *, dispute_id: str) -> Dispute:
             return dispute
         db.refresh(dispute)
 
-        step = _client.create(
-            response_model=_AgentStepReply,
-            messages=[{"role": "user", "content": _build_prompt(db, dispute, observations)}],
-            max_retries=_settings.max_retries,
-        )
+        from narration_enrichment import telemetry
+
+        with telemetry.record("dispute_agent", _settings.model_name):
+            step = _client.create(
+                response_model=_AgentStepReply,
+                messages=[{"role": "user", "content": _build_prompt(db, dispute, observations)}],
+                max_retries=_settings.max_retries,
+            )
 
         if step.action == "tool_call":
             if not step.tool_name:

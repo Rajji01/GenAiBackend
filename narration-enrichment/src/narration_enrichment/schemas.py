@@ -104,6 +104,33 @@ class IngestJobStatusResponse(BaseModel):
     finished_at: datetime | None = None
 
 
+class OpsLlmSurfaceStats(BaseModel):
+    calls: int
+    ok: int
+    provider_down: int
+    error: int
+    p50_latency_ms: float | None = None
+    p95_latency_ms: float | None = None
+    prompt_tokens: int | None = None      # None = no priced calls, not zero usage
+    completion_tokens: int | None = None
+
+
+class OpsLlmBudget(BaseModel):
+    daily_limit_usd: float
+    spent_est_usd: float
+    exceeded: bool
+
+
+class OpsLlmResponse(BaseModel):
+    """P7 Day 3 — GET /ops/llm: today's LLM traffic, per surface, plus
+    the observe-and-shout budget line. Percentiles computed in Python
+    over today's rows — honest at this volume, flagged for sketches/
+    OTel at scale (P7_DESIGN §3)."""
+
+    surfaces: dict[str, OpsLlmSurfaceStats]
+    budget: OpsLlmBudget
+
+
 class OpsIngestResponse(BaseModel):
     """P4 Day 5 — GET /ops/ingest. The backpressure dashboard:
     queue_depth is visible+in-flight on the work queue; dlq_depth is
