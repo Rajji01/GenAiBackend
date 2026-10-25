@@ -35,18 +35,20 @@ DoD green na ho."** Same rule for both tracks.
 - Pending on Rajat: terraform validate+apply, §7 lean confirmations,
   WEEK3/WEEK4_DESIGN interview answers.
 
-### Narration — P1–P5 code-side done, P6 next
+### Narration — P1–P7 + Hardening (P5.5) code-side done, P8 next
 
-- P1 (enrichment API) + P2 (policy RAG, earned citations) + P3 (knowledge
-  assistant: auth, chat memory, eval-as-a-system) + **P4 (async doc pipeline:
-  API+Worker split, in-memory + SQS-behind-same-interface, DLQ/DEAD, recovery
-  sweep) + P5 (tool-calling: whitelisted read-only tools, bounded loop,
-  guardrails)** all shipped.
-- **244 tests green**, 0 live calls in the suite (SQS via moto). Merged from a
-  cloud branch + reauthored to Rajat; last commit on `main` `cffe9dd`.
-- **P6 (agentic workflow) is next** on Rajat's greenlight. Open legs (Rajat's):
-  live-SQS `terraform apply`, live tool-choice eval, Spring AI port. AWS
-  resource creation is Rajat's (§3-2).
+- P1 (enrichment API) + P2 (policy RAG) + P3 (knowledge assistant) + P4 (async
+  doc pipeline: API+Worker, SQS, DLQ/DEAD, recovery) + P5 (tool-calling:
+  whitelisted read-only tools, bounded loop, guardrails) + **P6 (agentic
+  dispute workflow + LLM-as-judge) + Hardening arc P5.5 (circuit breaker,
+  idempotency keys on /enrich, load shedding, chaos suite) + P7 (multi-model
+  platform: hybrid BM25+dense retrieval, LLM telemetry, model routing +
+  fallback)** — all shipped.
+- **360 tests green**, 0 live calls in the suite (SQS via moto). Merged from the
+  `ccr-*` cloud branch + reauthored to Rajat.
+- **P8 (capstone) is next** on Rajat's greenlight. Open legs (Rajat's): P4
+  live-SQS apply, P5 tool-eval, P6 dispute-eval, chaos drill, P7 live recall@k
+  + second vendor key + AWS half, Spring AI port. AWS creation is Rajat's (§3-2).
 
 ---
 

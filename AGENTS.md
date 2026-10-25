@@ -15,7 +15,7 @@ A **self-directed multi-week mentorship-style engineering project** by **Rajat A
 | Track | Folder | Language / Stack | Purpose |
 |---|---|---|---|
 | **A — Java baseline** | `backend/` | Spring Boot 3, JPA, MySQL, Flyway | UFC/betting backend — production-grade Java baseline (mostly complete) |
-| **B — GenAI (Python)** | `narration-enrichment/` | FastAPI + Pydantic + Instructor + Gemini + SQLite | Transaction narration → structured JSON → RAG → policy RAG → knowledge assistant → async pipeline → tool-calling → agentic disputes. **P1–P6 code-side done (297 tests); P7 next** |
+| **B — GenAI (Python)** | `narration-enrichment/` | FastAPI + Pydantic + Instructor + Gemini + SQLite | Transaction narration → structured JSON → RAG → policy RAG → knowledge assistant → async pipeline → tool-calling → agentic disputes → prod-hardening → multi-model platform. **P1–P7 + Hardening (P5.5) code-side done (360 tests); P8 (capstone) next** |
 | **C — Ticketing microservices (Java)** | `ticketing-platform/` | Spring Boot, Postgres, Redis, docker-compose, Resilience4j | District/BookMyShow-style ticketing. **Weeks 1–3 done (inventory/booking/payment/notification, 124 tests); Week 4 (AWS) = design + Terraform skeleton done, real `apply` = Rajat** |
 
 The user runs Tracks B and C in parallel — alternate work weeks, side-by-side.
@@ -97,7 +97,7 @@ These have been established across many sessions. Break them and the user will c
 - Week 4 (AWS foundation) — Day-1 design paper + Terraform skeleton is Claude-solo-doable; real AWS resources are Rajat's (§3-2).
 - User answers 7 interview questions in `WEEK3_DESIGN.md §9` (Rajat's own — writing is the learning).
 
-### Narration (Track B) — P1–P5 code-side done, P6 up next
+### Narration (Track B) — P1–P7 + Hardening (P5.5) code-side done, P8 up next
 
 **Status:** P1 (Transaction Enrichment API) ✅ **DONE + committed + pushed** through narration commit `20cb3c6` (Week 4 `/stats`). 68 tests green, no network in the suite. P2 + P3 also **DONE + committed + pushed** (last narration commit `fab8f9e`); **168 tests green** at P3 close.
 
@@ -220,7 +220,7 @@ Active study companion `ticketing-platform/TICKET_STUDY.html` — captured so fa
 
 **Ticketing track:** `ticketing-platform/ROADMAP.md` — the master plan (10 phases, weeks 2 onward). This SUPERSEDES an older `codes Practice/Jarvis_Architect_Path.md` which had a different Phase 1 ordering. Follow `ROADMAP.md`.
 
-**GenAI track:** `Jarvis_GenAI_Path.md` (this dir) — P1 → P8 projects. Currently P1–P5 code-side done (P4 async pipeline + P5 tool-calling, 244 tests); P6 (agentic workflow) is next. Live-SQS + live tool-eval + Spring AI port are Rajat's open legs.
+**GenAI track:** `Jarvis_GenAI_Path.md` (this dir) — P1 → P8 projects. Currently P1–P7 + Hardening (P5.5) code-side done (360 tests); P8 (capstone) is next. Rajat's open legs: P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, P7 live recall@k + 2nd vendor key + AWS half, Spring AI port.
 
 **Cross-track forward plan:** `NEXT_PATH.md` (this dir) — my synthesis of what's next on both tracks, with `[PLAN]` markers for what's in the roadmap files verbatim vs `[PROPOSAL]` for my forward-looking suggestions.
 
