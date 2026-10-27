@@ -5,6 +5,9 @@
 The project already *contains* the answers — this file pulls them into **interview shape**
 (the way the question actually gets asked) instead of code shape.
 
+> **Anthropic-course lesson Qs** live in one common file: `anthropic-course/INTERVIEW.md`
+> (first request, multi-turn, system prompts, …). Reference it, don't copy it here.
+
 > **No duplication:** the granular per-day Qs live in
 > `narration-enrichment/NARRATION_STUDY.html` (rule §3-11). This file holds the **big,
 > cross-cutting, "design/debug this" questions** an interviewer actually opens with, and

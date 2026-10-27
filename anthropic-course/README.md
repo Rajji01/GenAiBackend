@@ -37,19 +37,37 @@ only the SDK call changes.
    shapes): show the **real Claude** version + the **closest Gemini equivalent**, and flag where
    they differ (that contrast is interview-useful). Use the `claude-api` skill for Anthropic-API
    accuracy (model ids, params).
-5. **Interview-linked.** Feed interview-relevant concepts into `interview-prep/GENAI.md` (link,
-   don't duplicate).
+5. **Interview-linked — ONE common file.** Each lesson adds a small section (2 easy "trace" + 1
+   conceptual) to the single [`INTERVIEW.md`](INTERVIEW.md) in this folder — **not** per-lesson
+   interview files. Also cross-link it from `interview-prep/GENAI.md` (link, don't duplicate).
+6. **Reuse the course's helper methods.** Once a helper is introduced (Lesson 02:
+   `add_user_message` / `add_assistant_message`, `chat()`), reuse it in every later lesson — don't
+   inline raw message dicts. (Rajat's correction, 2026-10-27.) Claude-5 extraction uses a
+   `text_of()` helper (first `type=="text"` block), not `content[0].text`.
 
 ---
 
 ## How to run a lesson's code
 
+Each script loads the API keys from `narration-enrichment/.env` **automatically** (via an absolute
+path), so you can run it from **any folder** — VS Code's run button works too.
+
+**Option A — plain Python (VS Code / system interpreter).** Install the deps once into *that*
+interpreter, then run any lesson:
 ```bash
-cd narration-enrichment          # has .env with BOTH keys + the uv env
-uv add anthropic                 # one-time, if not already in the project
-uv run python ../anthropic-course/concepts/<NN>_<concept>_claude.py   # Claude version
-uv run python ../anthropic-course/concepts/<NN>_<concept>_gemini.py   # Gemini version
-# standalone: pip install anthropic google-genai python-dotenv ; set the two keys in env
+# one-time (use the SAME python VS Code runs with):
+python -m pip install -r anthropic-course/requirements.txt
+# then run a lesson directly:
+python anthropic-course/concepts/02_multi_turn_claude.py
+```
+> If VS Code shows `ModuleNotFoundError: No module named 'dotenv'`, the deps went into a *different*
+> Python than the one running the file. Install with the exact interpreter VS Code uses, e.g.
+> `C:/Users/prern/AppData/Local/Programs/Python/Python313/python.exe -m pip install -r anthropic-course/requirements.txt`.
+
+**Option B — the narration uv env:**
+```bash
+cd narration-enrichment && uv add anthropic
+uv run python ../anthropic-course/concepts/02_multi_turn_claude.py
 ```
 
 Model ids (check latest via the `claude-api` skill): Claude e.g. `claude-sonnet-4-0`; Gemini free
@@ -62,7 +80,12 @@ e.g. `gemini-2.5-flash` / `gemini-flash-latest`.
 | # | Anthropic concept | Claude impl | Gemini impl | Project tie-in | Status |
 |---|---|---|---|---|---|
 | 01 | Making your first request (client, messages, max_tokens, extract) | [`01_first_request_claude.py`](concepts/01_first_request_claude.py) | [`01_first_request.py`](concepts/01_first_request.py) · [explainer](concepts/01_first_request.md) | P1 `service.py` core | ✅ 2026-10-25 |
+| 02 | Multi-turn conversations (stateless API, maintain history, 3 helpers) | [`02_multi_turn_claude.py`](concepts/02_multi_turn_claude.py) | [`02_multi_turn.py`](concepts/02_multi_turn.py) · [explainer](concepts/02_multi_turn.md) | P3 chat (`chat_sessions`/`chat_turns` + memory-cap N=6) | ✅ 2026-10-27 |
+| 03 | System prompts (role/tone; math-tutor; flexible `chat(system=None)`) | [`03_system_prompts_claude.py`](concepts/03_system_prompts_claude.py) | [`03_system_prompts.py`](concepts/03_system_prompts.py) · [explainer](concepts/03_system_prompts.md) | P1/P3/P5/P6 prompt layers | ✅ 2026-10-27 |
+| 04 | Temperature (sampling dial; **Claude-5 removed it → 400**, Gemini keeps it) | [`04_temperature_claude.py`](concepts/04_temperature_claude.py) (honest 400) | [`04_temperature.py`](concepts/04_temperature.py) (live demo) · [explainer](concepts/04_temperature.md) | LLM-internals card; P1 low-temp; H3 idempotency | ✅ 2026-10-27 |
+
+Interview Qs for all lessons: **[`INTERVIEW.md`](INTERVIEW.md)** (one common file).
 
 Each lesson ships as: `concepts/<NN>_<concept>.md` (explainer) + `_claude.py` + `_gemini.py`
-(the Gemini file for lesson 01 is named `01_first_request.py` for back-compat). Add a row when a
-lesson lands.
+(the Gemini file for lesson 01 is named `01_first_request.py` for back-compat) **+ a section in the
+common [`INTERVIEW.md`](INTERVIEW.md)**. Add a row when a lesson lands.

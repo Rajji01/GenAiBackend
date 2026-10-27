@@ -17,13 +17,14 @@ or standalone:
 Get a free key (no card) at https://aistudio.google.com .
 """
 
+from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
 # Anthropic lesson: `.env` holds ANTHROPIC_API_KEY, loaded via python-dotenv.
 # Here the SAME idea, different var name: GEMINI_API_KEY. Keep .env in .gitignore.
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / "narration-enrichment" / ".env")
 
 # Anthropic:  client = Anthropic()          # reads ANTHROPIC_API_KEY from the env
 # Gemini:     genai.Client() auto-reads GEMINI_API_KEY (or GOOGLE_API_KEY) from the env.

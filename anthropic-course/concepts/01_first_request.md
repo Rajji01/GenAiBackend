@@ -50,6 +50,11 @@ Same concept, only the call changes. This table is the whole lesson:
 3. `response.text` is a shortcut — under the hood Gemini also returns a list of candidates/parts
    (like Anthropic's `content` block list), `response.text` just grabs the text for you.
 
+**Claude-5 gotcha (hit live):** Haiku/Sonnet/Opus 5 think by default, so `message.content` can
+**start with a `ThinkingBlock`** — `content[0].text` then raises `AttributeError`. Grab the first
+block whose `type == "text"` instead (the `text_of()` helper in the Claude scripts). Gemini's
+`response.text` already does this for you.
+
 **Gemini-specific gotcha (from the narration project):** some Gemini models spend **"thinking"
 tokens out of the same `max_output_tokens` budget** as the visible answer — so a *too-low* cap can
 silently truncate the real answer because thinking ate the budget. (Narration `README.md`, Day 1.)

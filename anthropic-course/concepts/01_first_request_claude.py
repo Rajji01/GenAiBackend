@@ -11,15 +11,24 @@ Run:
 Standalone: pip install anthropic python-dotenv ; set ANTHROPIC_API_KEY in the env.
 """
 
+from pathlib import Path
 from dotenv import load_dotenv
 from anthropic import Anthropic
 
-# Loads ANTHROPIC_API_KEY from narration-enrichment/.env (gitignored — never committed).
-load_dotenv()
+# Load ANTHROPIC_API_KEY from narration-enrichment/.env (gitignored), no matter which folder you run from.
+load_dotenv(Path(__file__).resolve().parents[2] / "narration-enrichment" / ".env")
 
 # Anthropic() auto-reads ANTHROPIC_API_KEY from the environment.
 client = Anthropic()
-MODEL = "claude-sonnet-4-0"  # the id the course uses; check the `claude-api` skill for latest ids.
+MODEL = "claude-haiku-5-5"  # cheapest current model ($0.10/$0.50 per 1M) — great for learning.
+# (The course printed "claude-sonnet-4-0", which is retired/unavailable on this key. Swap to
+#  "claude-sonnet-5-5" or "claude-opus-5-5" anytime for more capability.)
+
+
+def text_of(message):
+    """Claude-5 models think first: content can START with a ThinkingBlock, so content[0].text
+    (what the course assumed) can crash. Pick the first block whose type is 'text'."""
+    return next((b.text for b in message.content if getattr(b, "type", None) == "text"), "")
 
 
 def single_turn() -> None:
@@ -32,7 +41,7 @@ def single_turn() -> None:
         ],
     )
     # `content` is a LIST of blocks; the first block's `.text` is the answer.
-    print("Answer:", message.content[0].text)
+    print("Answer:", text_of(message))
     print("tokens -> input:", message.usage.input_tokens, "| output:", message.usage.output_tokens)
 
 
@@ -44,10 +53,10 @@ def multi_turn() -> None:
         {"role": "user", "content": "What's my name?"},
     ]
     message = client.messages.create(model=MODEL, max_tokens=1000, messages=messages)
-    print("Multi-turn answer:", message.content[0].text)
+    print("Multi-turn answer:", text_of(message))
 
 
 if __name__ == "__main__":
     single_turn()
     print("-" * 40)
-    multi_turn()
+    # multi_turn()

@@ -1,0 +1,7 @@
+# Deps for running the anthropic-course lessons with a plain Python interpreter
+# (e.g. VS Code's system Python). Install once:
+#   <your-python> -m pip install -r anthropic-course/requirements.txt
+# The lessons read the API keys from narration-enrichment/.env automatically.
+anthropic
+google-genai
+python-dotenv
