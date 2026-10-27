@@ -34,7 +34,7 @@ def chat(messages, system=None, temperature=None):
     if system:
         params["system"] = system
     if temperature is not None:
-        params["temperature"] = temperature   # <-- rejected (400) on current Claude models
+        params["temperature"] = temperature   # <-- removed on current Claude: TypeError on this SDK (older SDKs 400)
     message = client.messages.create(**params)
     return text_of(message)
 

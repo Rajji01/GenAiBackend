@@ -30,11 +30,12 @@ guarantee** different outputs. Even at high temp you can get the same answer twi
 
 | | Claude (current, 5.x) | Gemini |
 |---|---|---|
-| temperature knob | **removed** — a non-default `temperature` returns **HTTP 400** | present, `config=GenerateContentConfig(temperature=…)`, range 0.0–2.0 |
+| temperature knob | **removed** — the current SDK dropped the kwarg (client-side `TypeError`; older SDKs that still send it get a server **400**) | present, `config=GenerateContentConfig(temperature=…)`, range 0.0–2.0 |
 | how you control style instead | adaptive thinking (always on) + `output_config.effort` + prompt | temperature (and top_p/top_k) |
 
 So the course's `chat(messages, temperature=…)` runs **as taught on Gemini**, but on current Claude
-it 400s. This isn't a bug in the course — it's model evolution: Anthropic replaced the fixed
+it's rejected (a `TypeError` on the current SDK — the kwarg is gone; older SDKs 400). This isn't a
+bug in the course — it's model evolution: Anthropic replaced the fixed
 temperature/top_p sampling controls with adaptive thinking + effort on the 5.x family (and the
 `2026-10-21` API version rejects `temperature` on every model). The `_claude.py` file demonstrates
 the 400 honestly rather than pretending it works.

@@ -85,6 +85,7 @@ e.g. `gemini-2.5-flash` / `gemini-flash-latest`.
 | 04 | Temperature (sampling dial; **Claude-5 removed it → 400**, Gemini keeps it) | [`04_temperature_claude.py`](concepts/04_temperature_claude.py) (honest 400) | [`04_temperature.py`](concepts/04_temperature.py) (live demo) · [explainer](concepts/04_temperature.md) | LLM-internals card; P1 low-temp; H3 idempotency | ✅ 2026-10-27 |
 
 Interview Qs for all lessons: **[`INTERVIEW.md`](INTERVIEW.md)** (one common file).
+Issues hit while running lessons (what broke · why · fix): **[`JOURNAL.md`](JOURNAL.md)** (one common file).
 
 Each lesson ships as: `concepts/<NN>_<concept>.md` (explainer) + `_claude.py` + `_gemini.py`
 (the Gemini file for lesson 01 is named `01_first_request.py` for back-compat) **+ a section in the
