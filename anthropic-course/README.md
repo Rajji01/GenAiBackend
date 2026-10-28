@@ -83,6 +83,7 @@ e.g. `gemini-2.5-flash` / `gemini-flash-latest`.
 | 02 | Multi-turn conversations (stateless API, maintain history, 3 helpers) | [`02_multi_turn_claude.py`](concepts/02_multi_turn_claude.py) | [`02_multi_turn.py`](concepts/02_multi_turn.py) · [explainer](concepts/02_multi_turn.md) | P3 chat (`chat_sessions`/`chat_turns` + memory-cap N=6) | ✅ 2026-10-27 |
 | 03 | System prompts (role/tone; math-tutor; flexible `chat(system=None)`) | [`03_system_prompts_claude.py`](concepts/03_system_prompts_claude.py) | [`03_system_prompts.py`](concepts/03_system_prompts.py) · [explainer](concepts/03_system_prompts.md) | P1/P3/P5/P6 prompt layers | ✅ 2026-10-27 |
 | 04 | Temperature (sampling dial; **Claude-5 removed it → 400**, Gemini keeps it) | [`04_temperature_claude.py`](concepts/04_temperature_claude.py) (honest 400) | [`04_temperature.py`](concepts/04_temperature.py) (live demo) · [explainer](concepts/04_temperature.md) | LLM-internals card; P1 low-temp; H3 idempotency | ✅ 2026-10-27 |
+| 05 | Streaming (chunk-by-chunk; events; `text_stream` + `get_final_message`) | [`05_streaming_claude.py`](concepts/05_streaming_claude.py) | [`05_streaming.py`](concepts/05_streaming.py) · [explainer](concepts/05_streaming.md) | P3 `/chat` SSE (GENAI backlog) | ✅ 2026-10-28 |
 
 Interview Qs for all lessons: **[`INTERVIEW.md`](INTERVIEW.md)** (one common file).
 Issues hit while running lessons (what broke · why · fix): **[`JOURNAL.md`](JOURNAL.md)** (one common file).

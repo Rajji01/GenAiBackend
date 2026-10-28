@@ -57,4 +57,17 @@ conceptual). Cross-linked from `interview-prep/GENAI.md`. Answers in `<details>`
 
 ---
 
+## Lesson 05 — Streaming
+
+**Q1 (easy).** Why stream a response instead of returning it whole?
+<details><summary>answer</summary>A full response can take 10–30s; streaming shows text chunk-by-chunk as it's generated, so the user sees progress immediately instead of a spinner. It lowers *perceived* latency (total time is similar). All chunks are one request.</details>
+
+**Q2 (easy).** Which Claude stream event carries the actual text to display?
+<details><summary>answer</summary>`ContentBlockDelta`. The others (`MessageStart`, `ContentBlockStart/Stop`, `MessageDelta`, `MessageStop`) are structure/lifecycle. The SDK's `stream.text_stream` filters to just the deltas for you.</details>
+
+**Q3 (conceptual).** How do you stream to the user *and* still store the complete message? Where does this land in my project?
+<details><summary>answer</summary>Stream the chunks for UX, then call `stream.get_final_message()` (Claude) / join the chunks (Gemini) to get the assembled whole for persistence/logic — best of both. In narration P3 `/chat`, I'd stream to the client (SSE) and persist the assembled turn to `chat_turns`. Flagged as the SSE-streaming enhancement in `interview-prep/GENAI.md`; not built yet.</details>
+
+---
+
 <!-- Next lesson's section goes here. Keep each lesson small: 2 easy + 1 conceptual. -->

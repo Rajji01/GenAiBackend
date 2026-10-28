@@ -64,6 +64,22 @@ Added 2026-10-25 per **AGENTS.md §3-12** (the dual-mandate self-walk). Cross-tr
 | **`interview-prep/LLD.md`** | 🎯 Prep (LLD) | Design-pattern catalog mapped to real repo files (Strategy/Adapter/Factory/Outbox/State machine/Circuit breaker…) + design prompts + SOLID backlog |
 | **`interview-prep/dsa/README.md`** | 🎯 Prep (DSA) | DSA track plan — pattern-wise (12 patterns, suggested order, repo echoes), the method, empty solved-log. Solutions land as `dsa/<pattern>/<problem>.java` |
 
+### 🎓 Anthropic-course track (`anthropic-course/`)
+
+Added 2026-10-25 per **AGENTS.md §3-13** (reactive / trigger-only — runs only when Rajat feeds a course concept). Anthropic-course concepts taught WITH implementation in **both Claude and free Gemini**; keys read from `narration-enrichment/.env` (gitignored) via an absolute path.
+
+| File | Category | Purpose |
+|---|---|---|
+| `anthropic-course/README.md` | 🎓 Course hub | The rule (both Claude+Gemini), how-to-run, lessons index |
+| `anthropic-course/INTERVIEW.md` | 🎓 Course prep | **ONE common** interview-Q file across all lessons (2 easy + 1 conceptual each) |
+| `anthropic-course/JOURNAL.md` | 🎓 Course log | **ONE common** issues journal: what broke · why · fix |
+| `anthropic-course/requirements.txt` | ⚙️ Config | Deps for a plain interpreter (`anthropic`, `google-genai`, `python-dotenv`) |
+| `anthropic-course/concepts/<NN>_<concept>.md` | 🎓 Explainer | Per-lesson concept + Claude↔Gemini mapping + project tie-in |
+| `anthropic-course/concepts/<NN>_<concept>_claude.py` | Code | Runnable Claude (native `anthropic` SDK) |
+| `anthropic-course/concepts/<NN>_<concept>.py` | Code | Runnable Gemini port (`google-genai`) |
+
+Lessons so far: 01 first request · 02 multi-turn · 03 system prompts · 04 temperature · 05 streaming.
+
 ### 🎫 Ticketing track (`ticketing-platform/`)
 
 **Top-level docs:**
