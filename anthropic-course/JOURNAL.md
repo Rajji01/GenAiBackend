@@ -5,6 +5,18 @@ why it broke → how it was fixed. Companion to [`INTERVIEW.md`](INTERVIEW.md) (
 
 ---
 
+## 2026-10-30 — Lesson 06
+
+### 6. Assistant **prefill removed** on current Claude (last-assistant-turn prefill → 400)
+- **Where:** L06 `06_prefill_stop_claude.py`, the course's `add_assistant_message(messages, "```json")`.
+- **Why:** current Claude models (5.x + 4.6/4.7/4.8) dropped assistant message prefilling; a
+  last-assistant-turn prefill returns a **400**. (Sibling of the L04 temperature removal.)
+  Exact server message (live, haiku-5-5): *"This model does not support assistant message prefill.
+  The conversation must end with a user message."*
+- **Fix:** not a bug — expected divergence, caught + explained. Use the modern path: **structured
+  outputs** (`output_config.format` / Instructor+Pydantic) or a "JSON only" system prompt +
+  `stop_sequences` (stop sequences still work). Gemini: `response_mime_type="application/json"`.
+
 ## 2026-10-27 — Lessons 01–04 setup & run
 
 ### 5. `TypeError: Messages.create() got an unexpected keyword argument 'temperature'`

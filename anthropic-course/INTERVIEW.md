@@ -70,4 +70,17 @@ conceptual). Cross-linked from `interview-prep/GENAI.md`. Answers in `<details>`
 
 ---
 
+## Lesson 06 — Prefilling + stop sequences (clean structured output)
+
+**Q1 (easy).** How does "prefill + stop sequence" produce clean JSON with no fences/prose?
+<details><summary>answer</summary>Prefill the assistant turn with ```` ```json ```` so the model thinks it already opened a code block and writes just the body; set stop_sequence ```` ``` ```` so generation stops the instant it tries to close the block. No wrapper, no commentary — then `json.loads(text.strip())`.</details>
+
+**Q2 (easy).** That exact trick fails on current Claude — why, and what do you use instead?
+<details><summary>answer</summary>Current Claude (5.x + 4.6/4.7/4.8) **removed assistant prefill** → a last-assistant-turn prefill returns 400. Use **structured outputs** (`output_config.format` / `messages.parse()` / Instructor+Pydantic) or a "JSON only" system prompt + `stop_sequences` (stop sequences still work). Gemini: `response_mime_type="application/json"`.</details>
+
+**Q3 (conceptual).** Prefill hack vs structured output — which is production-grade, and where have you used it?
+<details><summary>answer</summary>Prefill+stop is a training-wheels workaround (string-level, brittle, strip newlines). **Structured output** forces the response into a validated schema via function-calling — no fence/prose to strip, shape guaranteed. That's my P1 `/enrich` (Instructor + Pydantic): Day 2 showed prompts can't guarantee shape; forcing the schema can. Current Claude removing prefill pushes everyone to exactly this.</details>
+
+---
+
 <!-- Next lesson's section goes here. Keep each lesson small: 2 easy + 1 conceptual. -->
