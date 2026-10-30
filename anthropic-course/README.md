@@ -88,6 +88,7 @@ e.g. `gemini-2.5-flash` / `gemini-flash-latest`.
 
 Interview Qs for all lessons: **[`INTERVIEW.md`](INTERVIEW.md)** (one common file).
 Issues hit while running lessons (what broke · why · fix): **[`JOURNAL.md`](JOURNAL.md)** (one common file).
+Practice tasks — **you build, Jarvis verifies**: **[`PRACTICE.md`](PRACTICE.md)**. **Section 1 (Lessons 01–06) ✅ complete** — 7 practice tasks + capstone.
 
 Each lesson ships as: `concepts/<NN>_<concept>.md` (explainer) + `_claude.py` + `_gemini.py`
 (the Gemini file for lesson 01 is named `01_first_request.py` for back-compat) **+ a section in the

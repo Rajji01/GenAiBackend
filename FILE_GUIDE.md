@@ -73,6 +73,7 @@ Added 2026-10-25 per **AGENTS.md §3-13** (reactive / trigger-only — runs only
 | `anthropic-course/README.md` | 🎓 Course hub | The rule (both Claude+Gemini), how-to-run, lessons index |
 | `anthropic-course/INTERVIEW.md` | 🎓 Course prep | **ONE common** interview-Q file across all lessons (2 easy + 1 conceptual each) |
 | `anthropic-course/JOURNAL.md` | 🎓 Course log | **ONE common** issues journal: what broke · why · fix |
+| `anthropic-course/PRACTICE.md` | 🎓 Course practice | Tasks Rajat builds + Jarvis verifies (acceptance boxes); Section 1 = L01–06. Solutions in `anthropic-course/practice/` |
 | `anthropic-course/requirements.txt` | ⚙️ Config | Deps for a plain interpreter (`anthropic`, `google-genai`, `python-dotenv`) |
 | `anthropic-course/concepts/<NN>_<concept>.md` | 🎓 Explainer | Per-lesson concept + Claude↔Gemini mapping + project tie-in |
 | `anthropic-course/concepts/<NN>_<concept>_claude.py` | Code | Runnable Claude (native `anthropic` SDK) |
