@@ -83,4 +83,82 @@ conceptual). Cross-linked from `interview-prep/GENAI.md`. Answers in `<details>`
 
 ---
 
+## Lesson 07 — Prompt evaluation
+
+**Q1 (easy).** Prompt engineering vs prompt evaluation — the difference?
+<details><summary>answer</summary>Engineering = *how to write* the prompt (few-shot/multishot, XML tags, clear instructions). Evaluation = *measuring how well* it works via automated tests (against expected answers, comparing versions, catching errors). One authors, the other measures.</details>
+
+**Q2 (easy).** The three paths after writing a prompt — which is production-grade and why?
+<details><summary>answer</summary>(1) test once (breaks on unexpected input), (2) test a few + tweak (users still surprise you), (3) **run an eval pipeline, score, iterate on objective metrics** — production-grade because it catches edge cases in development, lets you compare versions objectively, and you ship with measured confidence.</details>
+
+**Q3 (conceptual).** How would you build an eval pipeline for an LLM app, and where have you done it?
+<details><summary>answer</summary>Golden dataset (input + expected) → run the prompt → grade (exact-match/code for fixed outputs; **LLM-as-judge** on a rubric for open-ended) → score → persist + track drift → gate deploys on a threshold. Split **accuracy** (correctness) from **reliability** (timeouts/quota). In my project: `eval/golden_dataset.json` + `run_eval.py`, eval-as-a-system (`eval_runs`, `/eval/history`), P6 `dispute_judge.py` LLM-as-judge with the objective field cross-checked by `==`, and a **fail-closed threshold gate** (`run_eval_disputes.py` exits non-zero < threshold).</details>
+
+---
+
+## Lesson 08 — A typical eval workflow (5 steps)
+
+**Q1 (easy).** Name the 5 steps of the eval workflow.
+<details><summary>answer</summary>(1) draft a prompt, (2) create an eval dataset (sample inputs), (3) feed each through the model, (4) feed the answer through a grader (score, e.g. 1–10), (5) change the prompt & repeat — comparing average scores.</details>
+
+**Q2 (easy).** What does the grader produce and why average it?
+<details><summary>answer</summary>A per-answer score (e.g. 1–10). Averaging across the dataset gives ONE objective number per prompt version, so you can compare versions numerically (baseline 7.66 → improved 8.7) instead of eyeballing "feels better."</details>
+
+**Q3 (conceptual).** The grader is often an LLM (LLM-as-judge) — what are the risks and how do you make it trustworthy?
+<details><summary>answer</summary>Risks: the judge can be wrong, inconsistent, or gamed by the answer ("give me a 10"). Make it trustworthy: a **strict rubric** (define each score), **cross-check any objective part in code** (`==`, override the judge on divergence, log the divergence rate = the judge's judge), and **data-frame the judged text** so it can't instruct the judge. That's exactly my P6 `dispute_judge.py`.</details>
+
+---
+
+## Lesson 09 — Generating test datasets
+
+**Q1 (easy).** Why have the LLM generate your eval dataset, and why use a fast model (Haiku) for it?
+<details><summary>answer</summary>Hand-writing many cases is slow; the LLM can draft them fast and at scale. Generation doesn't need the top model — a fast/cheap one (Haiku) is the right tool, saving cost/time. You then run your real prompt against the generated set.</details>
+
+**Q2 (easy).** The course parses the generated JSON with prefill + stop — what do you do on current Claude?
+<details><summary>answer</summary>Prefill 400s on current Claude (L06). Use a "JSON only" system prompt + `stop_sequences` and `json.loads` (Claude), or `response_mime_type="application/json"` (Gemini).</details>
+
+**Q3 (conceptual).** Risks of synthetic eval data and how to keep it trustworthy?
+<details><summary>answer</summary>Generated `expected` answers aren't ground truth → a **human must review/label** before trusting. Push for **diversity/adversarial** cases or you only test the easy middle. Don't let the **same model generate AND grade** unchecked (grading its own homework). In my project the golden sets are hand-labelled; synthetic gen would only scale coverage, then I verify before it enters the golden set.</details>
+
+---
+
+## Lesson 10 — Running the eval
+
+**Q1 (easy).** What do `run_prompt`, `run_test_case`, and `run_eval` each do?
+<details><summary>answer</summary>`run_prompt` merges the task into the prompt template and returns the model output. `run_test_case` runs the prompt then grades it, returning `{output, test_case, score}`. `run_eval` loops every case in the dataset and collects the results.</details>
+
+**Q2 (easy).** What does each result object keep, and why all three fields?
+<details><summary>answer</summary>`output` (model's full response), `test_case` (the original input), `score`. Keeping all three lets you trace exactly which input produced which output and what it scored — essential for debugging and comparing prompt versions.</details>
+
+**Q3 (conceptual).** The course says this simple pipeline is "most of what an eval system is." What's actually the hard part?
+<details><summary>answer</summary>The structure is easy; the value is in the details: a **real grader** (vs the placeholder) — field `==` for objective, LLM-as-judge for open-ended; **dataset quality/diversity**; **persistence + drift tracking**; and **performance** (concurrency — sequential is slow). My `eval/run_eval.py` is this skeleton plus those: real grader, `eval_runs`/`eval_results` persistence, accuracy-vs-reliability split, `/eval/history`.</details>
+
+---
+
+## Lesson 11 — Model-based grading
+
+**Q1 (easy).** Name the 3 grader types and one thing each is best for.
+<details><summary>answer</summary>**Code grader** — deterministic checks (valid JSON/regex syntax, format, length). **Model grader** (LLM-as-judge) — open-ended quality/instruction-following/safety. **Human grader** — depth/nuance/relevance (most flexible, slow).</details>
+
+**Q2 (easy).** Why make the model grader return strengths/weaknesses/reasoning, not just a score?
+<details><summary>answer</summary>Without that context the grader anchors to a middling ~6 for everything. Forcing it to list strengths/weaknesses and reason FIRST produces a considered, discriminating score. "Reason before you answer," applied to grading.</details>
+
+**Q3 (conceptual).** Which criteria go to a code grader vs a model grader, and how do you tame a capricious model grader?
+<details><summary>answer</summary>Deterministic criteria (format, valid syntax, length) → **code grader**; judgement criteria (task-following, helpfulness, safety) → **model grader**. Tame it: a strict **rubric**, **reason-before-score**, **cross-check the objective part in code (`==`)** and override on divergence while logging the divergence rate, and **data-frame** the judged text against injection. That's my P6 `dispute_judge.py` — which uses both grader types.</details>
+
+---
+
+## Lesson 12 — Code-based grading
+
+**Q1 (easy).** How do `validate_json/python/regex` grade output?
+<details><summary>answer</summary>They try to parse it — `json.loads` / `ast.parse` / `re.compile`. Parses cleanly → return 10; raises → return 0. Pure Python, no API call, deterministic.</details>
+
+**Q2 (easy).** Why does the dataset need a `format` field?
+<details><summary>answer</summary>So the code grader knows which validator to run for each case (`"format": "python"` → `validate_python`). You add it to the dataset-generation prompt so it's present automatically.</details>
+
+**Q3 (conceptual).** Code grader vs model grader — when each, and why prefer code where you can?
+<details><summary>answer</summary>Code grader for **deterministic** criteria (format, valid syntax, length) — it's free, instant, never capricious; model grader for **judgement** (task-following, quality). Combine (e.g. average, weighted). Prefer code wherever possible. In my project: Instructor+Pydantic is an always-on code grader on `/enrich` (invalid shape can't pass), and P6 cross-checks the objective field with `==` (code) alongside the model rubric.</details>
+
+---
+
 <!-- Next lesson's section goes here. Keep each lesson small: 2 easy + 1 conceptual. -->
