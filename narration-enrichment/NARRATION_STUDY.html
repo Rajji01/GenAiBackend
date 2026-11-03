@@ -255,6 +255,7 @@
   <nav class="nav-group">
     <div class="nav-group-title">MCP arc interview Qs</div>
     <a class="nav-link" href="#iq-mcp-d2"><span class="nav-tag">D2</span> Protocol core + blast radius</a>
+    <a class="nav-link" href="#iq-mcp-d3"><span class="nav-tag">D3</span> Resources + the FDE scenario</a>
   </nav>
 
   <nav class="nav-group">
@@ -1246,6 +1247,23 @@
     <span class="iq-label">Conceptual · the FDE-separating answer</span>
     <p class="iq-question"><strong>Q3.</strong> "You exposed your platform over MCP — what's the blast radius of an untrusted MCP client?" Give the full answer: the one-sentence thesis, the six inherited guards (whitelist / typed-args / read-only / auth / cost / injection-framing), and the proof that read-only is <em>structural</em> not hopeful. Then the probe: a client sends a nonexistent tool name — tool-error or protocol-error, and what breaks if you return the wrong one?</p>
     <p class="iq-hint">Hint: thesis = "new transport over an already-hardened boundary, not a new boundary." Read-only proof = the barrage test (every table unchanged after hostile calls) + there is no MCP method that writes. Nonexistent tool = <code>isError:true</code> content (model recovers); a <code>-32601</code> there would leave the model unable to recover from a typo.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-mcp-d3">
+    <h3>MCP arc · Day 3 — Resources + the FDE "expose to the customer's agent" scenario</h3>
+    <span class="iq-anchor">files: <code>mcp_server.py</code> (resources), <code>interview-prep/FDE.md</code> S3</span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>resources/read</code> with <code>uri="policy://'; DROP TABLE policy_docs; --"</code> is in the barrage test and changes nothing. Trace WHY — where does that string go, is it ever interpolated into SQL, and what's the actual response code? (Hint: it's not "we sanitized it.")</p>
+    <p class="iq-hint">Hint: the doc_id after <code>policy://</code> is passed to <code>get_policy_doc</code> as a bound SQLAlchemy parameter (a lookup VALUE, never string-concatenated into SQL). It doesn't match any row → clean <code>-32602</code>. Parameterized queries, not sanitization.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · FDE + product sense</span>
+    <p class="iq-question"><strong>Q2.</strong> The FDE scenario: a fintech wants their own copilot to query your platform via MCP, not your UI. "Walk me through standing that up." Why is leading with the FEATURE (how MCP works) the junior answer, while leading with the TRUST BOUNDARY (blast radius) is the FDE answer? Name the four structural guards their security team cares about.</p>
+    <p class="iq-hint">Hint: lead with "your agent is untrusted code — here's exactly what it can and cannot do, proven structurally." Guards: read-only whitelist (no write method exists), typed-args, their-own-key auth, same rate-limiter (no unmetered side door). Anchor: FDE.md S3.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

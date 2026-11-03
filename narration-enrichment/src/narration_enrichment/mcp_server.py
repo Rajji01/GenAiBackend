@@ -36,6 +36,10 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from narration_enrichment import tools
+from narration_enrichment.db import get_policy_doc, list_policy_docs
+
+# MCP resource URI scheme for the policy corpus: policy://<doc_id>
+RESOURCE_SCHEME = "policy://"
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +100,41 @@ def _tools_call(db: Session, req_id: Any, params: dict) -> dict:
     })
 
 
+def _resources_list(db: Session) -> list[dict]:
+    """Every ingested policy doc as a readable MCP resource. Read-only
+    by construction — there is no resources/write in the spec we serve,
+    and even if there were, we expose no handler for it (same structural
+    guarantee as the tools side)."""
+    return [
+        {
+            "uri": f"{RESOURCE_SCHEME}{doc.doc_id}",
+            "name": doc.title,
+            "description": f"Policy rulebook '{doc.title}' ({count} chunks)",
+            "mimeType": "text/plain",
+        }
+        for doc, count in list_policy_docs(db)
+    ]
+
+
+def _resources_read(db: Session, req_id: Any, params: dict) -> dict:
+    uri = params.get("uri")
+    if not isinstance(uri, str) or not uri.startswith(RESOURCE_SCHEME):
+        return _err(req_id, INVALID_PARAMS,
+                    f"resources/read requires a '{RESOURCE_SCHEME}<doc_id>' uri")
+    doc_id = uri[len(RESOURCE_SCHEME):]
+    doc = get_policy_doc(db, doc_id)
+    if doc is None:
+        # Resource not found = bad params (the client named a uri that
+        # doesn't resolve), a protocol-level error, not a tool error.
+        return _err(req_id, INVALID_PARAMS, f"resource not found: {uri}")
+    # Reassemble the doc from its chunks, in order — the raw text the
+    # corpus was built from, read-only.
+    text = "\n".join(chunk.content for chunk in doc.chunks)
+    return _ok(req_id, {
+        "contents": [{"uri": uri, "mimeType": "text/plain", "text": text}],
+    })
+
+
 def handle_message(
     db: Session,
     request: Any,
@@ -140,7 +179,8 @@ def handle_message(
         return _ok(req_id, {
             "protocolVersion": PROTOCOL_VERSION,
             "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
-            "capabilities": {"tools": {}},
+            # Day 3: we now serve tools AND resources — advertise both.
+            "capabilities": {"tools": {}, "resources": {}},
         })
 
     # --- tools -------------------------------------------------------
@@ -152,6 +192,17 @@ def handle_message(
             return _tools_call(db, req_id, params)
         except Exception as exc:  # noqa: BLE001 — never raise across the boundary
             logger.error("mcp_tools_call_unexpected error=%s", exc, exc_info=exc)
+            return _err(req_id, INTERNAL_ERROR, "Internal error")
+
+    # --- resources (Day 3) -------------------------------------------
+    if method == "resources/list":
+        return _ok(req_id, {"resources": _resources_list(db)})
+
+    if method == "resources/read":
+        try:
+            return _resources_read(db, req_id, params)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("mcp_resources_read_unexpected error=%s", exc, exc_info=exc)
             return _err(req_id, INTERNAL_ERROR, "Internal error")
 
     # --- unknown method ----------------------------------------------

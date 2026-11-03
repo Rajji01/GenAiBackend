@@ -60,7 +60,40 @@ Walk it as an FDE would, in this order (each maps to real code already built):
 |---|---|---|---|
 | S1 | Deploy enrichment+dispute platform for a fintech (the anchor, above) | P2/P3/P4/P5/P6 | drafted 2026-10-25 |
 | S2 | Customer's data is 10× dirtier than demo — how do you not lose rows? | P4 idempotency + DLQ + sweep | stub — expand next FDE walk |
+| **S3** | **"The customer wants their OWN AI agent (Claude Desktop / a copilot they're building) to query our platform — not use our UI."** | MCP arc (§3H) | **drafted 2026-11-03** ↓ |
 | _…_ | _next walk adds one_ | | |
+
+### S3 — "expose the platform to the customer's own agent" (the MCP/FDE scenario)
+
+> *A fintech customer says: "we don't want to live in your dashboard — we're building our own
+> internal copilot, and we want IT to be able to ask 'how many disputed Swiggy charges this
+> month' and pull our policy rulebooks. Give our agent access."*
+
+This is the **2025 FDE-shaped MCP question**, and the answer is a trust-boundary story, not a
+feature list:
+
+1. **The protocol is the easy part.** We speak MCP (Model Context Protocol) — their Claude
+   Desktop / Cursor / custom app connects to our server, discovers our tools + policy resources,
+   and their model calls them. One `claude_desktop_config.json` entry on their side. *(Anchor:
+   `mcp_server.py`, `MCP_DESIGN.md`.)*
+2. **The real question is blast radius — and that's where I lead.** "Your agent is code I don't
+   control; the moment I expose a tool to it, it's a new injection + abuse surface." So I made
+   MCP a **new transport over an already-hardened boundary, not a new boundary**: their agent
+   gets exactly what a prompt-injected internal agent gets — read-only whitelisted tools (it can
+   COUNT and FIND, it cannot ingest/dispute/approve/delete — there is no MCP method that writes,
+   proven by a barrage test), typed-args validation, their own `X-API-Key` identity, and the
+   SAME rate-limiter/load-shedder (their agent looping a tool 10k times gets throttled like any
+   client — no unmetered side door). *FDE point: "can their agent do the dangerous thing?" is
+   the first question their security team asks — and the answer is structural, not a promise.*
+3. **Cost is their cost.** Every MCP call is visible in `/ops/llm` telemetry per key — so when
+   their agent's bill spikes, we can both see which tool, which key, which day.
+4. **The honest edge.** The hand-rolled core proves I understand the wire format; the real stdio/
+   HTTP transport + a live Claude-Desktop drill is the deployment step we'd do together in the
+   embed. *FDE point: name what's shipped vs what's the go-live checklist — don't oversell.*
+
+**Why this is a strong FDE signal:** it's the exact 2025 "integrate our AI into the customer's
+AI" ask, and it shows product-sense (they need API/agent access, not another UI) + security
+instinct (blast radius first) + honest scoping — the three things the interview actually tests.
 
 ## Open FDE angles to build (backlog)
 - A one-page **"customer runbook"** artifact (what the customer's on-call sees + does).

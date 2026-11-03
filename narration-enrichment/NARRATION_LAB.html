@@ -353,6 +353,7 @@
       <div class="nav-group-title">MCP arc (§3H) — speak MCP</div>
       <a class="nav-link" href="#mcp-intro"><span class="nav-tag">·</span>The idea + blast-radius thesis</a>
       <a class="nav-link" href="#mcp-day2"><span class="nav-tag">D2</span>Protocol core (JSON-RPC over the registry)</a>
+      <a class="nav-link" href="#mcp-day3"><span class="nav-tag">D3</span>Resources — the policy corpus, read-only</a>
     </div>
 
     <div class="nav-group">
@@ -2996,6 +2997,40 @@ Full suite:                360 passed (was 350)</div>
 Full suite: 376 passed (was 360)</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next: <code>resources/list</code> + <code>resources/read</code> over the policy corpus (<code>policy://&lt;doc_id&gt;</code>), then auth + telemetry wiring (no unmetered side door) + closeout.</p>
+    </article>
+
+    <article class="card day-card" id="mcp-day3">
+      <div class="day-head">
+        <span class="day-stamp">MCP · D3</span>
+        <span class="day-title">Resources — the policy corpus as read-only MCP resources</span>
+      </div>
+      <span class="day-files">mcp_server.py (resources/list + resources/read) · tests/test_mcp_server.py (+5) · interview-prep/FDE.md (S3 deposit)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal:</strong> MCP's second primitive. Every ingested policy doc becomes a readable resource at <code>policy://&lt;doc_id&gt;</code> — the client's model can pull a customer's rulebook as context, read-only. <code>initialize</code> now advertises <code>resources</code> alongside <code>tools</code> (honest capability negotiation — we advertise what we actually serve).</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>resources/list + resources/read</h4>
+          <p><code>list</code> → each <code>PolicyDoc</code> as <code>{uri: "policy://&lt;doc_id&gt;", name, description, mimeType}</code>. <code>read</code> → parse the uri, reassemble the doc from its chunks in order, return as text content. Unknown uri or bad scheme → <code>-32602 Invalid params</code> (the client named a uri that doesn't resolve — a protocol-level error).</p>
+        </div>
+        <div class="mini-card">
+          <h4>Read-only extends cleanly</h4>
+          <p>No <code>resources/write</code> handler exists — same structural guarantee as the tools side. The barrage test now also fires <code>resources/read</code> with a SQL-injection-shaped uri (<code>policy://'; DROP TABLE policy_docs; --</code>) and still asserts every table unchanged: the doc_id is a lookup key, never interpolated into SQL (SQLAlchemy params), and a miss is just a clean <code>-32602</code>.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">§3-12 Job B deposit — FDE pillar (rotated from GenAI)</div>
+        <p><code>interview-prep/FDE.md</code> gains <strong>scenario S3</strong>: <em>"the customer wants their OWN agent (Claude Desktop / their copilot) to query our platform, not our UI."</em> The 2025 FDE-shaped MCP ask — answered as a trust-boundary story (blast radius first), not a feature list. Shows product-sense + security instinct + honest scoping, the three things the FDE interview tests.</p>
+      </div>
+
+      <div class="terminal">tests/test_mcp_server.py — 21 passed (+5 resources)
+  resources/list · resources/read text · unknown-uri -32602 ·
+  bad-scheme -32602 · initialize advertises resources ·
+  barrage now includes a SQL-shaped uri (tables still unchanged)
+Full suite: 381 passed</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next (Day 4): auth on tools/call over HTTP + telemetry/rate-limit wiring (no unmetered side door) + README "MCP server" section + closeout.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

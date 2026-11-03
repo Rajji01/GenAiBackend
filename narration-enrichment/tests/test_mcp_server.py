@@ -219,6 +219,45 @@ def test_unknown_notification_gets_no_reply(db):
 
 
 # ---------------------------------------------------------------------------
+# resources (Day 3) — the policy corpus, read-only
+# ---------------------------------------------------------------------------
+
+
+def test_resources_list_exposes_policy_docs(db):
+    resp = mcp_server.handle_message(db, _req("resources/list"))
+    resources = resp["result"]["resources"]
+    assert resources[0]["uri"] == "policy://merch_map"
+    assert resources[0]["mimeType"] == "text/plain"
+
+
+def test_resources_read_returns_the_doc_text(db):
+    resp = mcp_server.handle_message(
+        db, _req("resources/read", {"uri": "policy://merch_map"})
+    )
+    contents = resp["result"]["contents"]
+    assert "SWIGGY -> food_delivery" in contents[0]["text"]
+
+
+def test_resources_read_unknown_uri_is_invalid_params(db):
+    resp = mcp_server.handle_message(
+        db, _req("resources/read", {"uri": "policy://does_not_exist"})
+    )
+    assert resp["error"]["code"] == mcp_server.INVALID_PARAMS
+
+
+def test_resources_read_bad_scheme_is_invalid_params(db):
+    resp = mcp_server.handle_message(
+        db, _req("resources/read", {"uri": "http://evil.example/x"})
+    )
+    assert resp["error"]["code"] == mcp_server.INVALID_PARAMS
+
+
+def test_initialize_now_advertises_resources(db):
+    resp = mcp_server.handle_message(db, _req("initialize"))
+    assert "resources" in resp["result"]["capabilities"]
+
+
+# ---------------------------------------------------------------------------
 # The structural guarantee — NO MCP path mutates state
 # ---------------------------------------------------------------------------
 
@@ -243,9 +282,12 @@ def test_mcp_is_read_only_end_to_end(db):
         _req("tools/call", {"name": "category_breakdown", "arguments": {}}),
         _req("tools/call", {"name": "find_transactions", "arguments": {"merchant": "Swiggy"}}),
         _req("tools/call", {"name": "list_policy_docs", "arguments": {}}),
+        _req("resources/list"),
+        _req("resources/read", {"uri": "policy://merch_map"}),
         # hostile / nonsense — must also change nothing
         _req("tools/call", {"name": "delete_everything", "arguments": {}}),
         _req("tools/call", {"name": "DROP TABLE enrichment_records", "arguments": {}}),
+        _req("resources/read", {"uri": "policy://'; DROP TABLE policy_docs; --"}),
         {"jsonrpc": "2.0", "method": "notifications/initialized"},
     ]
     for msg in barrage:
