@@ -104,7 +104,7 @@ These have been established across many sessions. Break them and the user will c
 - Week 4 (AWS foundation) — Day-1 design paper + Terraform skeleton is Claude-solo-doable; real AWS resources are Rajat's (§3-2).
 - User answers 7 interview questions in `WEEK3_DESIGN.md §9` (Rajat's own — writing is the learning).
 
-### Narration (Track B) — P1–P7 + Hardening (P5.5) code-side done, P8 up next
+### Narration (Track B) — P1–P7 + Hardening (P5.5) + MCP arc (§3H) code-side done, P8 up next
 
 **Status:** P1 (Transaction Enrichment API) ✅ **DONE + committed + pushed** through narration commit `20cb3c6` (Week 4 `/stats`). 68 tests green, no network in the suite. P2 + P3 also **DONE + committed + pushed** (last narration commit `fab8f9e`); **168 tests green** at P3 close.
 
@@ -190,6 +190,14 @@ These have been established across many sessions. Break them and the user will c
 - D5 — closeout: README P7 section, LAB D2–D5 cards + nav, STUDY 12 Qs, ROADMAP §3G ticked + snapshot → P8-next, this file + FILE_GUIDE + JARVIS_CHAIN synced.
 - **360 tests green** (was 331 post-rebase; 29 new). Zero regressions. Rule 3-11 held every code day.
 - **Open (Rajat's):** live recall@k hybrid-vs-dense (rule 3-6), a second real vendor key (the chain's seam is built for it), chat/dispute token hooks, P7's AWS half (pgvector/Secrets/API GW/ECS). Next on his go: **P8 (capstone)**.
+
+**MCP arc (§3H) — code-side DONE 2026-11-03** (greenlit by "ek project… real time problem… latest techniques RAG MCP LangGraph… FDE kaam, normal devs se alag — tu indepth soch, krta ja khud self walk sirf is pr aj k lie"). An advanced capability-exposure arc on top of P7: the platform now speaks MCP (Model Context Protocol, the 2025 JSON-RPC standard). Chose MCP as highest-differentiation + most-current + lowest-overengineering — the P5 registry was already MCP-shaped, so it adds the protocol not a rebuild. Four day-commits (local, Rajat-authored; push on his ask):
+- D1 `1326615` — `MCP_DESIGN.md`: the FDE thesis (an MCP client is untrusted code → MCP is a *new transport over an already-hardened boundary, not a new boundary*; an external client gets exactly a prompt-injected internal agent's blast radius). 3 primitives mapped, the tool-error-vs-protocol-error distinction, the hand-rolled-core-vs-SDK-transport honesty, 6 interview Qs + ROADMAP §3H.
+- D2 `e272508` — `mcp_server.py`: pure `handle_message(db, request, api_key_hash) -> dict|None`. JSON-RPC dispatch + initialize + tools/list (rendered FROM the registry, `inputSchema = args_model.model_json_schema()`, drift-proof) + tools/call (via `execute_tool`, the one door). Tool error = `isError:true` content; protocol error = JSON-RPC `-326xx`; never confused. Notifications (no id) → None. Read-only barrage test (hostile names incl. "DROP TABLE…") proves every table unchanged. 16 tests.
+- D3 `f2a026e` — resources/list + resources/read over the policy corpus (`policy://<doc_id>`); initialize now advertises {tools, resources}. Barrage extended with a SQL-shaped uri (bound SQLAlchemy param, clean `-32602` — parameterized, not sanitized). +5 tests = 21.
+- D4 — HTTP transport `POST /mcp` + auth (work methods tools/call+resources/read need a key; discovery open; notification→204) + per-key audit log. **The honest §3-7 non-reuse:** the LLM rate limiter is deliberately NOT reused — an MCP tool call is a microsecond SELECT, not the expensive generative path; a per-key MCP call budget is the flagged next step. README "MCP server" section + closeout. 5 HTTP tests.
+- **386 tests green** (was 360; 26 MCP tests). Zero regressions. §3-12 dual mandate held: Job A = the untrusted-transport hardening; Job B deposits = GENAI.md MCP card (D2) + FDE.md S3 "expose to the customer's agent" scenario (D3). Rule 3-11 held every day.
+- **Open (Rajat's):** `pip install mcp` + the real stdio/HTTP transport shell (`FastMCP`), a live Claude-Desktop / Cursor connection drill, a per-key MCP call budget (token bucket).
 
 **Cross-track parallels worth remembering** (these keep the two tracks reinforcing each other):
 - Ticketing's `CorrelationIdFilter` (Java thread-local MDC) ↔ narration's `correlation.py` (Python `ContextVar`).

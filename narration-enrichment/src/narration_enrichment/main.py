@@ -67,7 +67,7 @@ from narration_enrichment.db import (
 from narration_enrichment.models import Citation, TransactionEnrichment
 from narration_enrichment.policy_ingest import compute_checksum, ingest as ingest_policy_doc
 from narration_enrichment.rate_limiter import RateLimiter, RateLimitExceededError
-from narration_enrichment import auth, chat_service, dispute_agent, job_queue, s3_store
+from narration_enrichment import auth, chat_service, dispute_agent, job_queue, mcp_server, s3_store
 from narration_enrichment.schemas import (
     AgentStepResponse,
     BatchEnrichRequest,
@@ -440,6 +440,62 @@ def get_stats(db: Session = Depends(get_db)) -> StatsResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# --- MCP arc Day 4: the HTTP transport (streamable-HTTP shape) -----------
+#
+# POST /mcp is the remote transport over the pure protocol core
+# (mcp_server.handle_message). The core is transport-agnostic; this
+# route applies HTTP-transport POLICY and nothing else:
+#
+#   - AUTH: the "work" methods (tools/call, resources/read) require a
+#     resolved X-API-Key; discovery (initialize, tools/list,
+#     resources/list) is open — capability discovery leaks nothing (the
+#     registry names aren't secret, P5 rule). This is the "an untrusted
+#     client's work needs an identity" guard, MCP_DESIGN §3.
+#   - AUDIT: every work call logs key-prefix + method + tool so an
+#     operator can SEE a greedy client per key. Honest observability —
+#     an MCP tool call is a cheap DB read, NOT an LlmCall, so it does
+#     NOT get a telemetry LlmCall row (faking one would be dishonest).
+#   - Notifications (no id → handle_message returns None) → 204.
+#
+# Deliberately NOT reused here: the LLM rate limiter / load shedder.
+# Those guard the EXPENSIVE generative path; an MCP tool call is a
+# microsecond SELECT. Reusing them would be cargo-culting a guard on
+# the wrong signal (§3-7). The honest next step for abuse is a
+# per-key MCP call budget (token bucket) — flagged, not faked.
+
+_MCP_WORK_METHODS = {"tools/call", "resources/read"}
+
+
+@app.post("/mcp")
+def mcp_endpoint(
+    request: dict,
+    http_request: Request,
+    db: Session = Depends(get_db),
+):
+    method = request.get("method") if isinstance(request, dict) else None
+
+    key_hash: str | None = None
+    if method in _MCP_WORK_METHODS:
+        raw = http_request.headers.get("X-API-Key")
+        if not raw:
+            # An MCP work call without an identity. Answer in JSON-RPC so
+            # the client's transport layer stays happy, with the auth
+            # signal in the error.
+            return mcp_server._err(
+                request.get("id"), mcp_server.INVALID_REQUEST,
+                "authentication required: send X-API-Key for tools/call and resources/read",
+            )
+        key_hash = auth.verify_and_touch(db, raw)  # raises 401 on a bad key
+        tool = (request.get("params") or {}).get("name") if isinstance(request.get("params"), dict) else None
+        logger.info("mcp_work_call key=%s method=%s tool=%s", key_hash[:8], method, tool)
+
+    response = mcp_server.handle_message(db, request, api_key_hash=key_hash)
+    if response is None:
+        # A notification — nothing to return on the wire.
+        return Response(status_code=204)
+    return response
 
 
 # --- P3 Day 5: eval-as-a-system ------------------------------------------

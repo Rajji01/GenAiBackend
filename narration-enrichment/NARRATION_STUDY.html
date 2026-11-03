@@ -256,6 +256,7 @@
     <div class="nav-group-title">MCP arc interview Qs</div>
     <a class="nav-link" href="#iq-mcp-d2"><span class="nav-tag">D2</span> Protocol core + blast radius</a>
     <a class="nav-link" href="#iq-mcp-d3"><span class="nav-tag">D3</span> Resources + the FDE scenario</a>
+    <a class="nav-link" href="#iq-mcp-d4"><span class="nav-tag">D4</span> HTTP transport + the honest non-reuse</a>
   </nav>
 
   <nav class="nav-group">
@@ -1264,6 +1265,23 @@
     <span class="iq-label">Conceptual · FDE + product sense</span>
     <p class="iq-question"><strong>Q2.</strong> The FDE scenario: a fintech wants their own copilot to query your platform via MCP, not your UI. "Walk me through standing that up." Why is leading with the FEATURE (how MCP works) the junior answer, while leading with the TRUST BOUNDARY (blast radius) is the FDE answer? Name the four structural guards their security team cares about.</p>
     <p class="iq-hint">Hint: lead with "your agent is untrusted code — here's exactly what it can and cannot do, proven structurally." Guards: read-only whitelist (no write method exists), typed-args, their-own-key auth, same rate-limiter (no unmetered side door). Anchor: FDE.md S3.</p>
+  </div>
+
+  <div class="iq-day-header" id="iq-mcp-d4">
+    <h3>MCP arc · Day 4 — HTTP transport, auth, and the honest non-reuse</h3>
+    <span class="iq-anchor">files: <code>main.py</code> (POST /mcp), <code>tests/test_mcp_http.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q1.</strong> <code>POST /mcp</code> gates <code>tools/call</code> and <code>resources/read</code> behind a key but leaves <code>tools/list</code> open. Trace how the route decides (what set does it check), and why is open discovery NOT a leak? Then: a notification comes in — what HTTP status, and why not 200 with a body?</p>
+    <p class="iq-hint">Hint: <code>_MCP_WORK_METHODS = {"tools/call","resources/read"}</code>. Discovery leaks nothing — the capability names aren't secret (P5 rule). A notification → <code>handle_message</code> returns None → HTTP 204 (no content); a 200 with a body would give the client a response it isn't waiting for.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · the §3-7 judgment call</span>
+    <p class="iq-question"><strong>Q2.</strong> A reviewer says "add the rate limiter to <code>/mcp</code> like every other route." You pushed back and did NOT. Defend the decision: what signal does the LLM rate limiter read, what does an MCP tool call actually cost, and why is reusing the limiter here "cargo-culting a guard"? What's the RIGHT abuse defense, and why is flagging-not-building it the honest move?</p>
+    <p class="iq-hint">Hint: the limiter guards the 5/min-20/day LLM quota — the expensive generative path. An MCP tool call is a microsecond SELECT; throttling it on LLM quota protects nothing and blocks legit reads. Right guard = a per-key MCP call budget (token bucket). "I didn't reuse the guard because it's the wrong guard" &gt; "I added rate limiting everywhere."</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

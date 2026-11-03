@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P7 + Hardening DONE**; **MCP arc (§3H) — Days 1–3 done (381 tests)** |
-| **Next work unit** | MCP arc Day 4 — auth on tools/call over HTTP + telemetry/rate-limit wiring + README + closeout (§3H). P8 (capstone) after. Rajat's open legs: P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, P7 recall@k + 2nd vendor key + AWS half, MCP real-transport + Claude-Desktop drill, Spring AI port. |
+| **Current position** | **P2–P7 + Hardening + MCP arc (§3H) code-side DONE (386 tests)** |
+| **Next work unit** | P8 (capstone) on Rajat's go. Rajat's open legs: P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, P7 recall@k + 2nd vendor key + AWS half, **MCP real-transport (`pip install mcp` + FastMCP) + live Claude-Desktop drill + per-key MCP budget**, Spring AI port. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -717,9 +717,11 @@ FDE-differentiating"). **Design paper:** [`MCP_DESIGN.md`](MCP_DESIGN.md).
       advertises resources; barrage extended with a SQL-shaped uri
       (parameterized lookup, clean -32602); +5 tests = 21; full suite
       381; FDE.md S3 deposit)*
-- [ ] auth (tools/call needs a key over HTTP) + telemetry/rate-limit
-      wiring (no unmetered side door) + optional prompts/ + closeout
-      *(Day 4)*
+- [x] HTTP transport `POST /mcp` + auth (work methods need a key;
+      discovery open) + per-key audit log + closeout *(Day 4 — 5 HTTP
+      tests; honest call: LLM rate-limiter NOT reused for cheap DB-read
+      MCP calls, per-key budget flagged; full suite 386)*. **MCP arc
+      (§3H) code-side DONE.**
 
 ### Concepts to keep tight
 

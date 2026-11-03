@@ -354,6 +354,7 @@
       <a class="nav-link" href="#mcp-intro"><span class="nav-tag">·</span>The idea + blast-radius thesis</a>
       <a class="nav-link" href="#mcp-day2"><span class="nav-tag">D2</span>Protocol core (JSON-RPC over the registry)</a>
       <a class="nav-link" href="#mcp-day3"><span class="nav-tag">D3</span>Resources — the policy corpus, read-only</a>
+      <a class="nav-link" href="#mcp-day4"><span class="nav-tag">D4</span>HTTP transport + auth (arc shipped)</a>
     </div>
 
     <div class="nav-group">
@@ -3031,6 +3032,41 @@ Full suite: 376 passed (was 360)</div>
 Full suite: 381 passed</div>
 
       <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next (Day 4): auth on tools/call over HTTP + telemetry/rate-limit wiring (no unmetered side door) + README "MCP server" section + closeout.</p>
+    </article>
+
+    <article class="card day-card" id="mcp-day4">
+      <div class="day-head">
+        <span class="day-stamp">MCP · D4</span>
+        <span class="day-title">The HTTP transport + auth — the arc shipped</span>
+      </div>
+      <span class="day-files">main.py (POST /mcp) · tests/test_mcp_http.py (new, 5) · README (MCP server section)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal:</strong> make the server actually reachable (<code>POST /mcp</code>, the streamable-HTTP shape) and apply the HTTP-transport POLICY around the pure core. The core stays transport-agnostic; the route adds exactly the HTTP-layer guards and nothing else.</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>Auth: work needs a key, discovery is open</h4>
+          <p><code>tools/call</code> + <code>resources/read</code> require a resolved <code>X-API-Key</code> (<code>verify_and_touch</code>, 401 on a bad key). <code>initialize</code> / <code>tools/list</code> / <code>resources/list</code> are open — capability discovery leaks nothing. A notification (no id) → HTTP 204. Tested all four paths.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Audit, not a faked metric</h4>
+          <p>Every work call logs <code>key-prefix + method + tool</code> so an operator SEES a greedy client per key. An MCP tool call is a cheap DB read — it does <em>not</em> get a telemetry <code>LlmCall</code> row (faking one would be dishonest; tokens None isn't the issue — it's not an LLM call at all).</p>
+        </div>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--danger);">
+        <div class="why-label" style="color:var(--danger);">The honest non-reuse — the §3-7 signal</div>
+        <p>The LLM rate limiter / load shedder are <strong>deliberately NOT reused</strong> here. They guard the expensive generative path; an MCP tool call is a microsecond <code>SELECT</code>. Reusing them would be cargo-culting a guard onto the wrong signal. The honest abuse defense is a per-key MCP call budget (token bucket) — <em>flagged as next, not faked</em>. "I didn't reuse the guard because it's the wrong guard" is a stronger interview answer than "I added rate limiting everywhere."</p>
+      </div>
+
+      <div class="why-box" style="border-left-color:var(--success);">
+        <div class="why-label" style="color:var(--success);">MCP arc shipped — the whole thing in one line</div>
+        <p>Day 1 = the blast-radius design. Day 2 = the JSON-RPC core over the registry (tool-vs-protocol error, read-only barrage). Day 3 = resources (policy corpus, SQL-shaped-uri safe). Day 4 = the HTTP transport + auth. <strong>The platform now speaks MCP, and an untrusted external agent gets exactly a prompt-injected internal agent's blast radius — read-only, whitelisted, typed, keyed, audited, no more.</strong> 26 MCP tests, full suite 386. Real transport shell + live Claude-Desktop drill + per-key budget = the deployment leg (Rajat's <code>pip install mcp</code>).</p>
+      </div>
+
+      <div class="terminal">tests/test_mcp_http.py — 5 passed (discovery open · work needs key ·
+  key works · bad key 401 · notification 204)
+MCP arc total: 26 tests · Full suite: 386 passed</div>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

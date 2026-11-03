@@ -135,6 +135,53 @@ out. `average_confidence` is `null`, not `0.0`, on an empty table — SQL's
 `AVG()` over zero rows is `NULL`, and reporting a fake `0.0` average
 would misleadingly imply there's data behind it.
 
+## MCP server (§3H) — the platform speaks Model Context Protocol
+
+Exposes the platform's tools (P5 registry) + policy corpus (P2) to any
+external MCP client (Claude Desktop, Cursor, a customer's own agent)
+over MCP — the 2025 JSON-RPC standard. Design paper: `MCP_DESIGN.md`.
+
+**The thesis (not `@tool` sugar):** an MCP client is untrusted code, so
+MCP is built as **a new transport over an already-hardened boundary, not
+a new boundary** — an external client gets exactly the blast radius a
+prompt-injected internal agent already had, no more.
+
+- **Protocol core** (`mcp_server.py`) — one pure
+  `handle_message(db, request, api_key_hash) -> dict | None`. JSON-RPC
+  2.0: `initialize` / `tools/list` / `tools/call` / `resources/list` /
+  `resources/read`; notifications (no `id`) get no reply.
+- **Tools** rendered FROM the registry (`inputSchema =
+  args_model.model_json_schema()`) — the MCP menu and the executor's
+  whitelist cannot drift. `tools/call` routes through P5's `execute_tool`
+  (the one door). **Tool error** (unknown name / bad args / raised) =
+  `isError:true` content (the model recovers); **protocol error**
+  (bad method / envelope) = JSON-RPC `-326xx` — never confused.
+- **Resources** — each policy doc readable at `policy://<doc_id>`.
+- **Read-only, structurally** — there is no MCP method that writes; a
+  barrage test (incl. SQL-shaped names/uris) asserts every table
+  unchanged.
+
+```bash
+# discovery is open (capability names aren't secret)
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
+# work methods (tools/call, resources/read) require your X-API-Key
+curl -X POST http://localhost:8000/mcp -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call",
+       "params":{"name":"count_transactions","arguments":{}}}'
+```
+
+**Auth** on work methods over HTTP (discovery open); a client flooding a
+tool is audit-logged per key. Deliberately NOT reused: the LLM rate
+limiter / load shedder — an MCP tool call is a microsecond `SELECT`, not
+the expensive generative path; a per-key MCP call budget is the honest
+next step (flagged, not faked). The real stdio/HTTP transport shell + the
+`mcp` SDK's `FastMCP` + a live Claude-Desktop drill are the deployment
+leg (`pip install mcp`).
+
 ## Multi-model platform (P7) — measure, retrieve on two channels, route by config
 
 Unit chosen under `JARVIS_CHAIN.md` §2's market-signal weighting
