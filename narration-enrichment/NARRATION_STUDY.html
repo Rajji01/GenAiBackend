@@ -253,6 +253,11 @@
   </nav>
 
   <nav class="nav-group">
+    <div class="nav-group-title">MCP arc interview Qs</div>
+    <a class="nav-link" href="#iq-mcp-d2"><span class="nav-tag">D2</span> Protocol core + blast radius</a>
+  </nav>
+
+  <nav class="nav-group">
     <div class="nav-group-title">Companion</div>
     <a class="nav-link" href="NARRATION_LAB.html">NARRATION_LAB.html</a>
     <a class="nav-link" href="README.md">README.md</a>
@@ -1217,6 +1222,30 @@
     <span class="iq-label">Conceptual · shows practical + theory</span>
     <p class="iq-question"><strong>Q3.</strong> The portfolio question this track now answers end-to-end: "walk me through operating an LLM product in production." Build the 3-minute answer using ONLY this repo's shipped mechanisms, in incident order: a provider brownout begins at 09:00 — narrate what each layer does minute by minute (retry → breaker → shed → fallback → telemetry rows → /ops/llm → budget line → the worker's independence → hybrid retrieval keeping answers grounded), and end with the two numbers you'd put on a dashboard and the one decision a human still has to make.</p>
     <p class="iq-hint">Hint: the two numbers — provider_down rate per surface (telemetry GROUP BY) and p95 latency; the human decision — flip FALLBACK_MODEL / raise the breaker cooldown / accept degraded mode, because policy under sustained outage is a product call, not a mechanism's.</p>
+  </div>
+
+  <div class="callout" style="margin-top:24px;">
+    <div class="iq-day-header" id="iq-mcp-d2">
+    <h3>MCP arc · Day 2 — The protocol core (JSON-RPC over the registry)</h3>
+    <span class="iq-anchor">files: <code>mcp_server.py</code>, <code>MCP_DESIGN.md</code>, <code>tests/test_mcp_server.py</code></span>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Trace this code</span>
+    <p class="iq-question"><strong>Q1.</strong> In <code>handle_message</code>, a JSON-RPC <em>notification</em> returns <code>None</code>. How does the code detect a notification (what field decides it), and why must the transport write nothing back for one? Trace <code>notifications/initialized</code> vs a normal <code>tools/list</code> through the function.</p>
+    <p class="iq-hint">Hint: <code>is_notification = "id" not in request</code>. A notification has no id, so the client isn't waiting for a correlated reply; answering one would desync the request/response id matching on the wire.</p>
+  </div>
+
+  <div class="iq easy">
+    <span class="iq-label">Easy · Python basics</span>
+    <p class="iq-question"><strong>Q2.</strong> <code>tools/list</code> builds <code>inputSchema</code> from <code>tool.args_model.model_json_schema()</code> instead of a hand-written dict. Name two things this buys you (hint: one is about drift, one is about the client), and what breaks the day someone hand-writes the MCP schemas separately from the Pydantic models.</p>
+    <p class="iq-hint">Hint: single source → menu and whitelist can't drift (the <code>catalog_block()</code> rule); the client gets a real JSON Schema to validate args before calling. Hand-written schemas rot out of sync with the actual validation.</p>
+  </div>
+
+  <div class="iq conceptual">
+    <span class="iq-label">Conceptual · the FDE-separating answer</span>
+    <p class="iq-question"><strong>Q3.</strong> "You exposed your platform over MCP — what's the blast radius of an untrusted MCP client?" Give the full answer: the one-sentence thesis, the six inherited guards (whitelist / typed-args / read-only / auth / cost / injection-framing), and the proof that read-only is <em>structural</em> not hopeful. Then the probe: a client sends a nonexistent tool name — tool-error or protocol-error, and what breaks if you return the wrong one?</p>
+    <p class="iq-hint">Hint: thesis = "new transport over an already-hardened boundary, not a new boundary." Read-only proof = the barrage test (every table unchanged after hostile calls) + there is no MCP method that writes. Nonexistent tool = <code>isError:true</code> content (model recovers); a <code>-32601</code> there would leave the model unable to recover from a typo.</p>
   </div>
 
   <div class="callout" style="margin-top:24px;">

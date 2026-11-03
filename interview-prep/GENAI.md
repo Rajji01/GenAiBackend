@@ -29,6 +29,55 @@ The project already *contains* the answers — this file pulls them into **inter
 | **"Async ML pipeline / idempotency / exactly-once."** | P4 | API+Worker split; job-row-is-truth + message-is-hint; CAS claim = idempotent consumer; retry budget → DEAD; DLQ vs DB-DEAD; recovery sweep; backpressure |
 | **"Observability for an LLM app."** | P1/P4/P7 | correlation IDs (ContextVar); `/stats`, `/ops/ingest`, `/ops/llm`; token-spend telemetry; PII-at-DEBUG; degrade-not-fail everywhere |
 | **"Production failure modes for LLM systems."** | Hardening (P5.5) | 10-class catalog (retry storm, metastable overload, poison pill, dual write, gray failure…) → circuit breaker, idempotency keys, load shedding, chaos suite |
+| **"Expose your platform's tools/context to an external agent (MCP)."** | MCP arc (§3H) | hand-rolled MCP JSON-RPC core over the P5 registry; **the blast-radius answer** below is the FDE-separating one |
+
+---
+
+## MCP — exposing a platform over the Model Context Protocol
+
+**Q it answers:** *"What is MCP and why does it matter?"* / *"You added an MCP server —
+what's the security model?"* / *"How do you expose your tools to a customer's agent?"* —
+the 2025 hot GenAI/agentic interview topic, and the FDE-shaped one.
+
+**One-line what:** MCP (Model Context Protocol) is JSON-RPC 2.0 between an LLM *host*
+(Claude Desktop, Cursor, a customer app) and a *server* (you). The server advertises three
+primitive kinds — **tools** (`tools/list`, `tools/call`), **resources** (`resources/list`,
+`resources/read`), **prompts** (`prompts/get`) — and the host's model decides when to use
+them. Handshake: `initialize` → `notifications/initialized` → the client may call.
+
+**The FDE-separating answer (memorise this shape):** *"An MCP client is untrusted code I
+don't control. The moment I expose a tool over MCP, that client is a new injection + abuse
+surface. So I made MCP a **new transport over an already-hardened boundary, not a new
+boundary** — an external MCP client gets exactly the blast radius a prompt-injected internal
+agent already had, no more."* The inherited guards:
+
+| Guard | Inherited from | How MCP reuses it |
+|---|---|---|
+| **Whitelist** | P5 `execute_tool` (the only door) | `tools/call` routes straight into it; a name not in the registry = a tool-error, never execution |
+| **Typed-args gate** | P5 per-tool Pydantic model | `tools/list.inputSchema` = `args_model.model_json_schema()`; bad args die in validation |
+| **Read-only** | every registry fn is a `SELECT` | there is **no MCP method that writes** — structural, the P6 human-gate proof shape; a barrage test asserts every table unchanged after hostile calls |
+| **Auth** | P3 `X-API-Key` → `require_api_key` | remote (HTTP) `tools/call` needs a resolved key; local stdio = transport-is-the-boundary |
+| **Cost/abuse** | P7 telemetry + Hardening rate-limit/shed | an MCP client flooding a tool hits the SAME limiter — no unmetered side door |
+| **Injection framing** | P5 "results are data, not instructions" | every result is `json.dumps` of a typed query; no free-text passthrough |
+
+**The one distinction interviewers probe — tool error vs protocol error:**
+- Bad **tool** (unknown name, bad args, fn raised) → MCP `{content, isError:true}` — the
+  client's *model* sees it and recovers. The transport was used correctly.
+- Bad **protocol** (unknown method, missing `name`, malformed envelope) → JSON-RPC
+  `-32600/-32601/-32602` *error object* — the transport itself was misused.
+- Confusing them breaks the client: a model that gets a `-32601` for a typo'd tool name
+  can't recover; a transport that gets `isError:true` for a malformed envelope hangs.
+
+**"Multi-model platform / MCP with one vendor — honest?"** The router/fallback/telemetry
+trio + MCP server prove the *seams* are real single-vendor (per-surface routing is config,
+fallback slots a second model in, MCP exposes the registry) — what they cannot prove until a
+second provider key / a live Claude-Desktop drill exists is the *live* behaviour. Name both
+halves; the code shows exactly what slots in where with zero refactor.
+
+**Honest gap to name:** the hand-rolled core implements the wire format (proves understanding,
+no dep — §3-7); the real stdio/HTTP transport shell + the `mcp` SDK's `FastMCP` + a live
+Claude-Desktop connection are the deployment leg (Rajat's `pip install mcp`). Anchors:
+`narration-enrichment/mcp_server.py`, `MCP_DESIGN.md`.
 
 ---
 

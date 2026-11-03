@@ -350,6 +350,12 @@
     </div>
 
     <div class="nav-group">
+      <div class="nav-group-title">MCP arc (§3H) — speak MCP</div>
+      <a class="nav-link" href="#mcp-intro"><span class="nav-tag">·</span>The idea + blast-radius thesis</a>
+      <a class="nav-link" href="#mcp-day2"><span class="nav-tag">D2</span>Protocol core (JSON-RPC over the registry)</a>
+    </div>
+
+    <div class="nav-group">
       <div class="nav-group-title">Quick revision</div>
       <a class="nav-link" href="#flow-main"><span class="nav-tag">1</span>main.py</a>
       <a class="nav-link" href="#flow-service"><span class="nav-tag">2</span>service.py</a>
@@ -2938,6 +2944,58 @@ Full suite:                360 passed (was 350)</div>
   d3d5937  D3  LLM telemetry + budget shout (8 tests)
   217a31d  D4  routing + fallback chain (10 tests)
   &lt;this commit&gt;  D5  docs + ROADMAP + AGENTS + CHAIN sync</div>
+    </article>
+
+    <!-- ================ MCP arc (§3H) ================ -->
+
+    <section id="mcp-intro" style="margin-top:64px;">
+      <p class="eyebrow">Advanced arc · §3H</p>
+      <h2>The platform speaks MCP — untrusted transport, same guards</h2>
+      <p>P5 gave the internal agent a whitelisted, read-only, typed-args tool registry. An agent <em>outside</em> this process — Claude Desktop, Cursor, a customer's own app — couldn't touch any of it. <strong>MCP (Model Context Protocol, the 2025 JSON-RPC standard)</strong> is the missing layer. The registry is already MCP-shaped, so this adds the protocol, not a rebuild (§3-7).</p>
+      <p style="font-size:14.5px;">The FDE-separating thesis (not <code>@tool</code> sugar): <em>an MCP client is untrusted code — what blast radius does it get?</em> Answer enforced by this arc: <strong>an external MCP client gets exactly the blast radius a prompt-injected internal agent already had, no more.</strong> MCP is a new transport over an already-hardened boundary, not a new boundary. Design: <code><a href="MCP_DESIGN.md">MCP_DESIGN.md</a></code>; plan: <code><a href="ROADMAP.md">ROADMAP.md</a> §3H</code>.</p>
+    </section>
+
+    <article class="card day-card" id="mcp-day2">
+      <div class="day-head">
+        <span class="day-stamp">MCP · D2</span>
+        <span class="day-title">The protocol core — JSON-RPC dispatch over the tool registry</span>
+      </div>
+      <span class="day-files">mcp_server.py (new) · tests/test_mcp_server.py (new, 16)</span>
+
+      <p style="font-size:14.5px;"><strong>Goal:</strong> one pure function — <code>handle_message(db, request, api_key_hash) → dict|None</code> — is the whole server. JSON-RPC 2.0 in, response dict out (or <code>None</code> for notifications). The transport shell (stdio/HTTP + the <code>mcp</code> SDK's FastMCP) is Rajat's <code>pip install</code> deployment leg; the core + its guards ship + test here, no network.</p>
+
+      <div class="two-col">
+        <div class="mini-card">
+          <h4>tools/list renders FROM the registry</h4>
+          <p><code>{name, description, inputSchema}</code> where <code>inputSchema = args_model.model_json_schema()</code>. The MCP menu and the executor's whitelist read one source — they <em>cannot drift</em> (the <code>catalog_block()</code> rule). Add a tool → it appears over MCP, already validated, already read-only. Test: listed names == <code>TOOL_REGISTRY.keys()</code>.</p>
+        </div>
+        <div class="mini-card">
+          <h4>tools/call → the one door (execute_tool)</h4>
+          <p>Straight into P5's <code>execute_tool</code>. <code>ok=True</code> → <code>{content, isError:false}</code>; <code>ok=False</code> (unknown/bad-args/raised) → <code>isError:true</code> content. No new execution path — the whitelist + typed-args + read-only guarantees are inherited, not re-written.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Tool error ≠ protocol error (the load-bearing line)</h4>
+          <p>Unknown tool name = <code>isError:true</code> CONTENT (the model recovers, menu named). Malformed envelope / unknown method / missing <code>name</code> = JSON-RPC <code>-32600/-32601/-32602</code> ERROR (transport misused). Confusing them breaks the client — a model can't recover from a <code>-32601</code> for a typo. Both directions tested.</p>
+        </div>
+        <div class="mini-card">
+          <h4>Read-only, proven end-to-end</h4>
+          <p>There is <em>no MCP method that writes</em> — the P6 human-gate proof shape. A barrage test fires every call incl. hostile names (<code>delete_everything</code>, <code>"DROP TABLE enrichment_records"</code>) and asserts every table's row count is unchanged. An external client's surface is structurally read-only.</p>
+        </div>
+      </div>
+
+      <div class="why-box">
+        <div class="why-label">Notifications get no reply — a real wire-format detail</div>
+        <p>A JSON-RPC <em>notification</em> is a request with <strong>no <code>id</code></strong> (e.g. <code>notifications/initialized</code>, the client saying the handshake is done). <code>handle_message</code> returns <code>None</code> — the transport writes nothing back. Tested both for the known notification and an unknown one.</p>
+      </div>
+
+      <div class="terminal">tests/test_mcp_server.py — 16 passed (no network)
+  handshake · tools/list drift-proof · tools/call happy ·
+  unknown-tool-is-isError-not-protocol · bad-args-isError ·
+  missing-name/-bad-args/-unknown-method/-bad-version protocol errors ·
+  notifications→None · read-only barrage (tables unchanged)
+Full suite: 376 passed (was 360)</div>
+
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-top:14px;">Next: <code>resources/list</code> + <code>resources/read</code> over the policy corpus (<code>policy://&lt;doc_id&gt;</code>), then auth + telemetry wiring (no unmetered side door) + closeout.</p>
     </article>
 
     <section id="quickrevision" style="margin-top:64px;">

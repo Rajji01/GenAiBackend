@@ -18,8 +18,8 @@
 | | |
 |---|---|
 | **P1 — Transaction Enrichment API** | ✅ **DONE** (Weeks 1–4, last commit `20cb3c6`) |
-| **Current position** | **P2–P7 + Hardening DONE (360 tests)**; **MCP arc (§3H) STARTED 2026-11-03 — Day 1 (design) done** |
-| **Next work unit** | MCP arc Day 2 — `mcp_server.py` protocol core (§3H). P8 (capstone) after. Rajat's open legs: P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, P7 recall@k + 2nd vendor key + AWS half, MCP real-transport + Claude-Desktop drill, Spring AI port. |
+| **Current position** | **P2–P7 + Hardening DONE**; **MCP arc (§3H) — Days 1–2 done (376 tests)** |
+| **Next work unit** | MCP arc Day 3 — resources/list + resources/read over the policy corpus (§3H). P8 (capstone) after. Rajat's open legs: P4 live-SQS, P5 tool-eval, P6 dispute-eval, chaos drill, P7 recall@k + 2nd vendor key + AWS half, MCP real-transport + Claude-Desktop drill, Spring AI port. |
 | **Anchor stack** | FastAPI + Pydantic + Instructor + Gemini + SQLite + pytest |
 | **AWS touchpoint so far** | none — deliberate. First touch lands in P2 (S3 for policy docs) |
 
@@ -706,10 +706,12 @@ FDE-differentiating"). **Design paper:** [`MCP_DESIGN.md`](MCP_DESIGN.md).
 - [x] `MCP_DESIGN.md` — threat model (untrusted transport = inherited
       guards), the 3 primitives' mapping, the hand-rolled-core vs
       `mcp`-SDK-transport honesty, 6 interview Qs *(Day 1, this commit)*
-- [ ] `mcp_server.py` — `handle_message` JSON-RPC dispatch + initialize +
+- [x] `mcp_server.py` — `handle_message` JSON-RPC dispatch + initialize +
       tools/list (registry-rendered, drift-proof) + tools/call (via
       `execute_tool`; tool-error `isError:true` vs JSON-RPC protocol
-      error never confused); notifications → no reply *(Day 2)*
+      error never confused); notifications → no reply *(Day 2 — 16 tests
+      incl. read-only barrage proving every table unchanged after hostile
+      calls; full suite 376; interview-prep GENAI MCP card deposited)*
 - [ ] resources/list + resources/read over the policy corpus
       (`policy://<doc_id>`), read-only *(Day 3)*
 - [ ] auth (tools/call needs a key over HTTP) + telemetry/rate-limit
